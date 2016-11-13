@@ -16,10 +16,12 @@ class TreeletTable
     typedef google::sparse_hash_map<Treelet::treelet_t, treelet_count_t> table_t;
 
 private:
+    const Graph* graph;
+    const long num_vertices;
+    const GraphColoring* coloring;
     const int size;
     const TreeletTable** lower;
-    const Graph* graph;
-    const GraphColoring* coloring;
+
     table_t** counts;
 
     /// Fills a size-1 table

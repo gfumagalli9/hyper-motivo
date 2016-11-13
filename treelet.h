@@ -25,8 +25,9 @@ namespace Treelet
     */
 
     typedef uint64_t treelet_t;
+    constexpr treelet_t invalid_treelet = 0; //note that 0 is not a valid treelet representation
 
-    union __attribute__ ((__packed__)) treelet_t_packed
+    union __attribute__ ((__packed__)) treelet_t_union
     {
         treelet_t int_repr;
 
@@ -36,17 +37,14 @@ namespace Treelet
             uint16_t colors;
             uint8_t num_isomorphic_to_largest;
             uint8_t size;
-        };
+        } fields;
     };
 
     ///Initializes a signleton treelet having color @param color
     uint64_t singleton(int color);
 
-    //FIXME: can be optimized by trying to always merge
-    ///@returns True iff @param t1 is mergeable with @param t2
-    bool is_mergeable(treelet_t t1, treelet_t t2);
-
     ///Merges the @param t1 with @param t2
+    ///@returns the merged treelet or invalid_treelet if @param t1 and @param t2 are not mergeable
     treelet_t merge(treelet_t t1, treelet_t t2);
 
     uint8_t normalization_factor(treelet_t t);

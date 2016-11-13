@@ -5,10 +5,10 @@
 #include "TreeletTable.h"
 
 TreeletTable::TreeletTable(Graph* graph, GraphColoring* coloring, int size, const TreeletTable **lower)
-        : coloring(coloring), graph(graph), size(size), lower(lower)
+        :  graph(graph), num_vertices(graph->number_of_vertices()), coloring(coloring), size(size), lower(lower)
 {
-    counts = new table_t*[graph->number_of_vertices()];
-    for(long u=0; u<graph->number_of_vertices(); u++)
+    counts = new table_t*[num_vertices];
+    for(long u=0; u<num_vertices; u++)
     {
         counts[u] = new table_t();
         counts[u]->set_deleted_key(0); //0 is an invalid treelet
@@ -17,8 +17,8 @@ TreeletTable::TreeletTable(Graph* graph, GraphColoring* coloring, int size, cons
 
 TreeletTable::~TreeletTable()
 {
-    for(long u=0; u< graph->number_of_vertices(); u++)
-        delete[] counts[u];
+    for(long u=0; u<num_vertices; u++)
+        delete counts[u];
 
     delete[] counts;
 }
@@ -33,7 +33,7 @@ void TreeletTable::fill_table()
 
 void TreeletTable::do_fill_table_1()
 {
-    for(long u=0; u< graph->number_of_vertices(); u++)
+    for(long u=0; u<num_vertices; u++)
     {
         Treelet::treelet_t treelet = Treelet::singleton(coloring->color_of(u));
         (*counts[u])[treelet] = 1;
@@ -42,7 +42,7 @@ void TreeletTable::do_fill_table_1()
 
 void TreeletTable::do_fill_table()
 {
-    for(long u=0; u< graph->number_of_vertices(); u++)
+    for(long u=0; u<num_vertices; u++)
     {
         const long* neighbors = graph->neighbors(u);
         for(long d=0; d<graph->degree(u); d++)
@@ -67,11 +67,10 @@ void TreeletTable::combine(long u, long v)
                 Treelet::treelet_t t1 = u_it->first;
                 Treelet::treelet_t t2 = v_it->first;
 
-                if( Treelet::is_mergeable(t1, t2) )
-                {
-                    Treelet::treelet_t merged = Treelet::merge(t1, t2);
+                Treelet::treelet_t merged = Treelet::merge(t1, t2);
+
+                if( merged != Treelet::invalid_treelet )
                     (*counts[u])[merged] +=  u_it->second * v_it->second;
-                }
             }
         }
     }
@@ -80,7 +79,8 @@ void TreeletTable::combine(long u, long v)
 void TreeletTable::normalize(long u)
 {
     for(table_t::iterator u_it = counts[u]->begin(); u_it != counts[u]->end(); u_it++)
+    {
+        assert(u_it->second % Treelet::normalization_factor(u_it->first) == 0);
         u_it->second /= Treelet::normalization_factor(u_it->first);
+    }
 }
-
-

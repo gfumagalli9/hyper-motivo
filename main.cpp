@@ -13,9 +13,10 @@ int main()
     Treelet::treelet_t t1 = Treelet::singleton(3);
     Treelet::treelet_t t2 = Treelet::singleton(6);
 
-    std::cout << Treelet::is_mergeable(t1, t2) << std::endl;
+    assert(Treelet::merge(t1, t1)==Treelet::invalid_treelet);
 
     Treelet::treelet_t t = Treelet::merge(t1, t2);
+    assert(t!=Treelet::invalid_treelet);
     std::cout << t << std::endl;
 
     GraphColoring coloring(G.number_of_vertices(), 5);
