@@ -11,7 +11,7 @@ uint64_t Treelet::singleton(int color)
 {
     treelet_t_union t;
     t.fields.colors = (uint16_t(1) << color);
-    t.fields.structure = 0b10;
+    t.fields.structure = 2; //0b10
     t.fields.num_isomorphic_to_largest = 0;
     t.fields.size = 1;
 

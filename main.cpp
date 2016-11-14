@@ -7,7 +7,6 @@
 int main()
 {
     Graph G("../../star.txt");
-
     std::cout << G.number_of_vertices() << " " << G.number_of_edges() << std::endl;
 
     Treelet::treelet_t t1 = Treelet::singleton(3);
