@@ -4,7 +4,7 @@
 
 #include "TreeletTable.h"
 
-TreeletTable::TreeletTable(Graph* graph, GraphColoring* coloring, int size, const TreeletTable **lower)
+TreeletTable::TreeletTable(Graph* graph, GraphColoring* coloring, int size, const TreeletTable* const* lower)
         :  graph(graph), num_vertices(graph->number_of_vertices()), coloring(coloring), size(size), lower(lower)
 {
     counts = new table_t*[num_vertices];
@@ -23,15 +23,15 @@ TreeletTable::~TreeletTable()
     delete[] counts;
 }
 
-void TreeletTable::fill_table()
+void TreeletTable::fill()
 {
     if(size==1)
-        do_fill_table_1();
+        do_fill_1();
     else
-        do_fill_table();
+        do_fill();
 }
 
-void TreeletTable::do_fill_table_1()
+void TreeletTable::do_fill_1()
 {
     for(long u=0; u<num_vertices; u++)
     {
@@ -40,7 +40,7 @@ void TreeletTable::do_fill_table_1()
     }
 }
 
-void TreeletTable::do_fill_table()
+void TreeletTable::do_fill()
 {
     for(long u=0; u<num_vertices; u++)
     {
@@ -49,6 +49,7 @@ void TreeletTable::do_fill_table()
             combine(u, neighbors[d]);
 
         normalize(u);
+        counts[u]->resize(0); //Reduce to the smallest size
     }
 }
 

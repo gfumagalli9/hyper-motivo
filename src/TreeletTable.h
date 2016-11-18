@@ -20,27 +20,28 @@ private:
     const long num_vertices;
     const GraphColoring* coloring;
     const int size;
-    const TreeletTable** lower;
+    const TreeletTable* const* lower;
 
     table_t** counts;
 
     /// Fills a size-1 table
-    void do_fill_table_1();
+    void do_fill_1();
 
     /// Fills a table for sizes > 1
-    void do_fill_table();
+    void do_fill();
 
-    //Combines the treelets of vertex @param u with the treelets of vertex @param v
+    /// Combines the treelets of vertex @param u with the treelets of vertex @param v
     void combine(long u, long v);
 
-    //Normalizes the counts of treelets rooted in @param u
+    /// Normalizes the counts of treelets rooted in @param u
     void normalize(long u);
 
 public:
-    TreeletTable(Graph* graph, GraphColoring* coloring, int size, const TreeletTable** lower = NULL);
+    TreeletTable(Graph* graph, GraphColoring* coloring, int size, const TreeletTable* const* lower = NULL);
     ~TreeletTable();
 
-    void fill_table();
+    /// Fills the treelet table computing the number of treelets of each kind rooted at each vertex
+    void fill();
 };
 
 
