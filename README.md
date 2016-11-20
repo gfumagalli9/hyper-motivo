@@ -5,11 +5,14 @@ It is written in C++ and targets x86_64 processors.
 
 ##Requirements
 
-Motivo depends on [Google's sparsehash library](https://github.com/sparsehash/sparsehash) 
-and on the [GNU Scientific Library](https://www.gnu.org/software/gsl/).
+Motivo depends on the following libraries:
+- [Google's sparsehash library](https://github.com/sparsehash/sparsehash) 
+- [C Minimal Perfect Hashing Library](http://cmph.sourceforge.net/)
+- [GNU Scientific Library](https://www.gnu.org/software/gsl/).
+
 Your Linux distribution might have premade packages, i.e., on Debian you can run:
 ~~~~
-# apt-get install libsparsehash-dev libgsl-dev
+# apt-get install libsparsehash-dev libcmph-dev libgsl-dev
 ~~~~
 
 A C++14 aware compiler is required along with support for [u]int{8,16,32,64} types.

@@ -13,15 +13,18 @@
 class TreeletTableCollection
 {
 private:
+    constexpr static int default_capacity = 16;
+    const int capacity;
+    int size;
     TreeletTable** tables;
-    const int max_size;
 
 public:
-    TreeletTableCollection(Graph* graph, GraphColoring* coloring, int max_size);
+    TreeletTableCollection(int capacity=default_capacity);
+    TreeletTableCollection(const std::string& basename, int size, int capacity=default_capacity);
     ~TreeletTableCollection();
 
-    void fill();
-
+    void add(TreeletTable* table);
+    const TreeletTable* get_table(int i) const { return tables[i-1]; };
 };
 
 

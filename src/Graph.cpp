@@ -6,13 +6,11 @@
 #include <stdexcept>
 #include "Graph.h"
 
-using namespace std;
-
-Graph::Graph(const string &filename)
+Graph::Graph(const std::string &filename)
 {
-    ifstream file(filename);
+    std::ifstream file(filename);
     if(!file.is_open())
-        throw new runtime_error("Unable to open file");
+        throw new std::runtime_error("Unable to open file");
 
     file >> num_verts >> num_edges;
 

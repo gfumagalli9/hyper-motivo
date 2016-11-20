@@ -4,23 +4,29 @@
 
 #include "TreeletTableCollection.h"
 
-TreeletTableCollection::TreeletTableCollection(Graph *graph, GraphColoring *coloring, int max_size) : max_size(max_size)
+TreeletTableCollection::TreeletTableCollection(int capacity) : capacity(capacity), size(0)
 {
-    tables = new TreeletTable*[max_size];
-    for(int i=1; i<=max_size; i++)
-        tables[i-1] = new TreeletTable(graph, coloring, i, (i==1)?NULL:tables);
+    tables = new TreeletTable*[capacity];
+    for(int i=1; i<=capacity; i++)
+        tables[i-1]=NULL;
 }
 
-void TreeletTableCollection::fill()
+TreeletTableCollection::TreeletTableCollection(const std::string& basename, int size, int capacity) : capacity(capacity)
 {
-    for(int i=0; i<max_size; i++)
-        tables[i]->fill();
+    tables = new TreeletTable*[capacity];
+    for(int i=1; i<=capacity; i++)
+        tables[i-1] = (i<=size)?new TreeletTable(basename+"."+std::to_string(i)):NULL;
 }
 
 TreeletTableCollection::~TreeletTableCollection()
 {
-    for(int i=0; i<max_size; i++)
+    for(int i=0; i<capacity; i++)
         delete tables[i];
 
     delete[] tables;
+}
+
+void TreeletTableCollection::add(TreeletTable* table)
+{
+    tables[size++] = table;
 }

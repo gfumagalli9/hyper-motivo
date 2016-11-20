@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "Graph.h"
-#include "TreeletTable.h"
+#include "TreeletTableBuilder.h"
 #include "TreeletTableCollection.h"
 
 int main()
@@ -10,8 +10,18 @@ int main()
     std::cout << G.number_of_vertices() << " " << G.number_of_edges() << std::endl;
 
     GraphColoring coloring(G.number_of_vertices(), 5);
-    TreeletTableCollection ttc(&G, &coloring, 5);
-    ttc.fill();
+
+    TreeletTableCollection ttc;
+
+    for(int i = 1; i <= 5; i++)
+    {
+        {
+            TreeletTableBuilder builder(&G, &coloring, i, &ttc);
+            builder.build();
+            builder.write("test." + std::to_string(i));
+        }
+        ttc.add(new TreeletTable("test." + std::to_string(i)));
+    }
 
     return 0;
 }

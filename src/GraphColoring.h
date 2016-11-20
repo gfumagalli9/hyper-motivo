@@ -6,7 +6,7 @@
 #define MOTIVO_GRAPHCOLORING_H
 
 
-#include <stdint-gcc.h>
+#include <cstdint>
 
 class GraphColoring
 {

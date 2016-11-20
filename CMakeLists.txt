@@ -3,11 +3,11 @@ project(Motivo)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall -Wextra -pedantic")
 
-set(COMMON_SOURCE_FILES src/Graph.cpp src/Graph.h src/treelet.h src/TreeletTable.cpp src/TreeletTable.h src/GraphColoring.cpp src/GraphColoring.h src/Random.h src/treelet.cpp src/TreeletTableCollection.cpp src/TreeletTableCollection.h)
+set(COMMON_SOURCE_FILES src/Graph.cpp src/Graph.h src/treelet.h src/TreeletTableBuilder.cpp src/TreeletTableBuilder.h src/GraphColoring.cpp src/GraphColoring.h src/Random.h src/treelet.cpp src/TreeletTableCollection.cpp src/TreeletTableCollection.h src/TreeletTable.cpp src/TreeletTable.h)
 set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/treelet.cpp tests/treelet.cpp)
 set(MOTIVO_SOURCE_FILES ${COMMON_SOURCE_FILES} src/main.cpp)
 
-set(LIBRARIES gsl gslcblas m)
+set(LIBRARIES gsl gslcblas m cmph)
 
 add_executable(Motivo ${MOTIVO_SOURCE_FILES})
 add_executable(Motivo-tests ${TEST_SOURCE_FILES})

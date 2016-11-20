@@ -1,87 +1,92 @@
 //
-// Created by steven on 11/13/16.
+// Created by steven on 11/20/16.
 //
 
 #include "TreeletTable.h"
+#include <stdexcept>
+#include <sys/mman.h>
 
-TreeletTable::TreeletTable(Graph* graph, GraphColoring* coloring, int size, const TreeletTable* const* lower)
-        :  graph(graph), num_vertices(graph->number_of_vertices()), coloring(coloring), size(size), lower(lower)
+TreeletTable::TreeletTable(const std::string& basename)
 {
-    counts = new table_t*[num_vertices];
-    for(long u=0; u<num_vertices; u++)
+    offsets_fd = fopen( (basename+".off").c_str(), "rb" );
+    fread(&size, sizeof(uint64_t), 1, offsets_fd);
+    offsets = static_cast<uint64_t*>(mmap(NULL, (size+1)*sizeof(uint64_t), PROT_READ, MAP_PRIVATE, fileno(offsets_fd), 0));
+    assert(offsets!=MAP_FAILED);
+    offsets += 1;
+
+    data_fd = fopen( (basename+".dat").c_str(), "rb" );
+    data = static_cast<treelet_count_pair*>(mmap(NULL, offsets[size] * sizeof(treelet_count_pair), PROT_READ, MAP_PRIVATE, fileno(data_fd), 0));
+    assert(data!=MAP_FAILED);
+
+    FILE* hashes_fd = fopen( (basename+".phf").c_str(), "rb" );
+    if(hashes_fd!=NULL)
     {
-        counts[u] = new table_t();
-        counts[u]->set_deleted_key(0); //0 is an invalid treelet
+        long header_size = (size+7)/8; //I.e, ceil(size/8)
+        uint8_t* hashes_bitmask = new uint8_t[header_size];
+        fread(hashes_bitmask, 1, header_size, hashes_fd);
+
+        hashes = new cmph_t*[size];
+        for(int u=0; u<size; u++)
+        {
+            if( hashes_bitmask[u/8] & (0b10000000u >> u%8) )
+                hashes[u] = cmph_load(hashes_fd);
+            else
+                hashes[u] = NULL;
+        }
+        fclose(hashes_fd);
     }
+    else
+        hashes = NULL;
 }
 
 TreeletTable::~TreeletTable()
 {
-    for(long u=0; u<num_vertices; u++)
-        delete counts[u];
+    if(hashes != NULL)
+    {
+        for(int u = 0; u < size; u++)
+            if(hashes[u]!=NULL)
+                cmph_destroy(hashes[u]);
 
-    delete[] counts;
+        delete[] hashes;
+    }
+
+    munmap(data, size * sizeof(treelet_count_pair));
+    fclose(data_fd);
+
+    munmap(offsets-1, size*sizeof(uint64_t));
+    fclose(offsets_fd);
 }
 
-void TreeletTable::fill()
+TreeletTable::treelet_count_t TreeletTable::get_count(const long u, const Treelet::treelet_t treelet) const
 {
-    if(size==1)
-        do_fill_1();
+    if( hashes[u]!=NULL ) //There is a perfect hash function for vertex u
+    {
+        cmph_uint32 id = cmph_search(hashes[u], reinterpret_cast<const char *>(&treelet), sizeof(Treelet::treelet_t));
+        treelet_count_pair *pos = data + offsets[u] + id;
+
+        if(pos < data + offsets[u + 1] && treelet == pos->treelet)
+            return pos->treelet;
+    }
     else
-        do_fill();
-}
-
-void TreeletTable::do_fill_1()
-{
-    for(long u=0; u<num_vertices; u++)
     {
-        Treelet::treelet_t treelet = Treelet::singleton(coloring->color_of(u));
-        (*counts[u])[treelet] = 1;
-    }
-}
-
-void TreeletTable::do_fill()
-{
-    for(long u=0; u<num_vertices; u++)
-    {
-        const long* neighbors = graph->neighbors(u);
-        for(long d=0; d<graph->degree(u); d++)
-            combine(u, neighbors[d]);
-
-        normalize(u);
-        counts[u]->resize(0); //Reduce to the smallest size
-    }
-}
-
-void TreeletTable::combine(long u, long v)
-{
-    for(int size1=1; size1<size; size1++)
-    {
-        int size2=size-size1;
-        const table_t* u_table = lower[size1-1]->counts[u];
-        const table_t* v_table = lower[size2-1]->counts[v];
-
-        for(table_t::const_iterator u_it = u_table->begin(); u_it != u_table->end(); u_it++)
+        for(treelet_count_pair* tcp = data + offsets[u]; tcp<data+offsets[u+1]; ++tcp)
         {
-            for(table_t::const_iterator v_it = v_table->begin(); v_it != v_table->end(); v_it++)
-            {
-                Treelet::treelet_t t1 = u_it->first;
-                Treelet::treelet_t t2 = v_it->first;
-
-                Treelet::treelet_t merged = Treelet::merge(t1, t2);
-
-                if( merged != Treelet::invalid_treelet )
-                    (*counts[u])[merged] +=  u_it->second * v_it->second;
-            }
+            if(tcp->treelet==treelet)
+                return tcp->count;
         }
     }
+
+    return 0;
 }
 
-void TreeletTable::normalize(long u)
+TreeletTable::const_iterator TreeletTable::begin(const long u) const
 {
-    for(table_t::iterator u_it = counts[u]->begin(); u_it != counts[u]->end(); u_it++)
-    {
-        assert(u_it->second % Treelet::normalization_factor(u_it->first) == 0);
-        u_it->second /= Treelet::normalization_factor(u_it->first);
-    }
+    assert(u<size);
+    return TreeletTable::const_iterator( data + offsets[u] );
+}
+
+TreeletTable::const_iterator TreeletTable::end(const long u) const
+{
+    assert(u<size);
+    return TreeletTable::const_iterator( data + offsets[u+1] );
 }

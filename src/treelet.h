@@ -25,6 +25,7 @@ namespace Treelet
     */
 
     typedef uint64_t treelet_t;
+    typedef uint32_t treelet_structure_t;
     constexpr treelet_t invalid_treelet = 0xFFFFFFFF; //this is not a valid treelet representation
 
 //The following struct is already packed.
@@ -36,7 +37,7 @@ namespace Treelet
 
         struct
         {
-            uint32_t structure;
+            treelet_structure_t structure;
             uint16_t colors;
             uint8_t children_isomorphic_to_largest;
             uint8_t size;
@@ -44,7 +45,7 @@ namespace Treelet
     };
 //#pragma pack(pop)
 
-    static_assert( sizeof(treelet_t_union) == 8, "treelet_t_union is not packed in 8 bytes" );
+    static_assert(sizeof(treelet_t_union) == 8, "treelet_t_union is not packed in 8 bytes");
 
     ///Initializes a signleton treelet having color @param color
     uint64_t singleton(uint16_t color);
@@ -55,6 +56,10 @@ namespace Treelet
 
     ///@returns the number of times a treelet will be overcounted when merging using "merge"
     uint8_t normalization_factor(treelet_t t);
+
+    ///@returns an opaque value representing the structure of @param t disregarding any information about the colors
+    ///Two treelets with the same structure always return the same value and vice-versa.
+    treelet_structure_t structure(treelet_t t);
 
 }
 #endif //MOTIVO_TREELET_H

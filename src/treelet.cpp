@@ -70,3 +70,8 @@ uint8_t Treelet::normalization_factor(treelet_t t)
 {
     return reinterpret_cast< treelet_t_union* >(&t)->fields.children_isomorphic_to_largest;
 }
+
+treelet_structure_t Treelet::structure(treelet_t t)
+{
+    return  reinterpret_cast< treelet_t_union* >(&t)->fields.structure;
+}
