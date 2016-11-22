@@ -6,6 +6,7 @@ It is written in C++ and targets x86_64 processors.
 ##Requirements
 
 Motivo depends on the following libraries:
+
 - [Google's sparsehash library](https://github.com/sparsehash/sparsehash) 
 - [C Minimal Perfect Hashing Library](http://cmph.sourceforge.net/)
 - [GNU Scientific Library](https://www.gnu.org/software/gsl/).
@@ -16,6 +17,7 @@ Your Linux distribution might have premade packages, i.e., on Debian you can run
 ~~~~
 
 A C++14 aware compiler is required along with support for [u]int{8,16,32,64} types.
+Support for [mmap](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mmap.html) (POSIX.1-2001 and later) function is also currently required.
 
 ##Compiling
 
