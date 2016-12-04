@@ -10,10 +10,12 @@ Motivo depends on the following libraries:
 - [Google's sparsehash library](https://github.com/sparsehash/sparsehash) 
 - [C Minimal Perfect Hashing Library](http://cmph.sourceforge.net/)
 - [GNU Scientific Library](https://www.gnu.org/software/gsl/).
+- [OpenBLAS](http://www.openblas.net/) (or any other BLAS library)
+- [LAPACKE](http://www.netlib.org/lapack/lapacke.html)
 
 Your Linux distribution might have premade packages, i.e., on Debian you can run:
 ~~~~
-# apt-get install libsparsehash-dev libcmph-dev libgsl-dev
+# apt-get install lib{sparsehash,cmph,gsl,openblas,lapacke}-dev
 ~~~~
 
 A C++14 aware compiler is required along with support for [u]int{8,16,32,64} types.
@@ -21,7 +23,7 @@ Support for [mmap](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mma
 
 ##Compiling
 
-Install CMake (>= 3.6), checkout the source files and run.
+Install CMake (>= 3.6), checkout the source files and run:
 
 ~~~~
 $ mkdir build
@@ -29,6 +31,12 @@ $ cd build
 $ cmake ..
 $ cmake --build .
 ~~~~
+
+If you prefer to build with Clang/LLVM (and your default compiler is different) use:
+
+~~~
+CC=clang CXX=clang++ cmake -D_CMAKE_TOOLCHAIN_PREFIX=llvm- ..
+~~~
 
 ###Running the tests
 

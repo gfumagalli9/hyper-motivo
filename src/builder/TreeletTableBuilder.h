@@ -8,21 +8,30 @@
 #include <sparsehash/sparse_hash_map>
 #include <string>
 #include <cmph.h>
-#include "treelet.h"
-#include "Graph.h"
-#include "GraphColoring.h"
-#include "TreeletTable.h"
-#include "TreeletTableCollection.h"
+#include <functional>
+#include "../Treelet.h"
+#include "../UndirectedGraph.h"
+#include "../GraphColoring.h"
+#include "../TreeletTable.h"
+#include "../TreeletTableCollection.h"
 
 class TreeletTableBuilder
 {
 private:
-    typedef google::sparse_hash_map<Treelet::treelet_t, TreeletTable::treelet_count_t> table_t;
+    struct TreeletHash
+    {
+        inline size_t operator() (const Treelet t) const
+        {
+            return t.hash();
+        }
+    };
 
-    const Graph* graph;
-    const long num_vertices; //FIXME: Define type for vertices
+    typedef google::sparse_hash_map<Treelet, TreeletTable::treelet_count_t, TreeletHash> table_t;
+
+    const UndirectedGraph* graph;
+    const UndirectedGraph::vertex_t num_vertices;
     const GraphColoring* coloring;
-    const int size;
+    const unsigned int size;
     const TreeletTableCollection* lower;
 
     table_t** counts;
@@ -56,7 +65,7 @@ private:
 
 public:
 
-    TreeletTableBuilder(Graph* graph, GraphColoring* coloring, int size, const TreeletTableCollection* lower = NULL);
+    TreeletTableBuilder(UndirectedGraph* graph, GraphColoring* coloring, const unsigned int size, const TreeletTableCollection* lower = NULL);
     ~TreeletTableBuilder();
 
     /// Fills the treelet table computing the number of treelets of each kind rooted at each vertex

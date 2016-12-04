@@ -7,20 +7,23 @@
 
 #include <cstdint>
 #include <string>
-#include "treelet.h"
+#include "Treelet.h"
 #include "cmph.h"
+#include "Random.h"
+#include "UndirectedGraph.h"
 
 class TreeletTable
 {
 public:
     typedef uint64_t treelet_count_t;
 
-    struct treelet_count_pair
+    struct [[gnu::packed]] treelet_count_pair
     {
-        Treelet::treelet_t treelet;
+        Treelet treelet;
         treelet_count_t count;
     };
-    static_assert( sizeof(treelet_count_pair) ==  sizeof(Treelet::treelet_t) + sizeof(treelet_count_t), "treelet_count_pair is not packed" );
+
+    static_assert( sizeof(treelet_count_pair) ==  sizeof(Treelet) + sizeof(treelet_count_t), "treelet_count_pair is not packed" );
 
     class const_iterator
     {
@@ -40,7 +43,7 @@ public:
     };
 
 private:
-    long size;
+    int size;
     uint64_t* offsets;
     treelet_count_pair* data;
     cmph_t** hashes;
@@ -53,8 +56,12 @@ public:
     TreeletTable(const std::string& basename);
     ~TreeletTable();
 
+    ///@returns a pair <Treelet, root> where Treelet is chosen uniformly at random from all the rooted treelets
+    ///and root is the corresponding root.
+    std::pair<Treelet, UndirectedGraph::vertex_t> get_random_treelet_root_pair(Random* rng) const;
+
     ///@returns the number of occurrences of @param treelet rooted in @param u, as stored in the table.
-    treelet_count_t get_count(const long u, const Treelet::treelet_t treelet) const;
+    treelet_count_t get_count(const long u, const Treelet treelet) const;
 
     ///@returns a costant iterator that iterates through all the stored treelets for vertex @param u.
     ///The iterator initially points to the first treelet of @param u.

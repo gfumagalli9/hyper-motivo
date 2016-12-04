@@ -1,19 +1,20 @@
 #include <iostream>
 
-#include "Graph.h"
+#include "../UndirectedGraph.h"
 #include "TreeletTableBuilder.h"
-#include "TreeletTableCollection.h"
+#include "../TreeletTableCollection.h"
+#include "../sampler/TreeletSampler.h"
 
 int main()
 {
-    Graph G("../../graphs/star.txt");
+    UndirectedGraph G("../graphs/star");
     std::cout << G.number_of_vertices() << " " << G.number_of_edges() << std::endl;
 
     GraphColoring coloring(G.number_of_vertices(), 5);
 
     TreeletTableCollection ttc;
 
-    for(int i = 1; i <= 5; i++)
+    for(unsigned int i = 1; i <= 5; i++)
     {
         {
             TreeletTableBuilder builder(&G, &coloring, i, &ttc);

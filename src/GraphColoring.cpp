@@ -5,10 +5,10 @@
 #include "GraphColoring.h"
 #include "Random.h"
 
-GraphColoring::GraphColoring(long n, int numColors)
+GraphColoring::GraphColoring(const UndirectedGraph::vertex_t n, unsigned int number_of_colors)
 {
     Random r;
     colors = new color_t[n];
-    for(int u=0; u<n; u++)
-        colors[u] = (color_t)r.random_int32(0, numColors);
+    for(UndirectedGraph::vertex_t u=0; u<n; u++)
+        colors[u] = (color_t)r.random_uint32(0, number_of_colors);
 }

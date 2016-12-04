@@ -6,30 +6,44 @@
 #define MOTIVO_RANDOM_H
 
 #include <cstdint>
-#include <gsl/gsl_rng.h>
 #include <chrono>
+#include <cassert>
+#include <random>
 
 class Random
 {
 private:
-    gsl_rng *rng;
+    std::mt19937_64 rng;
 
 public:
     Random()
     {
-        rng = gsl_rng_alloc(gsl_rng_default);
-
-        auto now = std::chrono::high_resolution_clock::now();
-        gsl_rng_set(rng, (unsigned long)now.time_since_epoch().count());
+        std::random_device device;
+        std::seed_seq seq{device(), device(), device(), device()};
+        rng.seed(seq);
     }
 
-    ~Random() {  gsl_rng_free(rng); }
-
     ///Returns an integer chosen uniformaly at random from @param from to @param to_exclusive - 1
-    ///@param < @param to_exclusive  and their difference must be less than the 2147483647.
-    int32_t random_int32(int32_t from, int32_t to_exclusive)
+    uint64_t random_uint64(uint64_t from, uint64_t to_exclusive)
     {
-        return from + (int32_t)gsl_rng_uniform_int(rng, (unsigned long)(to_exclusive-from));
+        static_assert(std::is_same<uint64_t, unsigned short>::value |
+                      std::is_same<uint64_t, unsigned int>::value |
+                      std::is_same<uint64_t, unsigned long>::value |
+                      std::is_same<uint64_t, unsigned long long>::value, "Undefined behaviour according to the standard");
+
+        std::uniform_int_distribution<uint64_t> uniform(from, to_exclusive-1);
+        return uniform(rng);
+    }
+
+    uint64_t random_uint32(uint32_t from, uint32_t to_exclusive)
+    {
+        static_assert(std::is_same<uint32_t, unsigned short>::value |
+                      std::is_same<uint32_t, unsigned int>::value |
+                      std::is_same<uint32_t, unsigned long>::value |
+                      std::is_same<uint32_t, unsigned long long>::value, "Undefined behaviour according to the standard");
+
+        std::uniform_int_distribution<uint32_t> uniform(from, to_exclusive-1);
+        return uniform(rng);
     }
 };
 

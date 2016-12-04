@@ -4,23 +4,23 @@
 
 #include "TreeletTableCollection.h"
 
-TreeletTableCollection::TreeletTableCollection(int capacity) : capacity(capacity), size(0)
+TreeletTableCollection::TreeletTableCollection(const unsigned int capacity) : capacity(capacity), size(0)
 {
     tables = new TreeletTable*[capacity];
-    for(int i=1; i<=capacity; i++)
+    for(unsigned int i=1; i<=capacity; i++)
         tables[i-1]=NULL;
 }
 
-TreeletTableCollection::TreeletTableCollection(const std::string& basename, int size, int capacity) : capacity(capacity)
+TreeletTableCollection::TreeletTableCollection(const std::string& basename, const unsigned int size, const unsigned int capacity) : capacity(capacity)
 {
     tables = new TreeletTable*[capacity];
-    for(int i=1; i<=capacity; i++)
+    for(unsigned int i=1; i<=capacity; i++)
         tables[i-1] = (i<=size)?new TreeletTable(basename+"."+std::to_string(i)):NULL;
 }
 
 TreeletTableCollection::~TreeletTableCollection()
 {
-    for(int i=0; i<capacity; i++)
+    for(unsigned int i=0; i<capacity; i++)
         delete tables[i];
 
     delete[] tables;

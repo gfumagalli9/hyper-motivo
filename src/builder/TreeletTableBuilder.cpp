@@ -2,18 +2,21 @@
 // Created by steven on 11/13/16.
 //
 
+#include <vector>
 #include <fstream>
 #include <cmph.h>
+#include <iostream>
 #include "TreeletTableBuilder.h"
+#include "../bit_cast.h"
 
-TreeletTableBuilder::TreeletTableBuilder(Graph* graph, GraphColoring* coloring, int size, const TreeletTableCollection* lower)
+TreeletTableBuilder::TreeletTableBuilder(UndirectedGraph* graph, GraphColoring* coloring, const unsigned int size, const TreeletTableCollection* lower)
         :  graph(graph), num_vertices(graph->number_of_vertices()), coloring(coloring), size(size), lower(lower)
 {
     counts = new table_t*[num_vertices];
     for(long u=0; u<num_vertices; u++)
     {
         counts[u] = new table_t();
-        counts[u]->set_deleted_key(0); //0 is an invalid treelet
+        //counts[u]->set_deleted_key(Treelet::invalid_treelet);
     }
 }
 
@@ -37,17 +40,18 @@ void TreeletTableBuilder::do_fill_1()
 {
     for(long u=0; u<num_vertices; u++)
     {
-        Treelet::treelet_t treelet = Treelet::singleton(coloring->color_of(u));
+        Treelet treelet = Treelet::singleton(coloring->color_of(u));
         (*counts[u])[treelet] = 1;
     }
 }
 
 void TreeletTableBuilder::do_fill()
 {
-    for(long u=0; u<num_vertices; u++)
+    std::cerr << "Num verts: " <<num_vertices << std::endl;
+    for(UndirectedGraph::vertex_t u=0; u<num_vertices; u++)
     {
-        const long* neighbors = graph->neighbors(u);
-        for(long d=0; d<graph->degree(u); d++)
+        const UndirectedGraph::vertex_t* neighbors = graph->neighbors(u);
+        for(UndirectedGraph::vertex_t d=0; d<graph->degree(u); d++)
             combine(u, neighbors[d]);
 
         normalize(u);
@@ -57,9 +61,9 @@ void TreeletTableBuilder::do_fill()
 
 void TreeletTableBuilder::combine(long u, long v)
 {
-    for(int size1=1; size1<size; size1++)
+    for(unsigned int size1=1; size1<size; size1++)
     {
-        int size2=size-size1;
+        unsigned int size2=size-size1;
         const TreeletTable* u_table = lower->get_table(size1);
         const TreeletTable* v_table = lower->get_table(size2);
 
@@ -67,12 +71,12 @@ void TreeletTableBuilder::combine(long u, long v)
         {
             for(TreeletTable::const_iterator v_it = v_table->begin(v); v_it != v_table->end(v); v_it++)
             {
-                Treelet::treelet_t t1 = u_it->treelet;
-                Treelet::treelet_t t2 = v_it->treelet;
+                Treelet t1 = u_it->treelet;
+                Treelet t2 = v_it->treelet;
 
-                Treelet::treelet_t merged = Treelet::merge(t1, t2);
+                Treelet merged = t1.merge(t2);
 
-                if( merged != Treelet::invalid_treelet )
+                if(merged.is_valid())
                 {
                     assert(u_it->count > 0);
                     assert(v_it->count > 0);
@@ -81,6 +85,8 @@ void TreeletTableBuilder::combine(long u, long v)
                     assert(UINT64_MAX - (*counts[u])[merged] >= u_it->count * v_it->count);
                     (*counts[u])[merged] += u_it->count * v_it->count;
                 }
+                else if(merged == Treelet::invalid_merge_structure)
+                    break; //All the following treelets t2 will have a structure that is too small.
             }
         }
     }
@@ -90,8 +96,8 @@ void TreeletTableBuilder::normalize(long u)
 {
     for(table_t::iterator u_it = counts[u]->begin(); u_it != counts[u]->end(); u_it++)
     {
-        assert(u_it->second % Treelet::normalization_factor(u_it->first) == 0);
-        u_it->second /= Treelet::normalization_factor(u_it->first);
+        assert(u_it->second % u_it->first.normalization_factor() == 0);
+        u_it->second /= u_it->first.normalization_factor();
     }
 }
 
@@ -99,8 +105,8 @@ void TreeletTableBuilder::write(const std::string &basename) const
 {
     write_data(basename);
 
-    if(size>1)
-        write_phf(basename);
+    //if(size>1)
+        //write_phf(basename);
 }
 
 void TreeletTableBuilder::write_data(const std::string &basename) const
@@ -112,18 +118,26 @@ void TreeletTableBuilder::write_data(const std::string &basename) const
     uint64_t offset=0;
     for(long u=0; u < num_vertices; u++)
     {
-        offsets.write(reinterpret_cast<const char*>(&offset), sizeof(uint64_t));
-        for(table_t::iterator it = counts[u]->begin(); it != counts[u]->end(); it++)
-        {
-            data.write(reinterpret_cast<const char*>(&it->first), sizeof(Treelet::treelet_t));
-            data.write(reinterpret_cast<const char*>(&it->second), sizeof(TreeletTable::treelet_count_t));
+        auto tcp = new std::pair<Treelet, TreeletTable::treelet_count_t>[counts[u]->size()];
+        std::copy(counts[u]->begin(), counts[u]->end(), tcp);
+        std::sort(tcp, tcp+counts[u]->size(), std::greater<std::pair<Treelet, TreeletTable::treelet_count_t>>());
 
+        offsets.write(reinterpret_cast<const char*>(&offset), sizeof(uint64_t));
+
+        for(unsigned long i=0; i<counts[u]->size(); i++)
+        {
+            data.write(reinterpret_cast<const char*>(&tcp[i].first), sizeof(Treelet));
+            data.write(reinterpret_cast<const char*>(&tcp[i].second), sizeof(TreeletTable::treelet_count_t));
             offset++;
         }
+
+        delete[] tcp;
     }
+
     offsets.write(reinterpret_cast<const char*>(&offset), sizeof(uint64_t));
     data.close();
     offsets.close();
+    std::cerr << "Written " << offset << " records " << std::endl;
 }
 
 cmph_io_adapter_t* TreeletTableBuilder::sparsehash_adapter(const table_t* table)
@@ -144,10 +158,11 @@ cmph_io_adapter_t* TreeletTableBuilder::sparsehash_adapter(const table_t* table)
 int TreeletTableBuilder::key_sparsehash_read(void *data, char **key, cmph_uint32 *keylen)
 {
     sparsehash_data_t* sh_data = static_cast<sparsehash_data_t*>(data);
-    *keylen = sizeof(table_t::key_type);
+    *keylen = sizeof(Treelet);
 
-    //*key = reinterpret_cast<char*>(new table_t::key_type(sh_data->current->first));
-    //FIXME: Can we do this? The cmph implementation allocates a new object. However the values of key does not seem
+    //Treelet* t = new Treelet(sh_data->current->first);
+    //*key = reinterpret_cast<char*>(t);
+    //FIXME: Can we do this? The cmph implementation allocates a new object. However the value of key does not seem
     //to be modified by the implementation.
     *key = const_cast<char*>(reinterpret_cast<const char*>(&sh_data->current->first));
     sh_data->current++;
@@ -157,9 +172,8 @@ int TreeletTableBuilder::key_sparsehash_read(void *data, char **key, cmph_uint32
 void TreeletTableBuilder::key_sparsehash_dispose(void *data, char *key, cmph_uint32 keylen)
 {
     (void)data, (void)key, (void)keylen; //suppress unused warnings
-
     //FIXME: See above
-    //delete reinterpret_cast<table_t::key_type*>(key);
+    //delete reinterpret_cast<Treelet*>(key);
 }
 
 void TreeletTableBuilder::key_sparsehash_rewind(void *data)
@@ -171,16 +185,20 @@ void TreeletTableBuilder::key_sparsehash_rewind(void *data)
 long TreeletTableBuilder::write_phf(const std::string &basename) const
 {
     long success = 0;
-    long header_size = (num_vertices+7)/8; //I.e, ceil(num_vertices/8)
-    uint8_t header[header_size] = {0};
+    unsigned long header_size = (num_vertices+7)/8; //I.e, ceil(num_vertices/8)
+    uint8_t* header = new uint8_t[header_size];
+    memset(header, 0, header_size);
 
     FILE* mphf_fd = fopen((basename + ".phf").c_str(), "wb");
-    int r = fwrite(header, 1, header_size, mphf_fd); //FIXME: fwrite might not write all the data
+    size_t r = fwrite(header, 1, header_size, mphf_fd); //FIXME: fwrite might not write all the data
     assert(r == header_size);
 
     for(long u=0; u < num_vertices; u++)
     {
-        cmph_io_adapter_t* source = sparsehash_adapter(counts[0]);
+        if(counts[u]->size()==0)
+            continue;
+
+        cmph_io_adapter_t* source = sparsehash_adapter(counts[u]);
         cmph_config_t *config = cmph_config_new(source);
         cmph_config_set_algo(config, CMPH_CHD);
         cmph_config_set_mphf_fd(config, mphf_fd);
@@ -191,7 +209,7 @@ long TreeletTableBuilder::write_phf(const std::string &basename) const
 
         if(hash!=NULL)
         {
-            header[u / 8] |= (0b10000000u >> u % 8); //set the u-th bit in the header
+            header[u / 8] |= (static_cast<uint8_t>(0b10000000u >> (u%8))); //set the u-th bit in the header
             cmph_dump(hash, mphf_fd);
             cmph_destroy(hash);
             success++;
@@ -202,6 +220,8 @@ long TreeletTableBuilder::write_phf(const std::string &basename) const
     r = fwrite(header, 1, header_size, mphf_fd); //FIXME
     assert(r == header_size);
     fclose(mphf_fd);
+
+    delete[] header;
 
     return success;
 }
