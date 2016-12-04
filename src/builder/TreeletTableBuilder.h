@@ -43,7 +43,7 @@ private:
     void do_fill();
 
     /// Combines the treelets of vertex @param u with the treelets of vertex @param v
-    void combine(long u, long v);
+    void combine(const UndirectedGraph::vertex_t u, const UndirectedGraph::vertex_t v);
 
     /// Normalizes the counts of treelets rooted in @param u
     void normalize(long u);

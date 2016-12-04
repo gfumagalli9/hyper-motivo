@@ -27,11 +27,13 @@ public:
 
     class const_iterator
     {
+    friend class TreeletTable;
+
     private:
-        treelet_count_pair* position;
+        const treelet_count_pair* position;
+        const_iterator(const treelet_count_pair* position) : position(position) {};
 
     public:
-        const_iterator(treelet_count_pair* position) : position(position) {};
         const_iterator(const const_iterator& iterator) { position = iterator.position; };
         const_iterator& operator=(const const_iterator& iterator) { position = iterator.position; return *this; };
         const_iterator& operator++() { position++; return *this; };
@@ -43,7 +45,7 @@ public:
     };
 
 private:
-    int size;
+    unsigned int size;
     uint64_t* offsets;
     treelet_count_pair* data;
     cmph_t** hashes;
@@ -61,14 +63,16 @@ public:
     std::pair<Treelet, UndirectedGraph::vertex_t> get_random_treelet_root_pair(Random* rng) const;
 
     ///@returns the number of occurrences of @param treelet rooted in @param u, as stored in the table.
-    treelet_count_t get_count(const long u, const Treelet treelet) const;
+    treelet_count_t get_count(const UndirectedGraph::vertex_t u, const Treelet treelet) const;
 
     ///@returns a costant iterator that iterates through all the stored treelets for vertex @param u.
     ///The iterator initially points to the first treelet of @param u.
-    const_iterator begin(const long u) const;
+    const_iterator begin(const UndirectedGraph::vertex_t u) const;
 
     ///@returns an iterator pointing to after the last treelet stored for vertex @param u.
-    const_iterator end(const long u) const;
+    const_iterator end(const UndirectedGraph::vertex_t u) const;
+
+    const_iterator begin(const UndirectedGraph::vertex_t u, const Treelet treelet) const;
 };
 
 

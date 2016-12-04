@@ -35,7 +35,7 @@ Treelet Treelet::merge(const Treelet other) const
     if(colors & other.colors) //colors intersect
         return invalid_merge_colors;
 
-    const int other_size = other.number_of_vertices();
+    const unsigned int other_size = other.number_of_vertices();
     treelet_structure_t new_structure = treelet_structure_highest_bit + (other.structure >> 1) + (structure >> (2*other_size));
 
     //Let x be the first child of this. Let |t| denote the size of t.
@@ -98,6 +98,22 @@ Treelet Treelet::complement(Treelet t2) const
     assert( (((treelet_structure_highest_bit | (t2.structure>>1)) ^ structure) >> (treelet_structure_bits- 2*t2.number_of_vertices())) == 0);
 
     return Treelet(structure << (2*t2.number_of_vertices()), static_cast<treelet_colors_t>(colors & (~t2.colors)) );
+}
+
+uint8_t Treelet::normalization_factor() const
+{
+    if(structure == singleton_structure)
+        return 1;
+
+    const int child_bits = leftmost_bit_tie1(structure);
+    treelet_structure_t child_mask =  0xFFFFFFFFu << (treelet_structure_bits-child_bits);
+    treelet_structure_t child_structure = structure & child_mask;
+
+    uint8_t num_occurrences = 1;
+    while( (((structure << (child_bits*num_occurrences)) ^ child_structure) & child_mask) == 0 )
+        num_occurrences++;
+
+    return num_occurrences;
 }
 
 

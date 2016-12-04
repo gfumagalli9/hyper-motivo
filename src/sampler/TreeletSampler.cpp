@@ -16,15 +16,20 @@ bool TreeletSampler::sample_rooted_occurrence(Treelet t, const UndirectedGraph::
     ReservoirSampler<std::pair<Treelet, UndirectedGraph::vertex_t> > sampler(std::make_pair(Treelet::invalid_treelet, 0), &rng);
 
     Treelet split = t.split_child();
+    assert(!split.is_colored());
+
     const TreeletTable *table = table_collection->get_table(split.number_of_vertices());
 
     const UndirectedGraph::vertex_t *neighbors = graph->neighbors(u);
     for(UndirectedGraph::vertex_t d = 0; d < graph->degree(u); ++d)
     {
         const UndirectedGraph::vertex_t v = neighbors[d];
-        for(TreeletTable::const_iterator it = table->begin(v); it != table->end(v); ++it)
+        for(TreeletTable::const_iterator it = table->begin(v, split); it != table->end(v); ++it)
         {
-            if(it->treelet.get_structure() == split.get_structure() && (it->treelet.get_colors() & ~t.get_colors()) == 0 )
+            if(it->treelet.get_structure() != split.get_structure())
+                break;
+
+            if((it->treelet.get_colors() & ~t.get_colors()) == 0 )
             {
                 Treelet complement = t.complement(it->treelet);
                 TreeletTable::treelet_count_t c = table_collection->get_table(complement.number_of_vertices())->get_count(u, complement);

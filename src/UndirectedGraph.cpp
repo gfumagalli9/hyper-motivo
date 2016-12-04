@@ -12,14 +12,19 @@
 UndirectedGraph::UndirectedGraph(const std::string &basename)
 {
     offsets_fd = fopen( (basename+".gof").c_str(), "rb" );
+    edges_fd = fopen( (basename+".ged").c_str(), "rb" );
+
+    if(offsets_fd==NULL || edges_fd==NULL)
+        throw std::runtime_error("Could not open files");
+
+
     fread(&num_verts, sizeof(vertex_t), 1, offsets_fd);
     fread(&num_edges, sizeof(uint32_t), 1, offsets_fd);
-    offsets = static_cast<vertex_t*>(mmap(NULL, (num_verts+2)*sizeof(vertex_t), PROT_READ, MAP_PRIVATE, fileno(offsets_fd), 0));
+    offsets = static_cast<vertex_t*>(mmap(nullptr, (num_verts+2)*sizeof(vertex_t), PROT_READ, MAP_PRIVATE, fileno(offsets_fd), 0));
     assert(offsets!=MAP_FAILED);
     offsets += 2;
 
-    edges_fd = fopen( (basename+".ged").c_str(), "rb" );
-    edges = static_cast<vertex_t*>(mmap(NULL, (num_edges)*sizeof(uint32_t), PROT_READ, MAP_PRIVATE, fileno(edges_fd), 0));
+    edges = static_cast<vertex_t*>(mmap(nullptr, (num_edges)*sizeof(uint32_t), PROT_READ, MAP_PRIVATE, fileno(edges_fd), 0));
     assert(edges!=MAP_FAILED);
 }
 

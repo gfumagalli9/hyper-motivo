@@ -10,5 +10,5 @@ GraphColoring::GraphColoring(const UndirectedGraph::vertex_t n, unsigned int num
     Random r;
     colors = new color_t[n];
     for(UndirectedGraph::vertex_t u=0; u<n; u++)
-        colors[u] = (color_t)r.random_uint32(0, number_of_colors);
+        colors[u] = static_cast<color_t>(r.random_uint32(0, number_of_colors));
 }

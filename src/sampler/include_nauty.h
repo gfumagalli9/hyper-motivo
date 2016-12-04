@@ -9,7 +9,7 @@
     #error defines clash
 #endif
 
-#define MAXN 16
+#define MAXN 16 //FIXME: Can we set it here?
 #include <nauty/nauty.h>
 
 #ifndef HAVE_TLS

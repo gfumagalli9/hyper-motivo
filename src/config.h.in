@@ -1,0 +1,14 @@
+//
+// Created by steven on 12/4/16.
+//
+
+#ifndef MOTIVO_CONFIG_H
+#define MOTIVO_CONFIG_H
+
+#cmakedefine MOTIVO_HAS_BUILTIN_POPCOUNT 1
+#cmakedefine MOTIVO_HAS_BUILTIN_POPCOUNTL 1
+
+#cmakedefine MOTIVO_INT_SIZE @MOTIVO_INT_SIZE@
+#cmakedefine MOTIVO_LONG_SIZE @MOTIVO_LONG_SIZE@
+
+#endif //MOTIVO_CONFIG_H

@@ -8,7 +8,7 @@ TreeletTableCollection::TreeletTableCollection(const unsigned int capacity) : ca
 {
     tables = new TreeletTable*[capacity];
     for(unsigned int i=1; i<=capacity; i++)
-        tables[i-1]=NULL;
+        tables[i-1]= nullptr;
 }
 
 TreeletTableCollection::TreeletTableCollection(const std::string& basename, const unsigned int size, const unsigned int capacity) : capacity(capacity)

@@ -26,16 +26,11 @@ int reference (uint32_t x)
 
 TEST_CASE("leftmost_bit_tie")
 {
-    bool success=true;
-    uint32_t x=0;
-    do
-    {
-        if(reference(x)!=leftmost_bit_tie(x))
-        {
-            success=false;
-            break;
-        }
-    } while(++x);
+    CHECK(reference(0)==leftmost_bit_tie(0));
 
-    CHECK(success);
+    uint32_t x=1;
+    while(x && reference(x)==leftmost_bit_tie(x))
+        x++;
+
+    CHECK(x==0);
 }

@@ -16,7 +16,7 @@ GraphFootprint::footprint GraphFootprint::get_footprint(const UndirectedGraph *g
 
     int m = SETWORDSNEEDED(size);
 
-    nauty_check(MOTIVO_NAUTY_WORDSIZE, m, size, NAUTYVERSIONID);
+    nauty_check(MOTIVO_NAUTY_WORDSIZE, m, static_cast<int>(size), NAUTYVERSIONID);
 
     EMPTYGRAPH(g, m, size);
     for(unsigned int i=1; i<size; i++)
@@ -34,7 +34,7 @@ GraphFootprint::footprint GraphFootprint::get_footprint(const UndirectedGraph *g
     int ptn[MOTIVO_NAUTY_MAXN];
     int orbits[MOTIVO_NAUTY_MAXN];
     statsblk stats;
-    densenauty(g, lab, ptn, orbits, &options, &stats, m, size, cang);
+    densenauty(g, lab, ptn, orbits, &options, &stats, m, static_cast<int>(size), cang);
 
     GraphFootprint::footprint f{};
     int n=0;
@@ -59,8 +59,8 @@ std::string GraphFootprint::footprint::to_string()
     char c[32];
     for(int i=0; i<16; i++)
     {
-        c[2*i]= 'A'+(data[i]>>4);
-        c[2*i+1]= 'A'+ static_cast<char>(data[i] & 0x0F);
+        c[2*i]= static_cast<char>('A'+ (data[i]>>4));
+        c[2*i+1]= static_cast<char>('A'+ (data[i] & 0x0F));
     }
 
     return std::string(c, 32);

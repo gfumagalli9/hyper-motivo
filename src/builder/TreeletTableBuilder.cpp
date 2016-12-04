@@ -59,7 +59,7 @@ void TreeletTableBuilder::do_fill()
     }
 }
 
-void TreeletTableBuilder::combine(long u, long v)
+void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const UndirectedGraph::vertex_t v)
 {
     for(unsigned int size1=1; size1<size; size1++)
     {
@@ -86,7 +86,7 @@ void TreeletTableBuilder::combine(long u, long v)
                     (*counts[u])[merged] += u_it->count * v_it->count;
                 }
                 else if(merged == Treelet::invalid_merge_structure)
-                    break; //All the following treelets t2 will have a structure that is too small.
+                    break; //All the following treelets t2 will have a structure that is big small.
             }
         }
     }
@@ -120,7 +120,7 @@ void TreeletTableBuilder::write_data(const std::string &basename) const
     {
         auto tcp = new std::pair<Treelet, TreeletTable::treelet_count_t>[counts[u]->size()];
         std::copy(counts[u]->begin(), counts[u]->end(), tcp);
-        std::sort(tcp, tcp+counts[u]->size(), std::greater<std::pair<Treelet, TreeletTable::treelet_count_t>>());
+        std::sort(tcp, tcp+counts[u]->size());
 
         offsets.write(reinterpret_cast<const char*>(&offset), sizeof(uint64_t));
 
@@ -166,7 +166,7 @@ int TreeletTableBuilder::key_sparsehash_read(void *data, char **key, cmph_uint32
     //to be modified by the implementation.
     *key = const_cast<char*>(reinterpret_cast<const char*>(&sh_data->current->first));
     sh_data->current++;
-    return *keylen;
+    return static_cast<int>(*keylen);
 }
 
 void TreeletTableBuilder::key_sparsehash_dispose(void *data, char *key, cmph_uint32 keylen)

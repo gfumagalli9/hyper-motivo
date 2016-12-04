@@ -13,7 +13,7 @@
 
 //The following classsis already packed.
 //See: https://en.wikipedia.org/wiki/Data_structure_alignment#Typical_alignment_of_C_structs_on_x86
-//#pragma pack(push,1)
+//#pragma test(push,1)
 class [[gnu::packed]] Treelet
 {
     /* Each treelet is represented as a bit string of 64 bits.
@@ -55,7 +55,7 @@ public:
     const static Treelet invalid_merge_structure; //Merge failed due to wrong structure order
 
     ///@returns the number of vertices of the treelet
-    inline unsigned int number_of_vertices() const { return static_cast<unsigned  int>(popcount(structure)+1); }
+    inline unsigned int number_of_vertices() const { return static_cast<unsigned  int>(popcount32(structure)+1); }
 
     ///@returns true iff the represented treelet is invalid, e.g., due to a failed merge
     inline bool is_valid() const { return structure!=invalid_structure; }
@@ -74,7 +74,7 @@ public:
     Treelet merge(const Treelet other) const;
 
     ///@returns the number of times a treelet will be overcounted when merging using "merge"
-    inline uint8_t normalization_factor() const { return 1; } //FIXME
+    uint8_t normalization_factor() const;
 
     ///@returns an opaque value representing the structure of the treelet
     inline treelet_structure_t get_structure() const { return structure; }
@@ -86,12 +86,11 @@ public:
 
     Treelet complement(Treelet t2) const;
 
-    bool operator==(const Treelet other) const { return structure==other.structure && colors==other.colors; }
-
-    bool operator<(const Treelet other) const { return (structure < other.structure) || (structure < other.structure && colors < other.colors); }
-
+    inline bool operator==(const Treelet& other) const { return structure==other.structure && colors==other.colors; }
+    inline bool operator<(const Treelet& other) const { return (structure > other.structure) || (structure == other.structure && colors < other.colors); }
+    inline bool operator<=(const Treelet& other) const { return (structure > other.structure) || (structure == other.structure && colors <= other.colors); }
 };
-//#pragma pack(pop)
+//#pragma test(pop)
 
 static_assert(sizeof(Treelet) == 6, "treelet_t_union is not packed in 8 bytes");
 

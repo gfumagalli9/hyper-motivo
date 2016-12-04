@@ -9,13 +9,14 @@ Motivo depends on the following libraries:
 
 - [Google's sparsehash library](https://github.com/sparsehash/sparsehash) 
 - [C Minimal Perfect Hashing Library](http://cmph.sourceforge.net/)
-- [GNU Scientific Library](https://www.gnu.org/software/gsl/).
+- ~~[GNU Scientific Library](https://www.gnu.org/software/gsl/).~~
 - [OpenBLAS](http://www.openblas.net/) (or any other BLAS library)
 - [LAPACKE](http://www.netlib.org/lapack/lapacke.html)
+- [Nauty](http://pallini.di.uniroma1.it/)
 
 Your Linux distribution might have premade packages, i.e., on Debian you can run:
 ~~~~
-# apt-get install lib{sparsehash,cmph,gsl,openblas,lapacke}-dev
+# apt-get install lib{sparsehash,cmph,openblas,lapacke,nauty}-dev
 ~~~~
 
 A C++14 aware compiler is required along with support for [u]int{8,16,32,64} types.
@@ -35,18 +36,23 @@ $ cmake --build .
 If you prefer to build with Clang/LLVM (and your default compiler is different) use:
 
 ~~~
-CC=clang CXX=clang++ cmake -D_CMAKE_TOOLCHAIN_PREFIX=llvm- ..
+$ CC=clang CXX=clang++ cmake -D_CMAKE_TOOLCHAIN_PREFIX=llvm- ..
 ~~~
 
 ###Running the tests
 
-Simply run:
+First, convert the test graph to Motivo's binary format:
+~~~~
+$ ./motivo-graph2bin ../graphs/test.txt test
+~~~~
+
+Then run:
 
 ~~~~
-./Motivo-tests
+$ ./motivo-tests
 ~~~~
 
-You will get an output similar to the following:
+Hopefully you will get an output similar to the following:
 
 ~~~~
 [doctest] doctest version is "1.1.3"

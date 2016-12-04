@@ -7,18 +7,18 @@
 
 KirchhoffSpanningTreeCounter::KirchhoffSpanningTreeCounter(const UndirectedGraph* graph, const unsigned int size) : graph(graph), size(size)
 {
-    assert(graph!=NULL);
+    assert(graph!=nullptr);
     assert(size>0);
 
     if(size>=4)
         matrix = new double[(size-1)*(size-1)];
     else
-        matrix = NULL;
+        matrix = nullptr;
 }
 
 KirchhoffSpanningTreeCounter::~KirchhoffSpanningTreeCounter()
 {
-    if(matrix!=NULL)
+    if(matrix!=nullptr)
         delete[] matrix;
 }
 
@@ -73,7 +73,10 @@ uint64_t KirchhoffSpanningTreeCounter::count(const UndirectedGraph::vertex_t* su
 
     //Compute the lower factor L of a  Cholesky factorization
     //L is stored in the lower triangular part of matrix
-    int r = LAPACKE_dpotrf_work(LAPACK_ROW_MAJOR, 'L', static_cast<int>(size-1), matrix, static_cast<int>(size-1));
+#ifndef NDEBUG
+    int r =
+#endif
+    LAPACKE_dpotrf_work(LAPACK_ROW_MAJOR, 'L', static_cast<int>(size-1), matrix, static_cast<int>(size-1));
     assert(r==0);
 
     //The determinant is the product of the squares of the elements on the diagonal of L

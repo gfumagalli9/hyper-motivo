@@ -1,9 +1,30 @@
 cmake_minimum_required(VERSION 3.6)
 project(Motivo)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++14 -Wconversion -Wall -Wextra -Wpedantic -pedantic-errors")
+# Set a default build type if none was specified
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    message(STATUS "Setting build type to 'Release' as none was specified.")
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
 
-SET(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O4 -march=native")
+    # Set the possible values of build type for cmake-gui
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++14 -Wconversion -Wall -Wextra -Wpedantic -pedantic-errors -Wdisabled-optimization -Wfloat-equal -Wold-style-cast -Wsign-conversion -Winline -Wzero-as-null-pointer-constant -Wuseless-cast -Wno-unknown-warning-option")
+set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -funroll-loops -march=native") #-flto
+
+
+INCLUDE(CheckCXXSourceCompiles)
+check_cxx_source_compiles("int main() { __builtin_popcount(0xFFFFFFFF); return 0; } " MOTIVO_HAS_BUILTIN_POPCOUNT)
+check_cxx_source_compiles("int main() { __builtin_popcountl(0xFFFFFFFF); return 0; } " MOTIVO_HAS_BUILTIN_POPCOUNTL)
+
+INCLUDE(CheckTypeSize)
+check_type_size("int" MOTIVO_INT_SIZE LANGUAGE CXX)
+check_type_size("long" MOTIVO_LONG_SIZE LANGUAGE CXX)
+
+configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
+
+include_directories(${CMAKE_BINARY_DIR})
 
 set(COMMON_SOURCE_FILES src/UndirectedGraph.cpp src/UndirectedGraph.h src/Treelet.h src/GraphColoring.cpp src/GraphColoring.h src/Random.h src/Treelet.cpp src/TreeletTableCollection.cpp src/TreeletTableCollection.h src/TreeletTable.cpp src/TreeletTable.h src/bit_cast.h src/platform.h)
 set(BUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/builder/TreeletTableBuilder.cpp src/builder/TreeletTableBuilder.h src/builder/builder.cpp)

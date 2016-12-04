@@ -14,7 +14,7 @@
  * A diamond on vertices 48-51 (5 edges)
  * A paw on vertices 52-55 (4 edges)
  */
-UndirectedGraph test_graph( "../graphs/test" );
+UndirectedGraph test_graph( "test" );
 
 void test(unsigned int from, unsigned int size, uint64_t expected)
 {
@@ -64,6 +64,6 @@ TEST_CASE("KirchoffSpanningTreeCounter paths")
 TEST_CASE("KirchoffSpanningTreeCounter cliques")
 {
     //The number of spanning trees in K_n is n**(n-2) by Cayley's formula
-    for(int i=1; i<=14; i++) //FIXME: Fails for i=15 and i=16
+    for(unsigned int i=1; i<=14; i++) //FIXME: Fails for i=15 and i=16
         test(0, i, static_cast<uint64_t >(pow(i, i-2)+0.5));
 }
