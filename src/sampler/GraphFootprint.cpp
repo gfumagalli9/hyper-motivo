@@ -14,11 +14,13 @@ GraphFootprint::footprint GraphFootprint::get_footprint(const UndirectedGraph *g
     static DEFAULTOPTIONS_GRAPH(options);
     options.getcanon = MOTIVO_NAUTY_TRUE;
 
-    int m = SETWORDSNEEDED(size);
+    int m = SETWORDSNEEDED(static_cast<int>(size));
 
+#ifndef NDEBUG
     nauty_check(MOTIVO_NAUTY_WORDSIZE, m, static_cast<int>(size), NAUTYVERSIONID);
+#endif
 
-    EMPTYGRAPH(g, m, size);
+    EMPTYGRAPH(g, static_cast<unsigned int>(m), size);
     for(unsigned int i=1; i<size; i++)
     {
         UndirectedGraph::vertex_t u=subgraph[i];
@@ -26,7 +28,7 @@ GraphFootprint::footprint GraphFootprint::get_footprint(const UndirectedGraph *g
         {
             UndirectedGraph::vertex_t v=subgraph[j];
             if(graph->has_edge(u,v))
-                ADDONEEDGE(g, i, j, m);
+                ADDONEEDGE(g, static_cast<int>(i), static_cast<int>(j), static_cast<unsigned int>(m));
         }
     }
 
@@ -40,7 +42,7 @@ GraphFootprint::footprint GraphFootprint::get_footprint(const UndirectedGraph *g
     int n=0;
     for(unsigned int i=0; i<size; i++)
     {
-        nauty_set* row = GRAPHROW (cang ,i, m);
+        nauty_set* row = GRAPHROW (cang ,i, static_cast<unsigned int>(m));
         for(unsigned int j = 0; j <= i; j++)
         {
             n++;

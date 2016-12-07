@@ -7,7 +7,7 @@
 
 
 #include <cstdint>
-#include "../UndirectedGraph.h"
+#include "../common/UndirectedGraph.h"
 
 class GraphFootprint
 {

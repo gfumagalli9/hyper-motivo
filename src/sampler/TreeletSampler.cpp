@@ -3,10 +3,12 @@
 //
 
 #include "TreeletSampler.h"
-#include "../ReservoirSampler.h"
+#include "ReservoirSampler.h"
 
-bool TreeletSampler::sample_rooted_occurrence(Treelet t, const UndirectedGraph::vertex_t u, UndirectedGraph::vertex_t* occurrence)
+bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const UndirectedGraph::vertex_t u, UndirectedGraph::vertex_t* occurrence)
 {
+    assert(t.is_valid());
+
     if(t.number_of_vertices() == 1)
     {
         *occurrence = u;
@@ -26,17 +28,18 @@ bool TreeletSampler::sample_rooted_occurrence(Treelet t, const UndirectedGraph::
         const UndirectedGraph::vertex_t v = neighbors[d];
         for(TreeletTable::const_iterator it = table->begin(v, split); it != table->end(v); ++it)
         {
-            if(it->treelet.get_structure() != split.get_structure())
+            const Treelet& t2 = it.treelet();
+            if(t2.get_structure() != split.get_structure())
                 break;
 
-            if((it->treelet.get_colors() & ~t.get_colors()) == 0 )
+            if((t2.get_colors() & ~t.get_colors()) == 0 )
             {
-                Treelet complement = t.complement(it->treelet);
+                Treelet complement = t.complement(t2);
                 TreeletTable::treelet_count_t c = table_collection->get_table(complement.number_of_vertices())->get_count(u, complement);
 
-                assert(it->count!=0);
+                assert(it.count()!=0);
 
-                sampler.feed(std::make_pair(it->treelet, v), c * it->count);
+                sampler.feed(std::make_pair(t2, v), c * it.count());
             }
         }
     }
@@ -52,6 +55,9 @@ bool TreeletSampler::sample_rooted_occurrence(Treelet t, const UndirectedGraph::
 
 void TreeletSampler::sample(const unsigned int size, UndirectedGraph::vertex_t *occurrence)
 {
-    auto treelet_root_pair = table_collection->get_table(size)->get_random_treelet_root_pair(&rng);
-    sample_rooted_occurrence(treelet_root_pair.first, treelet_root_pair.second, occurrence);
+    UndirectedGraph::vertex_t root = table_collection->get_table(size)->get_random_root(&rng);
+    const Treelet& t=table_collection->get_table(size)->get_random_treelet(root, &rng);
+
+    assert(t.is_valid());
+    sample_rooted_occurrence(t, root, occurrence);
 }

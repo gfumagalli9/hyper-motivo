@@ -37,11 +37,11 @@ uint64_t KirchhoffSpanningTreeCounter::count(const UndirectedGraph::vertex_t* su
         return  1;
     }
 
-    //Compute the size-1 x size-1 submatrix of the Laplacian matrix of the subgraph of G induced by "subgraph"
+    //Compute the num_vertices-1 x num_vertices-1 submatrix of the Laplacian matrix of the subgraph of G induced by "subgraph"
     unsigned int nedges=0;
     for(unsigned int i=0; i<size-1; i++)
     {
-        matrix[i*size] = 0; //i*size == i*(size-1)+i
+        matrix[i*size] = 0; //i*num_vertices == i*(num_vertices-1)+i
         for(unsigned int j=0; j<i; j++)
         {
             if(graph->has_edge(subgraph[i], subgraph[j]))
@@ -54,7 +54,7 @@ uint64_t KirchhoffSpanningTreeCounter::count(const UndirectedGraph::vertex_t* su
             else
                 matrix[i*(size-1)+j]=0;
 
-            //nedges+=matrix[i*size]; //matrix[i*size] == # of edges incident to i such that the other endpoint is smaller than i
+            //nedges+=matrix[i*num_vertices]; //matrix[i*num_vertices] == # of edges incident to i such that the other endpoint is smaller than i
         }
     }
 

@@ -6,7 +6,7 @@
 #define MOTIVO_KIRCHHOFFSPANNINGTREECOUNTER_H
 
 
-#include "../UndirectedGraph.h"
+#include "../common/UndirectedGraph.h"
 
 class KirchhoffSpanningTreeCounter
 {

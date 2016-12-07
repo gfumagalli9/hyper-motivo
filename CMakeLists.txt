@@ -17,23 +17,38 @@ set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -funroll-loops -march=native") #-flto
 INCLUDE(CheckCXXSourceCompiles)
 check_cxx_source_compiles("int main() { __builtin_popcount(0xFFFFFFFF); return 0; } " MOTIVO_HAS_BUILTIN_POPCOUNT)
 check_cxx_source_compiles("int main() { __builtin_popcountl(0xFFFFFFFF); return 0; } " MOTIVO_HAS_BUILTIN_POPCOUNTL)
+check_cxx_source_compiles("int main() { int a; __builtin_add_overflow(0, 0, &a); return 0; } " MOTIVO_HAS_BUILTIN_ADD_OVERFLOW)
+check_cxx_source_compiles("int main() { int a; __builtin_mul_overflow(0, 0, &a); return 0; } " MOTIVO_HAS_BUILTIN_MUL_OVERFLOW)
+
 
 INCLUDE(CheckTypeSize)
+check_type_size("short" MOTIVO_SHORT_SIZE LANGUAGE CXX)
 check_type_size("int" MOTIVO_INT_SIZE LANGUAGE CXX)
 check_type_size("long" MOTIVO_LONG_SIZE LANGUAGE CXX)
+check_type_size("long long" MOTIVO_LONG_LONG_SIZE LANGUAGE CXX)
 
-configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
+set(MOTIVO_OVERFLOW_SAFE 1)
+
+if(MOTIVO_OVERFLOW_SAFE AND NOT MOTIVO_HAS_BUILTIN_ADD_OVERFLOW)
+    message(WARNING "No builtin function for checking addition overflow. Will use slow implementation.")
+endif()
+
+if(MOTIVO_OVERFLOW_SAFE AND NOT MOTIVO_HAS_BUILTIN_MUL_OVERFLOW)
+    message(WARNING "No builtin function for checking multiplication overflow. Will use slow implementation.")
+endif()
+
+    configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
 include_directories(${CMAKE_BINARY_DIR})
 
-set(COMMON_SOURCE_FILES src/UndirectedGraph.cpp src/UndirectedGraph.h src/Treelet.h src/GraphColoring.cpp src/GraphColoring.h src/Random.h src/Treelet.cpp src/TreeletTableCollection.cpp src/TreeletTableCollection.h src/TreeletTable.cpp src/TreeletTable.h src/bit_cast.h src/platform.h)
+set(COMMON_SOURCE_FILES src/common/UndirectedGraph.cpp src/common/UndirectedGraph.h src/common/Treelet.h src/common/GraphColoring.cpp src/common/GraphColoring.h src/common/Random.h src/common/Treelet.cpp src/common/TreeletTableCollection.cpp src/common/TreeletTableCollection.h src/common/TreeletTable.cpp src/common/TreeletTable.h src/platform.h src/common/AliasMethodSampler.cpp src/common/AliasMethodSampler.h)
 set(BUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/builder/TreeletTableBuilder.cpp src/builder/TreeletTableBuilder.h src/builder/builder.cpp)
-set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp src/sampler/TreeletSampler.h src/ReservoirSampler.h src/sampler/KirchhoffSpanningTreeCounter.cpp src/sampler/KirchhoffSpanningTreeCounter.h src/sampler/sampler.cpp src/sampler/include_nauty.h src/sampler/GraphFootprint.cpp src/sampler/GraphFootprint.h)
+set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp src/sampler/TreeletSampler.h src/sampler/ReservoirSampler.h src/sampler/KirchhoffSpanningTreeCounter.cpp src/sampler/KirchhoffSpanningTreeCounter.h src/sampler/sampler.cpp src/sampler/include_nauty.h src/sampler/GraphFootprint.cpp src/sampler/GraphFootprint.h)
 
 set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp tests/Treelet.cpp tests/KirchhoffSpanningTreeCounter.cpp src/sampler/KirchhoffSpanningTreeCounter.cpp src/sampler/KirchhoffSpanningTreeCounter.h tests/leftmost_bit_tie.cpp)
 
 
-set(COMMON_LIBRARIES cmph m)
+set(COMMON_LIBRARIES m)
 set(SAMPLER_LIBRARIES ${COMMON_LIBRARIES} openblas lapacke nauty)
 set(BUILDER_LIBRARIES ${COMMON_LIBRARIES})
 set(TEST_LIBRARIES ${COMMON_LIBRARIES} openblas lapacke)
@@ -46,4 +61,4 @@ target_link_libraries(motivo-builder ${BUILDER_LIBRARIES})
 target_link_libraries(motivo-sampler ${SAMPLER_LIBRARIES})
 target_link_libraries(motivo-tests ${TEST_LIBRARIES})
 
-add_executable(motivo-graph2bin src/UndirectedGraph.cpp src/tools/graph2bin.cpp)
+add_executable(motivo-graph2bin src/common/UndirectedGraph.cpp src/tools/graph2bin.cpp)

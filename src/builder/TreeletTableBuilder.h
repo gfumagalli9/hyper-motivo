@@ -7,13 +7,12 @@
 
 #include <sparsehash/sparse_hash_map>
 #include <string>
-#include <cmph.h>
 #include <functional>
-#include "../Treelet.h"
-#include "../UndirectedGraph.h"
-#include "../GraphColoring.h"
-#include "../TreeletTable.h"
-#include "../TreeletTableCollection.h"
+#include "../common/Treelet.h"
+#include "../common/UndirectedGraph.h"
+#include "../common/GraphColoring.h"
+#include "../common/TreeletTable.h"
+#include "../common/TreeletTableCollection.h"
 
 class TreeletTableBuilder
 {
@@ -58,11 +57,6 @@ private:
         sparsehash_data_t(const table_t* table) : begin(table->begin()), current(begin), end(table->end()) {};
     };
 
-    static cmph_io_adapter_t* sparsehash_adapter(const table_t* table);
-    static int key_sparsehash_read(void *data, char **key, cmph_uint32 *keylen);
-    static void key_sparsehash_dispose(void *data, char *key, cmph_uint32 keylen);
-    static void key_sparsehash_rewind(void *data);
-
 public:
 
     TreeletTableBuilder(UndirectedGraph* graph, GraphColoring* coloring, const unsigned int size, const TreeletTableCollection* lower = NULL);
@@ -79,12 +73,6 @@ public:
     ///Two files will be created. The first is basename.dat containing the raw key-value pairs,
     ///the second is basename.off containing, for each vertex, the associated offset in the .dat file
     void write_data(const std::string &basename) const;
-
-    ///Computes and writes a set of perfect hash functions (one for each vertex) to aid retrieval
-    ///The functions are written to a fine named @param basename.phf
-    ///@returns the number of perfect hash function that were successfully computed
-    long write_phf(const std::string &basename) const;
-
 };
 
 

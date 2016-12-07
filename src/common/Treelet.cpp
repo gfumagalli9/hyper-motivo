@@ -38,7 +38,7 @@ Treelet Treelet::merge(const Treelet other) const
     const unsigned int other_size = other.number_of_vertices();
     treelet_structure_t new_structure = treelet_structure_highest_bit + (other.structure >> 1) + (structure >> (2*other_size));
 
-    //Let x be the first child of this. Let |t| denote the size of t.
+    //Let x be the first child of this. Let |t| denote the num_vertices of t.
     //If x and t2 coincide then there the first 2*max(|x|,|t2|) bits of the structure of this and t2 coincide
     //If x and t2 differ then there at least one bit in the first 2*min(|x|,|t2|) bits of the structure of this and t2 differs
     if( (structure ^ new_structure) >> (treelet_structure_bits - 2*other_size) ) //True iff x and t2 differ.

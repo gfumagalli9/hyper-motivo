@@ -1,8 +1,8 @@
 #include <iostream>
 
-#include "../UndirectedGraph.h"
+#include "../common/UndirectedGraph.h"
 #include "TreeletTableBuilder.h"
-#include "../TreeletTableCollection.h"
+#include "../common/TreeletTableCollection.h"
 #include "../sampler/TreeletSampler.h"
 
 int main()

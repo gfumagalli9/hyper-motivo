@@ -63,7 +63,7 @@ TEST_CASE("KirchoffSpanningTreeCounter paths")
 
 TEST_CASE("KirchoffSpanningTreeCounter cliques")
 {
-    //The number of spanning trees in K_n is n**(n-2) by Cayley's formula
+    //The number of spanning trees in K_n is num_elements**(num_elements-2) by Cayley's formula
     for(unsigned int i=1; i<=14; i++) //FIXME: Fails for i=15 and i=16
         test(0, i, static_cast<uint64_t >(pow(i, i-2)+0.5));
 }

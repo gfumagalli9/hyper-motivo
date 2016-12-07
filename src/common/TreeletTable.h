@@ -8,9 +8,9 @@
 #include <cstdint>
 #include <string>
 #include "Treelet.h"
-#include "cmph.h"
 #include "Random.h"
 #include "UndirectedGraph.h"
+#include "AliasMethodSampler.h"
 
 class TreeletTable
 {
@@ -38,19 +38,21 @@ public:
         const_iterator& operator=(const const_iterator& iterator) { position = iterator.position; return *this; };
         const_iterator& operator++() { position++; return *this; };
         const_iterator operator++(int) { return position++; };
-        const treelet_count_pair& operator*() const { return *position; };
-        const treelet_count_pair* operator->() const { return position; }
+        const Treelet& treelet() const { return position->treelet; };
+        treelet_count_t count() const { return position->count - (position-1)->count; }
+        //const treelet_count_pair& operator*() const { return *position; };
+        //const treelet_count_pair* operator->() const { return position; }
         bool operator==(const const_iterator& iterator) const { return position == iterator.position; }
         bool operator!=(const const_iterator& iterator) const { return position != iterator.position; }
     };
 
 private:
-    unsigned int size;
+    unsigned int num_vertices;
     uint64_t* offsets;
     treelet_count_pair* data;
-    cmph_t** hashes;
     FILE* data_fd;
     FILE* offsets_fd;
+    AliasMethodSampler* root_sampler;
 
 public:
     ///Loads a table stored with the given @param basename.
@@ -58,9 +60,11 @@ public:
     TreeletTable(const std::string& basename);
     ~TreeletTable();
 
-    ///@returns a pair <Treelet, root> where Treelet is chosen uniformly at random from all the rooted treelets
-    ///and root is the corresponding root.
-    std::pair<Treelet, UndirectedGraph::vertex_t> get_random_treelet_root_pair(Random* rng) const;
+    ///@returns a root r chosen at random with probability proportional to the number of treelets  rooted in r
+    UndirectedGraph::vertex_t get_random_root(Random* rng) const;
+
+    ///@returns a Treelet  chosen uniformly at random from all the treelts roote in @param root
+    const Treelet& get_random_treelet(UndirectedGraph::vertex_t root, Random *rng) const;
 
     ///@returns the number of occurrences of @param treelet rooted in @param u, as stored in the table.
     treelet_count_t get_count(const UndirectedGraph::vertex_t u, const Treelet treelet) const;
@@ -73,6 +77,7 @@ public:
     const_iterator end(const UndirectedGraph::vertex_t u) const;
 
     const_iterator begin(const UndirectedGraph::vertex_t u, const Treelet treelet) const;
+
 };
 
 

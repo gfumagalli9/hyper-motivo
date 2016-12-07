@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <cassert>
 #include <utility>
-#include "platform.h"
+#include "../platform.h"
 
 
 //The following classsis already packed.
@@ -79,7 +79,7 @@ public:
     ///@returns an opaque value representing the structure of the treelet
     inline treelet_structure_t get_structure() const { return structure; }
 
-    //FIXME: Better hash?
+    //FIXME: Better/faster hash? Currently we are casting to a larger typeso we can invoke std::hash
     inline std::size_t hash() const { return std::hash<uint64_t>{}( (static_cast<uint64_t>(structure)<<16) | colors); }
 
     Treelet split_child() const;

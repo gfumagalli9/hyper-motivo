@@ -3,8 +3,7 @@
 //
 
 #include "doctest.h"
-#include "../src/Treelet.h"
-#include "../src/bit_cast.h"
+#include "../src/common/Treelet.h"
 
 void test(const Treelet& treelet, Treelet::treelet_structure_t structure, Treelet::treelet_colors_t colors, uint8_t norm, uint8_t size)
 {
@@ -19,9 +18,10 @@ void test(const Treelet& treelet, Treelet::treelet_structure_t structure, Treele
 
 
     //*reinterpret_cast<uint8_t*>(pr+6) = norm;
-    //*reinterpret_cast<uint8_t*>(pr+7) = size;
+    //*reinterpret_cast<uint8_t*>(pr+7) = num_vertices;
 
-    CHECK(bit_cast<Treelet>(r)==treelet);
+    static_assert(sizeof(r) == sizeof(Treelet), "Structure size mismatch");
+    CHECK( memcmp(&r, &treelet, sizeof(r)) == 0 );
     CHECK(treelet.number_of_vertices()==size);
     CHECK(treelet.normalization_factor()==norm);
 }

@@ -6,13 +6,60 @@
 #define MOTIVO_PLATFORM_H
 
 
+#include <cstdlib>
 #include <cstdint>
 #include <immintrin.h>
 #include <iostream>
 #include <memory.h>
+#include <limits>
 #include "generated/leftmost_bit_tie_lut.h"
 #include "config.h"
 
+#ifdef MOTIVO_OVERFLOW_SAFE
+    #define FAIL_OVERFLOW do { std::cerr << "Overflow in " << __FILE__ <<":"<< __LINE__ << std::endl << std::flush; std::abort(); } while(false)
+
+    #ifdef MOTIVO_HAS_BUILTIN_ADD_OVERFLOW
+        #define _add_overflow(a, b, res) __builtin_add_overflow( (a), (b), (res) )
+    #else
+        template<typename T> inline bool _add_overflow(T a, T b, T* res)
+        {
+            if( (b>0 && a>std::numeric_limits<T>::max()-b) || (b<0 && a < std::numeric_limits<T>::min()-b) )
+                return true;
+
+            *res=a+b;
+            return false;
+        }
+    #endif
+    #define add_overflow(a, b, res)  do { if( _add_overflow( (a), (b), (res) ) ) FAIL_OVERFLOW; } while(false)
+
+
+    #ifdef MOTIVO_HAS_BUILTIN_MUL_OVERFLOW
+        #define _mul_overflow(a, b, res) __builtin_mul_overflow( (a), (b), (res) )
+    #else
+        template<typename T> typename std::enable_if<std::is_unsigned<T>::value, bool>::type inline _mul_overflow(T a, T b, T* res)
+        {
+            if( (a>std::numeric_limits<T>::max()/b) || (a < std::numeric_limits<T>::min()/b) )
+                return true;
+
+            *res=a*b;
+            return false;
+        }
+
+        template<typename T> typename std::enable_if<!std::is_unsigned<T>::value, bool>::type inline _mul_overflow(T a, T b, T* res)
+        {
+            if( (a==-1 && b==std::numeric_limits<T>::min())  || (b==-1 && a==std::numeric_limits<T>::min())
+                || (a>std::numeric_limits<T>::max()/b) || (a < std::numeric_limits<T>::min()/b) )
+                return true;
+
+            *res=a*b;
+            return false;
+        }
+    #endif
+    #define mul_overflow(a, b, res)  do { if( _mul_overflow( (a), (b), (res) ) ) FAIL_OVERFLOW; } while(false)
+#else
+    #define add_overflow(a, b, res) do { (*res) = ( (a) + (b) ) } while(false)
+    #define mul_overflow(a, b, res) do { (*res) = ( (a) * (b) ) } while(false)
+#endif
 
 ///popcount32 returns the number of bits set to 1 in x where x is a 32 bit integer
 #if MOTIVO_INT_SIZE>=4 && MOTIVO_HAS_BUILTIN_POPCOUNT
@@ -28,7 +75,6 @@ inline int popcount32 [[gnu::const]] (uint32_t v)
     return (((v + (v >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24; // count
 }
 #endif
-
 
 ///@pre the leftmost bit of x is 1
 ///@returns the index of the smallest index i>0 such that the number of 0s and 1s in the leftmost i bits of x are equal

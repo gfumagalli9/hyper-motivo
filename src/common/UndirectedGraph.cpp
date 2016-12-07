@@ -20,11 +20,11 @@ UndirectedGraph::UndirectedGraph(const std::string &basename)
 
     fread(&num_verts, sizeof(vertex_t), 1, offsets_fd);
     fread(&num_edges, sizeof(uint32_t), 1, offsets_fd);
-    offsets = static_cast<vertex_t*>(mmap(nullptr, (num_verts+2)*sizeof(vertex_t), PROT_READ, MAP_PRIVATE, fileno(offsets_fd), 0));
+    offsets = static_cast<vertex_t*>(mmap(NULL, (num_verts+2)*sizeof(vertex_t), PROT_READ, MAP_PRIVATE, fileno(offsets_fd), 0));
     assert(offsets!=MAP_FAILED);
     offsets += 2;
 
-    edges = static_cast<vertex_t*>(mmap(nullptr, (num_edges)*sizeof(uint32_t), PROT_READ, MAP_PRIVATE, fileno(edges_fd), 0));
+    edges = static_cast<vertex_t*>(mmap(NULL, (num_edges)*sizeof(uint32_t), PROT_READ, MAP_PRIVATE, fileno(edges_fd), 0));
     assert(edges!=MAP_FAILED);
 }
 

@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include <fstream>
-#include "../UndirectedGraph.h"
+#include "../common/UndirectedGraph.h"
 
 int main(int argc, char** argv)
 {

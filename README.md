@@ -7,12 +7,12 @@ It is written in C++ and targets x86_64 processors.
 
 Motivo depends on the following libraries:
 
-- [Google's sparsehash library](https://github.com/sparsehash/sparsehash) 
-- [C Minimal Perfect Hashing Library](http://cmph.sourceforge.net/)
-- ~~[GNU Scientific Library](https://www.gnu.org/software/gsl/).~~
-- [OpenBLAS](http://www.openblas.net/) (or any other BLAS library)
-- [LAPACKE](http://www.netlib.org/lapack/lapacke.html)
-- [Nauty](http://pallini.di.uniroma1.it/)
+- [Google's sparsehash library](https://github.com/sparsehash/sparsehash), 
+- ~~[C Minimal Perfect Hashing Library](http://cmph.sourceforge.net/),~~
+- ~~[GNU Scientific Library](https://www.gnu.org/software/gsl/),~~
+- [OpenBLAS](http://www.openblas.net/) (or any other BLAS library),
+- [LAPACKE](http://www.netlib.org/lapack/lapacke.html),
+- [Nauty](http://pallini.di.uniroma1.it/).
 
 Your Linux distribution might have premade packages, i.e., on Debian you can run:
 ~~~~
@@ -73,3 +73,7 @@ Here: https://bitbucket.org/steven_/motivo/issues
 ##License
 
 Yet to be chosen.
+
+##To-do
+
+- Multithread support
