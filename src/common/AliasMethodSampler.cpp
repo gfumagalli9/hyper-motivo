@@ -10,7 +10,7 @@
 #include "AliasMethodSampler.h"
 #include "../platform.h"
 
-AliasMethodSampler::AliasMethodSampler(uint64_t n) : num_elements(n), total_weight(0), elements_fd(NULL), readonly(false)
+AliasMethodSampler::AliasMethodSampler(uint64_t n) : num_elements(n), total_weight(0), elements_fd(nullptr), readonly(false)
 {
     elements = new element[num_elements];
     memset(elements, 0, num_elements*sizeof(element));
@@ -20,13 +20,13 @@ AliasMethodSampler::AliasMethodSampler(const std::string &filename)
 {
     elements_fd = fopen(filename.c_str(), "rb");
 
-    if(elements_fd==NULL)
+    if(elements_fd==nullptr)
         throw std::runtime_error("Could not open file");
 
     fread(&num_elements, sizeof(uint64_t), 1, elements_fd);
     fread(&total_weight, sizeof(uint64_t), 1, elements_fd);
 
-    elements = static_cast<element*>(mmap(NULL, (num_elements+1)*sizeof(uint64_t), PROT_READ, MAP_PRIVATE, fileno(elements_fd), 0));
+    elements = static_cast<element*>(mmap(nullptr, (num_elements+1)*sizeof(uint64_t), PROT_READ, MAP_PRIVATE, fileno(elements_fd), 0));
     assert(elements!=MAP_FAILED);
     elements += 1;
 
@@ -36,7 +36,7 @@ AliasMethodSampler::AliasMethodSampler(const std::string &filename)
 
 AliasMethodSampler::~AliasMethodSampler()
 {
-    if(elements_fd != NULL)
+    if(elements_fd != nullptr)
     {
         munmap(elements - 1, (num_elements + 1) * sizeof(uint64_t));
         fclose(elements_fd);

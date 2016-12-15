@@ -7,16 +7,15 @@ It is written in C++ and targets x86_64 processors.
 
 Motivo depends on the following libraries:
 
-- [Google's sparsehash library](https://github.com/sparsehash/sparsehash), 
-- ~~[C Minimal Perfect Hashing Library](http://cmph.sourceforge.net/),~~
-- ~~[GNU Scientific Library](https://www.gnu.org/software/gsl/),~~
+- [Google's sparsehash library](https://github.com/sparsehash/sparsehash),
 - [OpenBLAS](http://www.openblas.net/) (or any other BLAS library),
 - [LAPACKE](http://www.netlib.org/lapack/lapacke.html),
-- [Nauty](http://pallini.di.uniroma1.it/).
+- [Nauty](http://pallini.di.uniroma1.it/),
+- [Boost.Program_options](http://www.boost.org/doc/libs/release/libs/program_options/)
 
 Your Linux distribution might have premade packages, i.e., on Debian you can run:
 ~~~~
-# apt-get install lib{sparsehash,openblas,lapacke,nauty}-dev
+# apt-get install lib{sparsehash,openblas,lapacke,nauty,boost-program-options}-dev
 ~~~~
 
 A C++14 aware compiler is required along with support for [u]int{8,16,32,64} types.
@@ -76,4 +75,4 @@ Yet to be chosen.
 
 ##To-do
 
-- Multithread support
+- Multithread support ?

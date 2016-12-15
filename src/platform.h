@@ -57,8 +57,8 @@
     #endif
     #define mul_overflow(a, b, res)  do { if( _mul_overflow( (a), (b), (res) ) ) FAIL_OVERFLOW; } while(false)
 #else
-    #define add_overflow(a, b, res) do { (*res) = ( (a) + (b) ) } while(false)
-    #define mul_overflow(a, b, res) do { (*res) = ( (a) * (b) ) } while(false)
+    #define add_overflow(a, b, res) do { (*res) = ( (a) + (b) ); } while(false)
+    #define mul_overflow(a, b, res) do { (*res) = ( (a) * (b) ); } while(false)
 #endif
 
 ///popcount32 returns the number of bits set to 1 in x where x is a 32 bit integer

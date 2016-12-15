@@ -2,6 +2,7 @@
 // Created by steven on 12/10/16.
 //
 
+#include <cstdlib>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -9,44 +10,55 @@
 #include "../common/UndirectedGraph.h"
 #include "../common/Treelet.h"
 #include "../common/TreeletTable.h"
-#include "../../libs/cxxopts.hpp"
+#include "boost/program_options.hpp"
 
-int main(int argc, char** argv)
+namespace po = boost::program_options;
+
+int main(const int argc, const char** argv)
 {
-    cxxopts::Options options("motivo-merge", "Builds treelet tables for use with motivo-sample", "[OPTIONS...] FILE...");
 
-    options.add_options("")
+    po::options_description desc("Allowed options");
+    desc.add_options()
             ("help", "Print help and exit")
-            ("o,output", "Output basename (required)", cxxopts::value<std::string>(), "BASENAME")
-            ("positional", "Positional arguments", cxxopts::value<std::vector<std::string>>());
+            ("o,output", po::value<std::string>(), "Output basename (required)")
+            ("input", po::value<std::vector<std::string>>(), "Input count files");
 
-    options.parse_positional(std::vector<std::string>{"positional"});
-    options.parse(argc, argv);
+    po::positional_options_description p;
+    p.add("input", -1);
 
-    if(options.count("help"))
+    po::variables_map vm;
+    po::store(po::command_line_parser(argc, argv).options(desc).positional(p).run(), vm);
+    po::notify(vm);
+
+
+    if (vm.count("help"))
     {
-        std::cout << options.help() << std::endl;
-        std::cout << "FILE... is a list of count tables to merge" << std::endl;
+        std::cout << "motivo-merge [OPTION]... FILE [FILE]..." << std::endl;
+        std::cout << "  Builds treelet tables for use with motivo-sample" << std::endl << std::endl;
+        std::cout << desc << std::endl;
+
         return EXIT_SUCCESS;
     }
 
-    if(!options["output"].count())
+    if(!vm.count("output"))
     {
         std::cout << "'output' parameter is required" << std::endl;
         return EXIT_FAILURE;
     }
 
-    auto& count_files = options["positional"].as<std::vector<std::string>>();
+    auto& count_files = vm["input"].as<std::vector<std::string>>();
     if(count_files.size()==0)
     {
         std::cout << "No inputs specified" << std::endl;
         return EXIT_FAILURE;
     }
 
-    std::string output_filename = options["output"].as<std::string>() + ".dat";
+    const std::string& base_output_filename = vm["output"].as<std::string>();
+
+    std::string output_filename = base_output_filename + ".dat";
     std::ofstream out(  output_filename, std::ofstream::binary | std::ofstream::trunc);
 
-    std::string offset_filename = options["output"].as<std::string>() + ".off";
+    std::string offset_filename = base_output_filename + ".off";
     std::ofstream off(  offset_filename, std::ofstream::binary | std::ofstream::trunc);
 
     AliasMethodSampler *alias_sampler = nullptr;
@@ -133,7 +145,7 @@ int main(int argc, char** argv)
     out.close();
     off.close();
 
-    std::string root_sampler_filename = options["output"].as<std::string>() + ".rts";
+    std::string root_sampler_filename = base_output_filename + ".rts";
     alias_sampler->build();
     alias_sampler->write(root_sampler_filename);
 

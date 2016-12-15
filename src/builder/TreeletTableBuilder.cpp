@@ -5,6 +5,7 @@
 #include <vector>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 #include "TreeletTableBuilder.h"
 
 void TreeletTableBuilder::build(const UndirectedGraph::vertex_t from, const UndirectedGraph::vertex_t to)

@@ -13,13 +13,11 @@ endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++14 -Wconversion -Wall -Wextra -Wpedantic -pedantic-errors -Wdisabled-optimization -Wfloat-equal -Wold-style-cast -Wsign-conversion -Winline -Wzero-as-null-pointer-constant -Wuseless-cast -Wno-unknown-warning-option")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -funroll-loops -march=native") #-flto
 
-
 INCLUDE(CheckCXXSourceCompiles)
 check_cxx_source_compiles("int main() { __builtin_popcount(0xFFFFFFFF); return 0; } " MOTIVO_HAS_BUILTIN_POPCOUNT)
 check_cxx_source_compiles("int main() { __builtin_popcountl(0xFFFFFFFF); return 0; } " MOTIVO_HAS_BUILTIN_POPCOUNTL)
 check_cxx_source_compiles("int main() { int a; __builtin_add_overflow(0, 0, &a); return 0; } " MOTIVO_HAS_BUILTIN_ADD_OVERFLOW)
 check_cxx_source_compiles("int main() { int a; __builtin_mul_overflow(0, 0, &a); return 0; } " MOTIVO_HAS_BUILTIN_MUL_OVERFLOW)
-
 
 INCLUDE(CheckTypeSize)
 check_type_size("short" MOTIVO_SHORT_SIZE LANGUAGE CXX)
@@ -27,7 +25,7 @@ check_type_size("int" MOTIVO_INT_SIZE LANGUAGE CXX)
 check_type_size("long" MOTIVO_LONG_SIZE LANGUAGE CXX)
 check_type_size("long long" MOTIVO_LONG_LONG_SIZE LANGUAGE CXX)
 
-set(MOTIVO_OVERFLOW_SAFE 1)
+set(MOTIVO_OVERFLOW_SAFE ON)
 
 if(MOTIVO_OVERFLOW_SAFE AND NOT MOTIVO_HAS_BUILTIN_ADD_OVERFLOW)
     message(WARNING "No builtin function for checking addition overflow. Will use slow implementation.")
@@ -51,8 +49,8 @@ set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp t
 
 set(COMMON_LIBRARIES m)
 set(SAMPLER_LIBRARIES ${COMMON_LIBRARIES} openblas lapacke nauty)
-set(BUILDER_LIBRARIES ${COMMON_LIBRARIES})
-set(MERGER_LIBRARIES ${COMMON_LIBRARIES})
+set(BUILDER_LIBRARIES ${COMMON_LIBRARIES} boost_program_options)
+set(MERGER_LIBRARIES ${COMMON_LIBRARIES} boost_program_options)
 set(TEST_LIBRARIES ${COMMON_LIBRARIES} openblas lapacke)
 
 add_executable(motivo-build ${BUILDER_SOURCE_FILES})

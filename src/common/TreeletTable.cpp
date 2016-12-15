@@ -16,7 +16,7 @@ TreeletTable::TreeletTable(const std::string& basename)
         throw std::runtime_error("Could not open file " + offsets_filename);
 
     fread(&num_vertices, sizeof(uint64_t), 1, offsets_fd);
-    offsets = static_cast<uint64_t*>(mmap(NULL, (num_vertices+2)*sizeof(uint64_t), PROT_READ, MAP_PRIVATE, fileno(offsets_fd), 0));
+    offsets = static_cast<uint64_t*>(mmap(nullptr, (num_vertices+2)*sizeof(uint64_t), PROT_READ, MAP_PRIVATE, fileno(offsets_fd), 0));
     assert(offsets!=MAP_FAILED);
     offsets += 1;
 
