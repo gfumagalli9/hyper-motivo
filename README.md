@@ -16,7 +16,7 @@ Motivo depends on the following libraries:
 
 Your Linux distribution might have premade packages, i.e., on Debian you can run:
 ~~~~
-# apt-get install lib{sparsehash,cmph,openblas,lapacke,nauty}-dev
+# apt-get install lib{sparsehash,openblas,lapacke,nauty}-dev
 ~~~~
 
 A C++14 aware compiler is required along with support for [u]int{8,16,32,64} types.

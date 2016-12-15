@@ -21,8 +21,8 @@ int main()
     for(unsigned int i = 1; i <= 10000; i++)
     {
         sampler.sample(5, occurrence);
-        //for(int j = 0; j < 5; j++)
-        //    std::cout << occurrence[j] << "\t";;
+        for(int j = 0; j < 5; j++)
+            std::cout << occurrence[j] << "\t";;
 
         GraphFootprint::footprint f = footprint.get_footprint(&G, occurrence, 5);
         std::cout << f.to_string() << std::endl;

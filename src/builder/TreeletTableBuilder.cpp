@@ -6,60 +6,46 @@
 #include <fstream>
 #include <iostream>
 #include "TreeletTableBuilder.h"
-#include "../common/AliasMethodSampler.h"
 
-TreeletTableBuilder::TreeletTableBuilder(UndirectedGraph* graph, GraphColoring* coloring, const unsigned int size, const TreeletTableCollection* lower)
-        :  graph(graph), num_vertices(graph->number_of_vertices()), coloring(coloring), size(size), lower(lower)
+void TreeletTableBuilder::build(const UndirectedGraph::vertex_t from, const UndirectedGraph::vertex_t to)
 {
-    counts = new table_t*[num_vertices];
-    for(long u=0; u<num_vertices; u++)
-    {
-        counts[u] = new table_t();
-        //counts[u]->set_deleted_key(Treelet::invalid_treelet);
-    }
-}
+    UndirectedGraph::vertex_t num_verts = graph->number_of_vertices();
+    output->write(reinterpret_cast<const char*>(&num_verts), sizeof(UndirectedGraph::vertex_t));
+    output->write(reinterpret_cast<const char*>(&from), sizeof(UndirectedGraph::vertex_t));
+    output->write(reinterpret_cast<const char*>(&to), sizeof(UndirectedGraph::vertex_t));
 
-TreeletTableBuilder::~TreeletTableBuilder()
-{
-    for(long u=0; u<num_vertices; u++)
-        delete counts[u];
-
-    delete[] counts;
-}
-
-void TreeletTableBuilder::build()
-{
     if(size==1)
-        do_fill_1();
+        do_build_1(from, to);
     else
-        do_fill();
+        do_build(from, to);
 }
 
-void TreeletTableBuilder::do_fill_1()
+void TreeletTableBuilder::do_build_1(const UndirectedGraph::vertex_t from, const UndirectedGraph::vertex_t to)
 {
-    for(long u=0; u<num_vertices; u++)
+    for(UndirectedGraph::vertex_t u=from; u<=to; u++)
     {
+        table_t counts;
         Treelet treelet = Treelet::singleton(coloring->color_of(u));
-        (*counts[u])[treelet] = 1;
+        counts[treelet] = 1;
+        write(counts);
     }
 }
 
-void TreeletTableBuilder::do_fill()
+void TreeletTableBuilder::do_build(const UndirectedGraph::vertex_t from, const UndirectedGraph::vertex_t to)
 {
-    std::cerr << "Num verts: " <<num_vertices << std::endl;
-    for(UndirectedGraph::vertex_t u=0; u<num_vertices; u++)
+    for(UndirectedGraph::vertex_t u=from; u<=to; u++)
     {
+        table_t counts;
         const UndirectedGraph::vertex_t* neighbors = graph->neighbors(u);
         for(UndirectedGraph::vertex_t d=0; d<graph->degree(u); d++)
-            combine(u, neighbors[d]);
+            combine(u, neighbors[d], counts);
 
-        normalize(u);
-        counts[u]->resize(0); //Reduce to the smallest size
-        //FIXME: Save now and keep only one hashtable to save on memory?
+        normalize(counts);
+        write(counts);
     }
 }
 
-void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const UndirectedGraph::vertex_t v)
+void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const UndirectedGraph::vertex_t v, table_t& counts)
 {
     for(unsigned int size1=1; size1<size; size1++)
     {
@@ -82,75 +68,42 @@ void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const Undir
                     assert(v_it.count() > 0);
                     //(*counts[u])[merged] += u_it.count() * v_it.count();
 
-                    TreeletTable::treelet_count_t &count = (*counts[u])[merged];
+                    TreeletTable::treelet_count_t &count = counts[merged];
                     TreeletTable::treelet_count_t tmp;
                     mul_overflow(u_it.count(), v_it.count(), &tmp);
                     add_overflow(count, tmp, &count);
                 }
                 else if(merged == Treelet::invalid_merge_structure)
-                    break; //All the following treelets t2 will have a structure that is big small.
+                    break; //All the remaining treelets t2 will have a structure that is too small.
             }
         }
     }
 }
 
-void TreeletTableBuilder::normalize(long u)
+void TreeletTableBuilder::normalize(table_t& counts)
 {
-    for(table_t::iterator u_it = counts[u]->begin(); u_it != counts[u]->end(); u_it++)
+    for(table_t::iterator u_it = counts.begin(); u_it != counts.end(); u_it++)
     {
         assert(u_it->second % u_it->first.normalization_factor() == 0);
         u_it->second /= u_it->first.normalization_factor();
     }
 }
 
-void TreeletTableBuilder::write(const std::string &basename) const
+void  TreeletTableBuilder::write(const table_t& counts)
 {
-    write_data(basename);
+    static constexpr TreeletTable::treelet_count_t zero = 0;
+    output->write(reinterpret_cast<const char*>(&Treelet::invalid_treelet), sizeof(Treelet));
+    output->write(reinterpret_cast<const char*>(&zero), sizeof(TreeletTable::treelet_count_t));
 
-    //if(num_vertices>1)
-        //write_phf(basename);
-}
+    const uint64_t ntreelets = counts.size();
+    auto sorted = new std::pair<Treelet, TreeletTable::treelet_count_t>[ntreelets];
+    std::copy(counts.begin(), counts.end(), sorted);
+    std::sort(sorted, sorted+ntreelets);
 
-void TreeletTableBuilder::write_data(const std::string &basename) const
-{
-    std::ofstream offsets(basename + ".off", std::ofstream::binary | std::ofstream::trunc);
-    offsets.write(reinterpret_cast<const char*>(&num_vertices), sizeof(uint64_t));
-
-    std::ofstream data(basename + ".dat", std::ofstream::binary | std::ofstream::trunc);
-    uint64_t offset=0;
-
-    AliasMethodSampler root_sampler(num_vertices);
-
-    TreeletTable::treelet_count_t num_treelets = 0;
-    data.write(reinterpret_cast<const char*>(&Treelet::invalid_treelet), sizeof(Treelet));
-    data.write(reinterpret_cast<const char*>(&num_treelets), sizeof(TreeletTable::treelet_count_t));
-    for(UndirectedGraph::vertex_t u=0; u < num_vertices; u++)
+    for(TreeletTable::treelet_count_t i=0; i<ntreelets; i++)
     {
-        auto tcp = new std::pair<Treelet, TreeletTable::treelet_count_t>[counts[u]->size()];
-        std::copy(counts[u]->begin(), counts[u]->end(), tcp);
-        std::sort(tcp, tcp+counts[u]->size());
-
-        offsets.write(reinterpret_cast<const char*>(&offset), sizeof(uint64_t));
-        for(uint64_t i=0; i<counts[u]->size(); i++)
-        {
-            //num_treelets += tcp[i].second;
-            add_overflow(num_treelets, tcp[i].second, &num_treelets);
-            data.write(reinterpret_cast<const char*>(&tcp[i].first), sizeof(Treelet));
-            data.write(reinterpret_cast<const char*>(&num_treelets), sizeof(TreeletTable::treelet_count_t));
-
-        }
-        offset+=counts[u]->size();
-        root_sampler.set(u, counts[u]->size());
-
-        delete[] tcp;
+        output->write(reinterpret_cast<const char*>(&sorted[i].first), sizeof(Treelet));
+        output->write(reinterpret_cast<const char*>(&sorted[i].second), sizeof(TreeletTable::treelet_count_t));
     }
-
-    offsets.write(reinterpret_cast<const char*>(&offset), sizeof(uint64_t));
-    data.close();
-    offsets.close();
-    std::cerr << "Written " << offset << " records " << std::endl;
-
-    root_sampler.build();
-    root_sampler.write(basename+".rts");
 }
 

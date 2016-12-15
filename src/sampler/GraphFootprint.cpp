@@ -28,7 +28,9 @@ GraphFootprint::footprint GraphFootprint::get_footprint(const UndirectedGraph *g
         {
             UndirectedGraph::vertex_t v=subgraph[j];
             if(graph->has_edge(u,v))
+            {
                 ADDONEEDGE(g, static_cast<int>(i), static_cast<int>(j), static_cast<unsigned int>(m));
+            }
         }
     }
 

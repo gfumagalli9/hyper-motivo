@@ -11,12 +11,15 @@
 
 UndirectedGraph::UndirectedGraph(const std::string &basename)
 {
-    offsets_fd = fopen( (basename+".gof").c_str(), "rb" );
-    edges_fd = fopen( (basename+".ged").c_str(), "rb" );
+    std::string offsets_filename = basename+".gof";
+    offsets_fd = fopen( offsets_filename.c_str(), "rb" );
+    if(offsets_fd==NULL)
+        throw std::runtime_error("Could not open file "+ offsets_filename);
 
-    if(offsets_fd==NULL || edges_fd==NULL)
-        throw std::runtime_error("Could not open files");
-
+    std::string edges_filename = basename+".ged";
+    edges_fd = fopen( edges_filename.c_str(), "rb" );
+    if(edges_fd==NULL)
+        throw std::runtime_error("Could not open file "+ edges_filename);
 
     fread(&num_verts, sizeof(vertex_t), 1, offsets_fd);
     fread(&num_edges, sizeof(uint32_t), 1, offsets_fd);

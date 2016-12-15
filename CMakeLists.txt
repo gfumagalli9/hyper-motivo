@@ -42,6 +42,7 @@ endif()
 include_directories(${CMAKE_BINARY_DIR})
 
 set(COMMON_SOURCE_FILES src/common/UndirectedGraph.cpp src/common/UndirectedGraph.h src/common/Treelet.h src/common/GraphColoring.cpp src/common/GraphColoring.h src/common/Random.h src/common/Treelet.cpp src/common/TreeletTableCollection.cpp src/common/TreeletTableCollection.h src/common/TreeletTable.cpp src/common/TreeletTable.h src/platform.h src/common/AliasMethodSampler.cpp src/common/AliasMethodSampler.h)
+set(MERGER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/merger/merger.cpp)
 set(BUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/builder/TreeletTableBuilder.cpp src/builder/TreeletTableBuilder.h src/builder/builder.cpp)
 set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp src/sampler/TreeletSampler.h src/sampler/ReservoirSampler.h src/sampler/KirchhoffSpanningTreeCounter.cpp src/sampler/KirchhoffSpanningTreeCounter.h src/sampler/sampler.cpp src/sampler/include_nauty.h src/sampler/GraphFootprint.cpp src/sampler/GraphFootprint.h)
 
@@ -51,14 +52,17 @@ set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp t
 set(COMMON_LIBRARIES m)
 set(SAMPLER_LIBRARIES ${COMMON_LIBRARIES} openblas lapacke nauty)
 set(BUILDER_LIBRARIES ${COMMON_LIBRARIES})
+set(MERGER_LIBRARIES ${COMMON_LIBRARIES})
 set(TEST_LIBRARIES ${COMMON_LIBRARIES} openblas lapacke)
 
-add_executable(motivo-builder ${BUILDER_SOURCE_FILES})
-add_executable(motivo-sampler ${SAMPLER_SOURCE_FILES})
+add_executable(motivo-build ${BUILDER_SOURCE_FILES})
+add_executable(motivo-merge ${MERGER_SOURCE_FILES})
+add_executable(motivo-sample ${SAMPLER_SOURCE_FILES})
 add_executable(motivo-tests ${TEST_SOURCE_FILES})
 
-target_link_libraries(motivo-builder ${BUILDER_LIBRARIES})
-target_link_libraries(motivo-sampler ${SAMPLER_LIBRARIES})
+target_link_libraries(motivo-build ${BUILDER_LIBRARIES})
+target_link_libraries(motivo-merge ${MERGER_LIBRARIES})
+target_link_libraries(motivo-sample ${SAMPLER_LIBRARIES})
 target_link_libraries(motivo-tests ${TEST_LIBRARIES})
 
 add_executable(motivo-graph2bin src/common/UndirectedGraph.cpp src/tools/graph2bin.cpp)
