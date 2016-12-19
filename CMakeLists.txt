@@ -79,7 +79,7 @@ INSTALL(TARGETS motivo-graph DESTINATION bin)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/build-many.sh DESTINATION share/motivo)
 
 enable_testing()
-add_test(NAME build-graph COMMAND motivo-graph2bin --input ../graphs/test-graph.txt --output test-graph)
+add_test(NAME build-graph COMMAND motivo-graph --input ../graphs/test-graph.txt --output test-graph)
 add_test(NAME motivo-tests COMMAND motivo-tests)
 set_tests_properties(motivo-tests PROPERTIES DEPENDS build-graph)
 
