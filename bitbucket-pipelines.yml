@@ -1,0 +1,18 @@
+# This is a sample build configuration for C++.
+# Check our guides at https://confluence.atlassian.com/x/VYk8Lw for more examples.
+# Only use spaces to indent your .yml configuration.
+# -----
+# You can specify a custom docker image from Docker Hub as your build environment.
+image: debian:stable
+
+pipelines:
+  default:
+    - step:
+        script:
+          - apt-get update
+          - apt-get install -y cmake g++
+          - apt-get install -y libsparsehash-dev libopenblas-dev liblapacke-dev libnauty-dev libboost-program-options-dev
+          - mkdir build
+          - cd build
+          - cmake ..          
+          - make
