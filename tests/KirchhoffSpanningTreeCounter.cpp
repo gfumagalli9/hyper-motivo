@@ -14,7 +14,7 @@
  * A diamond on vertices 48-51 (5 edges)
  * A paw on vertices 52-55 (4 edges)
  */
-UndirectedGraph test_graph( "test" );
+UndirectedGraph test_graph("test-graph");
 
 void test(unsigned int from, unsigned int size, uint64_t expected)
 {

@@ -1,9 +1,11 @@
 # Motivo
 
-Motivo is a tool suite for counting and sampling motifs in large graphs.
-It is written in C++ and targets x86_64 processors.
+Motivo is a collection of tools for counting and sampling motifs in large graphs.
+It is written in C++ and targets x86_64 processors although it should compile on other architectures as well.
 
-##Requirements
+##Setup
+
+###Requirements
 
 Motivo depends on the following libraries:
 
@@ -15,13 +17,13 @@ Motivo depends on the following libraries:
 
 Your Linux distribution might have premade packages, i.e., on Debian you can run:
 ~~~~
-# apt-get install lib{sparsehash,openblas,lapacke,nauty,boost-program-options}-dev
+# apt-get install lib{sparsehash,openblas,lapacke,nauty2,boost-program-options}-dev
 ~~~~
 
 A C++14 aware compiler is required along with support for [u]int{8,16,32,64} types.
 Support for [mmap](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mmap.html) (POSIX.1-2001 and later) function is also currently required.
 
-##Compiling
+###Compiling
 
 Install CMake (>= 3.6), checkout the source files and run:
 
@@ -29,7 +31,7 @@ Install CMake (>= 3.6), checkout the source files and run:
 $ mkdir build
 $ cd build
 $ cmake ..
-$ cmake --build .
+$ make
 ~~~~
 
 If you prefer to build with Clang/LLVM (and your default compiler is different) use:
@@ -40,26 +42,59 @@ $ CC=clang CXX=clang++ cmake -D_CMAKE_TOOLCHAIN_PREFIX=llvm- ..
 
 ###Running the tests
 
-First, convert the test graph to Motivo's binary format:
 ~~~~
-$ ./motivo-graph2bin ../graphs/test.txt test
-~~~~
-
-Then run:
-
-~~~~
-$ ./motivo-tests
+$ make test
 ~~~~
 
 Hopefully you will get an output similar to the following:
 
 ~~~~
-[doctest] doctest version is "1.1.3"
-[doctest] run with "--help" for options
-===============================================================================
-[doctest] test cases:    2 |    2 passed |    0 failed |    0 skipped
-[doctest] assertions:   26 |   26 passed |    0 failed |
+Running tests...
+Test project /home/steven/Projects/motivo/build
+    Start 1: build-graph
+1/2 Test #1: build-graph ......................   Passed    0.00 sec
+    Start 2: motivo-tests
+2/2 Test #2: motivo-tests .....................   Passed   32.24 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =  32.25 sec
 ~~~~
+
+###Installing
+
+~~~
+# make install
+~~~
+
+On Linux motivo is installed in /usr/local by default. If you wish to chose another directory you can pass the option -DCMAKE_INSTALL_PREFIX:PATH=/your/path to the cmake invocation, e.g.:
+
+~~~
+$ cmake -DCMAKE_INSTALL_PREFIX:PATH=~/motivo ..
+~~~
+
+###Building a Debian package
+
+If you prefer to install a Debian package, you can build one by running:
+
+~~~
+$ make package
+~~~
+
+This will generate a package named "Motivo-<version>-Linux.deb", to install it run:
+
+~~~
+# dpkg -i Motivo-<version>-Linux.deb
+# apt-get install -f
+~~~
+
+###Additional optimization
+
+You can pass the option -DOPTIMIZE_MORE=YES to cmake to enable additional optimization flags including -march=native. The resulting binaries might not work on other machines.
+
+~~~
+$ cmake -DOPTIMIZE_MORE=YES ..
+~~~
 
 ##Usage
 
@@ -73,6 +108,3 @@ Here: https://bitbucket.org/steven_/motivo/issues
 
 Yet to be chosen.
 
-##To-do
-
-- Multithread support ?

@@ -16,3 +16,6 @@ pipelines:
           - cd build
           - cmake ..          
           - make
+          - make test
+          - make package
+          - dpkg -i Motivo-*-Linux.deb

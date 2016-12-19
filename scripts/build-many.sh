@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/bin/sh
 
-if [[ $# -ne 4 ]] ; then
+if [ $# -ne 4 ]; then
     echo "Usage: $0 graph size colors output"
     exit 1
 fi

@@ -11,7 +11,11 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++14 -Wconversion -Wall -Wextra -Wpedantic -pedantic-errors -Wdisabled-optimization -Wfloat-equal -Wold-style-cast -Wsign-conversion -Winline -Wzero-as-null-pointer-constant -Wuseless-cast -Wno-unknown-warning-option")
-set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -funroll-loops -march=native") #-flto
+
+if(OPTIMIZE_MORE)
+    message(STATUS "Setting additional optimization flags. Binaries might not work on other machines")
+    set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O4 -funroll-loops -march=native -flto")
+endif()
 
 INCLUDE(CheckCXXSourceCompiles)
 check_cxx_source_compiles("int main() { __builtin_popcount(0xFFFFFFFF); return 0; } " MOTIVO_HAS_BUILTIN_POPCOUNT)
@@ -63,7 +67,29 @@ target_link_libraries(motivo-merge ${MERGER_LIBRARIES})
 target_link_libraries(motivo-sample ${SAMPLER_LIBRARIES})
 target_link_libraries(motivo-tests ${TEST_LIBRARIES})
 
-add_executable(motivo-graph2bin src/common/UndirectedGraph.cpp src/tools/graph2bin.cpp)
-target_link_libraries(motivo-graph2bin boost_program_options)
+add_executable(motivo-graph src/common/UndirectedGraph.cpp src/tools/graph.cpp)
+target_link_libraries(motivo-graph boost_program_options)
 
-file(COPY scripts/build.sh DESTINATION .)
+file(COPY scripts/build-many.sh DESTINATION .)
+
+INSTALL(TARGETS motivo-build DESTINATION bin)
+INSTALL(TARGETS motivo-merge DESTINATION bin)
+INSTALL(TARGETS motivo-sample DESTINATION bin)
+INSTALL(TARGETS motivo-graph DESTINATION bin)
+INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/build-many.sh DESTINATION share/motivo)
+
+enable_testing()
+add_test(NAME build-graph COMMAND motivo-graph2bin --input ../graphs/test-graph.txt --output test-graph)
+add_test(NAME motivo-tests COMMAND motivo-tests)
+set_tests_properties(motivo-tests PROPERTIES DEPENDS build-graph)
+
+SET(CPACK_GENERATOR "DEB")
+SET(CPACK_PACKAGE_CONTACT "Stefano Leucci")
+SET(CPACK_PACKAGE_VERSION_MAJOR "0")
+SET(CPACK_PACKAGE_VERSION_MINOR "1")
+SET(CPACK_PACKAGE_VERSION_PATCH "1")
+SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Tools for counting and sampling motifs in large graphs")
+SET(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://bitbucket.org/steven_/motivo")
+SET(CPACK_DEBIAN_PACKAGE_SECTION "science")
+SET(CPACK_DEBIAN_PACKAGE_SHLIBDEPS YES)
+INCLUDE(CPack)
