@@ -26,7 +26,7 @@ void test(const Treelet& treelet, Treelet::treelet_structure_t structure, Treele
     CHECK(treelet.normalization_factor()==norm);
 }
 
-TEST_CASE("treelet signletons")
+TEST_CASE("Treelet signletons")
 {
     for(uint8_t i=0; i<16; i++)
     {
@@ -34,7 +34,7 @@ TEST_CASE("treelet signletons")
     }
 }
 
-TEST_CASE("treelet merges")
+TEST_CASE("Treelet merges")
 {
     Treelet t0 = Treelet::singleton(0);
     Treelet t1 = Treelet::singleton(1);

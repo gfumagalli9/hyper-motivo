@@ -16,6 +16,8 @@ void graph2bin(const std::string &graph_filename, const std::string &output_base
     uint32_t num_edges;
 
     std::ifstream stream(graph_filename);
+    if(!stream.is_open())
+        throw std::runtime_error("Could not open file " + graph_filename);
 
     std::ofstream offsets(output_basename + ".gof", std::ofstream::binary | std::ofstream::trunc);
     std::ofstream edges(output_basename + ".ged", std::ofstream::binary | std::ofstream::trunc);

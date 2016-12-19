@@ -3,9 +3,10 @@
 //
 
 #include "doctest.h"
-#include "../src/sampler/KirchhoffSpanningTreeCounter.h"
 #include <sstream>
 #include <cmath>
+#include "../src/common/UndirectedGraph.h"
+#include "../src/sampler/Occurrence.h"
 
 /* Graph test contains 56 vertices and 159 edges:
  * A clique of 16 vertices on vertices 0-15 (120 edges)
@@ -22,13 +23,13 @@ void test(unsigned int from, unsigned int size, uint64_t expected)
     for(unsigned int i=0; i<size; i++)
         subgraph[i]=from+i;
 
-    KirchhoffSpanningTreeCounter kstc(&test_graph, size);
-    CHECK( kstc.count(subgraph) == expected );
+    Occurrence occ(size, subgraph, &test_graph);
+    CHECK( occ.number_of_spanning_trees() == expected );
 
     delete[] subgraph;
 }
 
-TEST_CASE("KirchoffSpanningTreeCounter misc")
+TEST_CASE("Occurrence number_of_spanning_trees misc")
 {
     //Size 1 subgraph
     test(1, 1, 1);
@@ -40,13 +41,13 @@ TEST_CASE("KirchoffSpanningTreeCounter misc")
     test(52, 4, 3);
 }
 
-TEST_CASE("KirchoffSpanningTreeCounter stars")
+TEST_CASE("Occurrence number_of_spanning_trees stars")
 {
     for(unsigned int i=2; i<=16; i++)
         test(16, i, 1);
 }
 
-TEST_CASE("KirchoffSpanningTreeCounter paths")
+TEST_CASE("Occurrence number_of_spanning_trees paths")
 {
     //Look at the subgraph induced by the first i vertices of the cycle
     for(unsigned int i=2; i<=16; i++)
@@ -54,14 +55,14 @@ TEST_CASE("KirchoffSpanningTreeCounter paths")
 }
 
 
-/*TEST_CASE("KirchoffSpanningTreeCounter cycles")
+/*TEST_CASE("Occurrence number_of_spanning_trees cycles")
 {
     for(int i=3; i<=16; i++)
         test(cycle(i), i, subgraph, i);
 }
 */
 
-TEST_CASE("KirchoffSpanningTreeCounter cliques")
+TEST_CASE("Occurrence number_of_spanning_trees cliques")
 {
     //The number of spanning trees in K_n is num_elements**(num_elements-2) by Cayley's formula
     for(unsigned int i=1; i<=14; i++) //FIXME: Fails for i=15 and i=16

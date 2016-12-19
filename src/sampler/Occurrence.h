@@ -34,6 +34,9 @@ public:
     Occurrence(const UndirectedGraph::vertex_t* occ, const Treelet& treelet);
     Occurrence(const unsigned int size, const UndirectedGraph::vertex_t* occ, const UndirectedGraph* graph);
 
+    ///@returns the number of spanning trees of this occurrence
+    uint64_t number_of_spanning_trees();
+
     void canonicize();
 
     std::string footprint();
