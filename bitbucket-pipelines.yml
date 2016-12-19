@@ -11,7 +11,7 @@ pipelines:
         script:
           - apt-get update
           - apt-get install -y cmake g++
-          - apt-get install -y libsparsehash-dev libopenblas-dev liblapacke-dev libnauty-dev libboost-program-options-dev
+          - apt-get install -y libsparsehash-dev libopenblas-dev liblapacke-dev libnauty2-dev libboost-program-options-dev
           - mkdir build
           - cd build
           - cmake ..          
