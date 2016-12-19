@@ -16,6 +16,9 @@ class GraphColoring
 private:
     color_t* colors;
 
+    GraphColoring(const GraphColoring&) = delete;
+    void operator=(const GraphColoring&) = delete;
+
 public:
     ///Contructs a random coloring of @param n vertices using @param number_of_colors colors
     GraphColoring(const UndirectedGraph::vertex_t n, unsigned int number_of_colors);

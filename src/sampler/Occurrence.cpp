@@ -1,0 +1,119 @@
+//
+// Created by steven on 12/18/16.
+//
+
+#include "Occurrence.h"
+#include "include_nauty.h"
+
+Occurrence::Occurrence(const unsigned int size, const UndirectedGraph::vertex_t *occ, const UndirectedGraph *graph) : size(size)
+{
+    for(unsigned int i=0; i<size; i++)
+        vertices[i]=occ[i];
+
+    for(unsigned int i=1; i<size; i++)
+    {
+        for(unsigned int j=0; j<i; j++)
+        {
+            if(graph->has_edge(vertices[i], vertices[j]))
+                add_edge(i,j);
+        }
+    }
+}
+
+Occurrence::Occurrence(const UndirectedGraph::vertex_t *occ, const Treelet& treelet) : size(treelet.number_of_vertices())
+{
+    for(unsigned int i=0; i<size; i++)
+        vertices[i]=occ[i];
+
+    unsigned int parents[16] = {0};
+    unsigned int current = 0;
+    unsigned int n=0;
+    for(Treelet::treelet_structure_t structure = treelet.get_structure(); structure; structure<<=1)
+    {
+        if(structure & Treelet::treelet_structure_highest_bit)
+        {
+            n++;
+            add_edge(n, current);
+            parents[n]=current;
+            current=n;
+        }
+        else
+            current=parents[current];
+    }
+
+    assert(n==size-1);
+}
+
+
+std::string Occurrence::footprint()
+{
+    char c[32];
+    for(unsigned int i=0; i<16; i++)
+    {
+        c[2*i]= static_cast<char>('A'+ (edges[i]>>4));
+        c[2*i+1]= static_cast<char>('A'+ (edges[i] & 0x0F));
+    }
+
+    return std::string(c, 32);
+}
+
+std::string Occurrence::to_string()
+{
+    std::string s = footprint();
+    for(unsigned int i=0; i<size; i++)
+        s += " " + std::to_string(vertices[i]);
+
+    return s;
+}
+
+void Occurrence::canonicize()
+{
+    nauty_graph g[MOTIVO_NAUTY_MAXN*MOTIVO_NAUTY_MAXM];
+    nauty_graph cang[MOTIVO_NAUTY_MAXN*MOTIVO_NAUTY_MAXM];
+
+    static DEFAULTOPTIONS_GRAPH(options);
+    options.getcanon = MOTIVO_NAUTY_TRUE;
+
+    int m = SETWORDSNEEDED(static_cast<int>(size));
+
+#ifndef NDEBUG
+    nauty_check(MOTIVO_NAUTY_WORDSIZE, m, static_cast<int>(size), NAUTYVERSIONID);
+#endif
+
+    EMPTYGRAPH(g, static_cast<unsigned int>(m), size);
+    for(unsigned int i=1; i<size; i++)
+    {
+        for(unsigned int j=0; j<i; j++)
+        {
+            if(has_edge(i,j))
+                ADDONEEDGE(g, static_cast<int>(i), static_cast<int>(j), static_cast<unsigned int>(m));
+        }
+    }
+
+    int lab[MOTIVO_NAUTY_MAXN];
+    int ptn[MOTIVO_NAUTY_MAXN];
+    int orbits[MOTIVO_NAUTY_MAXN];
+    statsblk stats;
+    densenauty(g, lab, ptn, orbits, &options, &stats, m, static_cast<int>(size), cang);
+
+    //From the nauty manual: the value of lab on return is the canonical labelling
+    //of the graph. Precisely, it lists the vertices of g in the order in which they need to
+    //be relabelled to give canong
+
+    UndirectedGraph::vertex_t verts[16];
+    memcpy(verts, vertices, sizeof(UndirectedGraph::vertex_t)*size);
+
+    for(unsigned int i=1; i<size; i++)
+        vertices[i] = verts[ lab[i] ];
+
+    memset(edges, 0, sizeof(uint8_t)*size);
+    for(unsigned int i=1; i<size; i++)
+    {
+        nauty_set* row = GRAPHROW (cang ,i, static_cast<unsigned int>(m));
+        for(unsigned int j = 0; j < i; j++)
+        {
+            if( ISELEMENT( row , j ) )
+                add_edge(i, j);
+         }
+    }
+}

@@ -11,13 +11,14 @@
 template <typename T> class ReservoirSampler
 {
 private:
-    unsigned long total_weight = 0;
+    uint64_t total_weight = 0;
     T current;
     Random* rnd;
 
 public:
     inline ReservoirSampler(T default_value, Random* rnd) : current(default_value), rnd(rnd) {};
     inline T get_sample() const { return current; };
+    inline uint64_t get_total_weight() const { return total_weight; };
 
     //Let w_i be the weight of the i-th element and W_i be the total weight of the first i elements
     //After seeing num_elements elements the probability of returning the j-th element is

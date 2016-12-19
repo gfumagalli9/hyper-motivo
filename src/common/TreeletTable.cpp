@@ -57,14 +57,23 @@ TreeletTable::~TreeletTable()
 static const TreeletTable::treelet_count_pair* treelet_upper_bound(const TreeletTable::treelet_count_pair *begin,
        const TreeletTable::treelet_count_pair *end, const Treelet &treelet)
 {
-    while(begin<end-1)
+    //x=first element >= treelet (no duplicate elements) if it exists, otherwise x=end
+    //If end-begin>=1.
+    //  If x is in [begin, end] at the beginning of an iteration => x is in [begin, end] at the end of the iteration
+    //  Proof: mid in [begin, end).
+    //  If treelet>mid then x>=treelet>mid and hence x in [mid+1, end] = [begin, end] at the end of the iteration
+    //  If treelet<=mid then x<=mid and hence x in [begin, mid] = [begin, end] at the end of iteration
+    //If end-begin==0 then x==end==begin
+
+    while(begin<end)
     {
         const TreeletTable::treelet_count_pair *mid = begin + (end - begin) / 2;
-        if(mid->treelet <= treelet)
-            begin=mid;
+        if(mid->treelet < treelet)
+            begin=mid+1;
         else
             end=mid;
     }
+
     return begin;
 }
 
@@ -74,11 +83,11 @@ static const TreeletTable::treelet_count_pair* treelet_upper_bound(const Treelet
 static const TreeletTable::treelet_count_pair* count_upper_bound(const TreeletTable::treelet_count_pair *begin,
         const TreeletTable::treelet_count_pair *end, TreeletTable::treelet_count_t count)
 {
-    while(begin<end-1)
+    while(begin<end)
     {
         const TreeletTable::treelet_count_pair *mid = begin + (end - begin) / 2;
-        if(mid->count <= count)
-            begin=mid;
+        if(mid->count < count)
+            begin=mid+1;
         else
             end=mid;
     }
@@ -87,30 +96,17 @@ static const TreeletTable::treelet_count_pair* count_upper_bound(const TreeletTa
 
 TreeletTable::treelet_count_t TreeletTable::get_count(const UndirectedGraph::vertex_t u, const Treelet treelet) const
 {
-    const treelet_count_pair *tcp = treelet_upper_bound(data + offsets[u] + 1, data + offsets[u + 1], treelet);
+    const treelet_count_pair *tcp = treelet_upper_bound(data + offsets[u] + 1, data + offsets[u+1], treelet);
     if(tcp!=data+offsets[u+1] && tcp->treelet==treelet)
-        return tcp->count;
+        return tcp->count - (tcp-1)->count;
 
     return 0;
-}
-
-TreeletTable::const_iterator TreeletTable::begin(const UndirectedGraph::vertex_t u) const
-{
-    assert(u<num_vertices);
-    return TreeletTable::const_iterator( data + offsets[u] + 1 );
-}
-
-TreeletTable::const_iterator TreeletTable::end(const UndirectedGraph::vertex_t u) const
-{
-    assert(u<num_vertices);
-    return TreeletTable::const_iterator( data + offsets[u+1] );
 }
 
 TreeletTable::const_iterator TreeletTable::begin(const UndirectedGraph::vertex_t u, Treelet treelet) const
 {
     assert(u<num_vertices);
-    const treelet_count_pair* tcp = treelet_upper_bound(data + offsets[u] + 1, data + offsets[u + 1], treelet);
-    return TreeletTable::const_iterator(tcp);
+    return TreeletTable::const_iterator( treelet_upper_bound(data + offsets[u] + 1, data + offsets[u + 1], treelet) );
 }
 
 UndirectedGraph::vertex_t TreeletTable::get_random_root(Random *rng) const

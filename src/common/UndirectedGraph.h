@@ -18,13 +18,13 @@ public:
 private:
     vertex_t num_verts;
     uint32_t num_edges;
-
     FILE* offsets_fd;
     FILE* edges_fd;
-
     uint32_t* offsets;
     vertex_t* edges;
 
+    UndirectedGraph(const UndirectedGraph&) = delete;
+    void operator=(const UndirectedGraph&) = delete;
 
 public:
     UndirectedGraph(const std::string& filename);

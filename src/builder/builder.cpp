@@ -8,115 +8,93 @@
 
 namespace po = boost::program_options;
 
-int main(int argc, char** argv)
+int main(const int argc, const char** argv)
 {
+    std::string graph_basename;
+    std::string output_filename;
     unsigned int size;
     unsigned int colors;
+    unsigned int from_vertex;
 
     po::options_description desc("Allowed options");
     desc.add_options()
             ("help", "Print help and exit")
-            ("g,graph", po::value<std::string>(), "Input graph basename (required)")
-            ("s,size",  po::value<unsigned int>(&size)->default_value(0), "Size of the table to build, between 1 and 16 (required)")
-            ("c,colors", po::value<unsigned int>(&colors)->default_value(0), "Number of colors to use, between 1 and 16 (required if size > 1, ignored if size=1)")
-            ("t,tables-basename", po::value<std::string>(), "Basename of table files of smaller size (required if size > 1, ignored if size=1)")
-            ("from-vertex",  po::value<UndirectedGraph::vertex_t>()->default_value(0), "First vertex (default: 0)")
+            ("graph,g", po::value<std::string>(&graph_basename)->required(), "Input graph basename (required)")
+            ("size,s",  po::value<unsigned int>(&size)->required(), "Size of the table to build, between 1 and 16 (required)")
+            ("colors,c", po::value<unsigned int>(&colors), "Number of colors to use, between 1 and 16 (required if size=1, ignored if size>1)")
+            ("tables-basename,s", po::value<std::string>(), "Basename of table files of smaller size (required if size > 1, ignored if size=1)")
+            ("from-vertex", po::value<UndirectedGraph::vertex_t>(&from_vertex)->default_value(0), "First vertex (default: 0)")
             ("to-vertex", po::value<UndirectedGraph::vertex_t>(), "Last vertex (default: last vertex of the graph)")
-            ("o,output", po::value<std::string>(), "Output file");
+            ("output,o", po::value<std::string>(&output_filename)->required(), "Output file (required)");
 
     po::variables_map vm;
-    po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
-    po::notify(vm);
-
-    if(vm.count("help"))
+    try
     {
-        std::cout << "motivo-build [OPTION]..." << std::endl;
-        std::cout << "  Builds count tables for use with motivo-merge" << std::endl << std::endl;
-        std::cout << desc << std::endl;
+        po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
 
-        return EXIT_SUCCESS;
-    }
-
-    if(size < 1 || size > 16)
-    {
-        std::cout << "'size' parameter is missing or invalid" << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    if(size==1 && (colors < 1 || colors > 16))
-    {
-        std::cout << "'colors' parameter is missing or invalid" << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    if(!vm.count("graph"))
-    {
-        std::cout << "'graph' parameter is required" << std::endl;
-        return EXIT_FAILURE;
-    }
-    std::string graph_filename = vm["graph"].as<std::string>();
-
-    std::string tables_basename;
-    if(size != 1)
-    {
-        if(!vm.count("tables-basename"))
+        if(vm.count("help"))
         {
-            std::cout << "'colors' parameter is required" << std::endl;
-            return EXIT_FAILURE;
+            std::cout << "motivo-build [OPTION]..." << std::endl;
+            std::cout << "  Builds count tables for use with motivo-merge" << std::endl << std::endl;
+            std::cout << desc << std::endl;
+
+            return EXIT_SUCCESS;
         }
-        tables_basename = vm["tables-basename"].as<std::string>();
+
+        po::notify(vm);
+
+        if (size < 1 || size > 16)
+            throw std::runtime_error("'size' option is invalid");
+
+        if(size==1 && (!vm.count("colors") || colors < 1 || colors > 16))
+            throw std::runtime_error("'colors' option missing or invalid");
+
+        std::string tables_basename;
+        if(size != 1)
+        {
+            if(!vm.count("tables-basename"))
+                throw std::runtime_error("'tables-basename' option is required");
+            tables_basename = vm["tables-basename"].as<std::string>();
+        }
+
+        UndirectedGraph G(graph_basename);
+        std::cout << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
+
+        unsigned int to_vertex = vm.count("to-vertex")?vm["to-vertex"].as<UndirectedGraph::vertex_t>():G.number_of_vertices()-1;
+        if(from_vertex>to_vertex || to_vertex>=G.number_of_vertices())
+            throw std::runtime_error("'from-fertex' and 'to-vertex' options specify an empty range or exceed the number of vertices in the graph");
+
+        std::unique_ptr<GraphColoring> coloring;
+        if(size == 1)
+        {
+            std::cout << "Generating random coloring using " << std::to_string(colors) << " colors" << std::endl;
+            coloring = std::make_unique<GraphColoring>(G.number_of_vertices(), colors);
+        }
+
+        std::unique_ptr<TreeletTableCollection> ttc;
+        if(size != 1)
+        {
+            std::cout << "Loading tables for smaller sizes" << std::endl;
+            ttc = std::make_unique<TreeletTableCollection>(tables_basename, size - 1);
+        }
+
+        std::ofstream out(  output_filename, std::ofstream::binary | std::ofstream::trunc);
+        if(out.bad())
+            throw std::runtime_error("Could not open output file for writing");
+
+        std::cout << "Computing treelet counts for vertices " << from_vertex << "--" << to_vertex << std::endl;
+
+        TreeletTableBuilder builder(&G, coloring.get(), size, ttc.get(), &out);
+        builder.build(from_vertex, to_vertex);
+        out.close();
+
+        std::cout << "Output written to " << output_filename << std::endl;
     }
-
-    UndirectedGraph G(graph_filename);
-    std::cout << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
-
-    unsigned int from_vertex = vm["from-vertex"].as<UndirectedGraph::vertex_t>();
-    unsigned int to_vertex = vm.count("to-vertex")?vm["to-vertex"].as<UndirectedGraph::vertex_t>():G.number_of_vertices()-1;
-    if(from_vertex>to_vertex || to_vertex>=G.number_of_vertices())
+    catch(std::exception& e)
     {
-        std::cout << "'from-fertex' and 'to-vertex' specify an empty range or are larger than the number of vertices in the graph" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-
-    GraphColoring *coloring = nullptr;
-    if(size == 1)
-    {
-        std::cout << "Generating random coloring using " << std::to_string(colors) << " colors" << std::endl;
-        coloring = new GraphColoring(G.number_of_vertices(), colors);
-    }
-
-    TreeletTableCollection *ttc = nullptr;
-    if(size != 1)
-    {
-        std::cout << "Loading tables for smaller sizes" << std::endl;
-        ttc = new TreeletTableCollection(tables_basename, size - 1);
-    }
-
-    if(!vm.count("output"))
-    {
-        std::cout << "'output' parameter is required" << std::endl;
+        std::cerr << "Error: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
 
-    std::string output_filename = vm["output"].as<std::string>() + ".cnt";
-    std::ofstream out(  output_filename, std::ofstream::binary | std::ofstream::trunc);
-    if(out.bad())
-    {
-        std::cout << "Could not open output file for writing" << std::endl;
-        delete coloring;
-        delete ttc;
-        return EXIT_FAILURE;
-    }
-
-    std::cout << "Computing treelet counts for vertices " << from_vertex << "--" << to_vertex << std::endl;
-
-    TreeletTableBuilder builder(&G, coloring, size, ttc, &out);
-    builder.build(from_vertex, to_vertex);
-    out.close();
-
-    std::cout << "Output written to " << output_filename << std::endl;
-
-    delete coloring;
-    delete ttc;
     return EXIT_SUCCESS;
 }

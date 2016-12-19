@@ -16,11 +16,9 @@
 //#pragma test(push,1)
 class [[gnu::packed]] Treelet
 {
-    /* Each treelet is represented as a bit string of 64 bits.
+    /* Each treelet is represented as a bit string of 48 bits.
      * 0-31:  Structure of the treelet.
      * 32-47: Bitmask representing the treelet colors.
-     * 48-55: Number of children isomorphic of the largest children.
-     * 56-63: Size of the treelet
      *
      * Structure is encode as a DFS traversal, in binary.
      * 1 means that we entered a new vertex and 0 means we are leaving a vertex and its subtree.
@@ -41,8 +39,6 @@ public:
 private:
     treelet_structure_t structure;
     uint16_t colors;
-    //uint8_t children_isomorphic_to_largest;
-    //uint8_t size;
 
     Treelet(treelet_structure_t structure, uint16_t colors=0) : structure(structure), colors(colors)
     {};
@@ -62,6 +58,9 @@ public:
 
     ///@returns true iff the treelet is colored
     inline bool is_colored() const { return colors !=0; }
+
+    ///@returns true iff the treelet is colored
+    inline bool is_singleton() const { return structure==0; }
 
     ///@returns true iff the treelet is colored
     inline treelet_colors_t get_colors() const { return colors; }

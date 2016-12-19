@@ -28,6 +28,9 @@ private:
     FILE* elements_fd;
     bool readonly;
 
+    AliasMethodSampler(const AliasMethodSampler&) = delete;
+    void operator=(const AliasMethodSampler&) = delete;
+
 public:
     AliasMethodSampler(const std::string& filename);
     AliasMethodSampler(uint64_t n);
@@ -40,18 +43,10 @@ public:
     inline uint64_t sample(Random* rng)
     {
         assert(readonly);
-        //uint64_t r = rng->random_uint64(0, num_elements*total_weight);
-        /*uint64_t i = r/total_weight; //i is an uniform between 0 and num_elements-1
-        uint64_t y = r%total_weight; //y is an uniform between 0 and total_weight-1
-        if(y<U[i])
-            return i;
-        return K[i];*/
-
-        //return (r%total_weight<U[r/total_weight])?(r/total_weight):K[r/total_weight];
+        assert(total_weight>0);
 
         uint64_t i = rng->random_uint64(0, num_elements);
         uint64_t y = rng->random_uint64(0, total_weight);
-        //std::cout << i << " " << y << " " << elements[i].U << " " << elements[i].K << std::endl << std::flush;
         return (y<elements[i].U)?i:elements[i].K;
     };
 

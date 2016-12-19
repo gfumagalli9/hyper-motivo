@@ -6,59 +6,20 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-
+#include <boost/program_options.hpp>
 #include "../common/UndirectedGraph.h"
 #include "../common/Treelet.h"
 #include "../common/TreeletTable.h"
-#include "boost/program_options.hpp"
+
 
 namespace po = boost::program_options;
 
-int main(const int argc, const char** argv)
+void merge(const std::vector<std::string>& count_files, const std::string& output_basename)
 {
-
-    po::options_description desc("Allowed options");
-    desc.add_options()
-            ("help", "Print help and exit")
-            ("o,output", po::value<std::string>(), "Output basename (required)")
-            ("input", po::value<std::vector<std::string>>(), "Input count files");
-
-    po::positional_options_description p;
-    p.add("input", -1);
-
-    po::variables_map vm;
-    po::store(po::command_line_parser(argc, argv).options(desc).positional(p).run(), vm);
-    po::notify(vm);
-
-
-    if (vm.count("help"))
-    {
-        std::cout << "motivo-merge [OPTION]... FILE [FILE]..." << std::endl;
-        std::cout << "  Builds treelet tables for use with motivo-sample" << std::endl << std::endl;
-        std::cout << desc << std::endl;
-
-        return EXIT_SUCCESS;
-    }
-
-    if(!vm.count("output"))
-    {
-        std::cout << "'output' parameter is required" << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    auto& count_files = vm["input"].as<std::vector<std::string>>();
-    if(count_files.size()==0)
-    {
-        std::cout << "No inputs specified" << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    const std::string& base_output_filename = vm["output"].as<std::string>();
-
-    std::string output_filename = base_output_filename + ".dat";
+    std::string output_filename = output_basename + ".dat";
     std::ofstream out(  output_filename, std::ofstream::binary | std::ofstream::trunc);
 
-    std::string offset_filename = base_output_filename + ".off";
+    std::string offset_filename = output_basename + ".off";
     std::ofstream off(  offset_filename, std::ofstream::binary | std::ofstream::trunc);
 
     AliasMethodSampler *alias_sampler = nullptr;
@@ -71,10 +32,7 @@ int main(const int argc, const char** argv)
         const std::string& filename = count_files[i];
         std::ifstream f(filename, std::ifstream::binary);
         if(f.bad())
-        {
-            std::cout << "Unable to open file " << filename << std::endl;
-            return EXIT_FAILURE;
-        }
+            throw std::runtime_error("Unable to open file " + filename );
 
         UndirectedGraph::vertex_t nv, from, to;
         f.read(reinterpret_cast<char*>(&nv), sizeof(UndirectedGraph::vertex_t));
@@ -89,16 +47,10 @@ int main(const int argc, const char** argv)
             off.write(reinterpret_cast<char*>(&nv64), sizeof(uint64_t));
         }
         else if(num_vertices!=nv)
-        {
-            std::cout << "Error while processing " << filename << ": wrong number of vertices" << std::endl;
-            return EXIT_FAILURE;
-        }
+            throw std::runtime_error("Error while processing " + filename + ": wrong number of vertices");
 
         if(from!=processed_vertices)
-        {
-            std::cout << "Error while processing " << filename << ": intervals are not consectuve" << std::endl;
-            return EXIT_FAILURE;
-        }
+            throw std::runtime_error("Error while processing " + filename + ": intervals are not consectuve");
 
         TreeletTable::treelet_count_t total=0;
         while(true)
@@ -134,10 +86,7 @@ int main(const int argc, const char** argv)
         f.close();
 
         if(to!=processed_vertices-1)
-        {
-            std::cout << "Error while processing " << filename << ": number of vertices does not match number of records" << std::endl;
-            return EXIT_FAILURE;
-        }
+            throw std::runtime_error("Error while processing " + filename + ": number of vertices does not match number of records");
     }
 
     off.write(reinterpret_cast<char*>(&num_records), sizeof(uint64_t));
@@ -145,7 +94,7 @@ int main(const int argc, const char** argv)
     out.close();
     off.close();
 
-    std::string root_sampler_filename = base_output_filename + ".rts";
+    std::string root_sampler_filename = output_basename + ".rts";
     alias_sampler->build();
     alias_sampler->write(root_sampler_filename);
 
@@ -153,6 +102,53 @@ int main(const int argc, const char** argv)
 
     std::cout << "Processed " << processed_vertices << " vertices (" << num_records <<" records)" << std::endl;
     std::cout << "Output written to files: " << output_filename << ", " << offset_filename << ", and " << root_sampler_filename << std::endl;
+}
+
+int main(const int argc, const char** argv)
+{
+    std::string output_basename;
+    std::vector<std::string> count_files;
+
+    po::options_description visible_desc("Allowed options");
+    visible_desc.add_options()
+            ("help", "Print help and exit")
+            ("output,o", po::value<std::string>(&output_basename)->required(), "Output basename (required)");
+
+    po::options_description hidden_desc("Hidden options");
+    hidden_desc.add_options()("input", po::value<std::vector<std::string>>(&count_files), "Input count files");
+
+    po::positional_options_description positional_desc;
+    positional_desc.add("input", -1);
+
+    po::options_description desc;
+    desc.add(visible_desc).add(hidden_desc);
+
+    po::variables_map vm;
+    try
+    {
+        po::store(po::command_line_parser(argc, argv).options(desc).positional(positional_desc).run(), vm);
+
+        if (vm.count("help"))
+        {
+            std::cout << "motivo-merge [OPTION]... FILE [FILE]..." << std::endl;
+            std::cout << "  Builds treelet tables for use with motivo-sample" << std::endl << std::endl;
+            std::cout << visible_desc << std::endl;
+
+            return EXIT_SUCCESS;
+        }
+
+        po::notify(vm);
+
+        if(count_files.size()==0)
+            throw std::runtime_error("No inputs specified");
+
+        merge(count_files, output_basename);
+    }
+    catch(std::exception& e)
+    {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
 
     return EXIT_SUCCESS;
 }

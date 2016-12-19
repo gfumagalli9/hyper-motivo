@@ -40,8 +40,6 @@ public:
         const_iterator operator++(int) { return position++; };
         const Treelet& treelet() const { return position->treelet; };
         treelet_count_t count() const { return position->count - (position-1)->count; }
-        //const treelet_count_pair& operator*() const { return *position; };
-        //const treelet_count_pair* operator->() const { return position; }
         bool operator==(const const_iterator& iterator) const { return position == iterator.position; }
         bool operator!=(const const_iterator& iterator) const { return position != iterator.position; }
     };
@@ -53,6 +51,9 @@ private:
     FILE* data_fd;
     FILE* offsets_fd;
     AliasMethodSampler* root_sampler;
+
+    TreeletTable(const TreeletTable&) = delete;
+    void operator=(const TreeletTable&) = delete;
 
 public:
     ///Loads a table stored with the given @param basename.
@@ -71,10 +72,18 @@ public:
 
     ///@returns a costant iterator that iterates through all the stored treelets for vertex @param u.
     ///The iterator initially points to the first treelet of @param u.
-    const_iterator begin(const UndirectedGraph::vertex_t u) const;
+    inline const_iterator begin(const UndirectedGraph::vertex_t u) const
+    {
+        assert(u<num_vertices);
+        return TreeletTable::const_iterator( data + offsets[u] + 1 );
+    }
 
     ///@returns an iterator pointing to after the last treelet stored for vertex @param u.
-    const_iterator end(const UndirectedGraph::vertex_t u) const;
+    inline const_iterator end(const UndirectedGraph::vertex_t u) const
+    {
+        assert(u<num_vertices);
+        return TreeletTable::const_iterator( data + offsets[u+1] );
+    }
 
     const_iterator begin(const UndirectedGraph::vertex_t u, const Treelet treelet) const;
 

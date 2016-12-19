@@ -34,19 +34,19 @@ private:
     std::ostream* output;
 
     /// Fills a size-1 table
-    void do_build_1(const UndirectedGraph::vertex_t from, const UndirectedGraph::vertex_t to);
+    void do_build_1 [[gnu::hot]] (const UndirectedGraph::vertex_t from, const UndirectedGraph::vertex_t to);
 
     /// Fills a table for sizes > 1
-    void do_build(const UndirectedGraph::vertex_t from, const UndirectedGraph::vertex_t to);
+    void do_build [[gnu::hot]] (const UndirectedGraph::vertex_t from, const UndirectedGraph::vertex_t to);
 
     /// Combines the treelets of vertex @param u with the treelets of vertex @param v
-    void combine(const UndirectedGraph::vertex_t u, const UndirectedGraph::vertex_t v, table_t& counts);
+    void combine [[gnu::hot]] (const UndirectedGraph::vertex_t u, const UndirectedGraph::vertex_t v, table_t& counts);
 
     /// Normalizes the counts of treelets in @param counts
-    void normalize(table_t& counts);
+    void normalize [[gnu::hot]] (table_t& counts);
 
     ///Writes the content of the table to steam
-    void write(const table_t& counts);
+    void write [[gnu::hot]] (const table_t& counts);
 
 public:
     TreeletTableBuilder(UndirectedGraph* graph, GraphColoring* coloring, const unsigned int size, const TreeletTableCollection* lower, std::ostream* output)

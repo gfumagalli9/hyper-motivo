@@ -9,11 +9,10 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
 {
     assert(t.is_valid());
 
+    *occurrence = u;
+
     if(t.number_of_vertices() == 1)
-    {
-        *occurrence = u;
         return true;
-    }
 
     ReservoirSampler<std::pair<Treelet, UndirectedGraph::vertex_t> > sampler(std::make_pair(Treelet::invalid_treelet, 0), &rng);
 
@@ -38,26 +37,21 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
                 TreeletTable::treelet_count_t c = table_collection->get_table(complement.number_of_vertices())->get_count(u, complement);
 
                 assert(it.count()!=0);
-
                 sampler.feed(std::make_pair(t2, v), c * it.count());
             }
         }
     }
+
+    assert(sampler.get_total_weight()!=0);
+    assert(table_collection->get_table(t.number_of_vertices())->get_count(u, t) * t.normalization_factor() == sampler.get_total_weight());
 
     auto child = sampler.get_sample();
     if(!child.first.is_valid())
         return false;
 
     Treelet complement = t.complement(child.first);
-    return sample_rooted_occurrence(complement, u, occurrence) && sample_rooted_occurrence(child.first, child.second, occurrence+complement.number_of_vertices());
 
+    return (complement.is_singleton() || sample_rooted_occurrence(complement, u, occurrence + child.first.number_of_vertices()) ) &&
+            sample_rooted_occurrence(child.first, child.second, occurrence+1);
 }
 
-void TreeletSampler::sample(const unsigned int size, UndirectedGraph::vertex_t *occurrence)
-{
-    UndirectedGraph::vertex_t root = table_collection->get_table(size)->get_random_root(&rng);
-    const Treelet& t=table_collection->get_table(size)->get_random_treelet(root, &rng);
-
-    assert(t.is_valid());
-    sample_rooted_occurrence(t, root, occurrence);
-}

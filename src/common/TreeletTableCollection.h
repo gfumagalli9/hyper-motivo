@@ -18,6 +18,9 @@ private:
     unsigned int size;
     TreeletTable** tables;
 
+    TreeletTableCollection(const TreeletTableCollection&) = delete;
+    void operator=(const TreeletTableCollection&) = delete;
+
 public:
     TreeletTableCollection(const unsigned int capacity=default_capacity);
     TreeletTableCollection(const std::string& basename, const unsigned int size, const unsigned int capacity=default_capacity);
