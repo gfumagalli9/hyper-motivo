@@ -88,13 +88,20 @@ This will generate a package named "Motivo-<version>-Linux.deb", to install it r
 # apt-get install -f
 ~~~
 
-###Additional optimization
+###Additional options
 
 You can pass the option -DOPTIMIZE_MORE=YES to cmake to enable additional optimization flags including -march=native. The resulting binaries might not work on other machines.
 
+The option -DENABLE_ASSERTS=YES enables asserts even when the code is compiled in release mode (the default setting). These perform additional sanity checks during the computation but result in slower code.
+
+The option -DMOTIVO_OVERFLOW_SAFE=YES enables overflow checks on arithmetic operations involving large numbers. This results in slower (but safer) code.
+
+Example:
+
 ~~~
-$ cmake -DOPTIMIZE_MORE=YES ..
+$ cmake -DOPTIMIZE_MORE=YES -DMOTIVO_OVERFLOW_SAFE=YES ..
 ~~~
+
 
 ##Usage
 

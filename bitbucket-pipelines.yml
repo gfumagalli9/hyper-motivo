@@ -14,7 +14,7 @@ pipelines:
           - apt-get install -y libsparsehash-dev libopenblas-dev liblapacke-dev libnauty2-dev libboost-program-options-dev
           - mkdir build
           - cd build
-          - cmake ..          
+          - cmake -DENABLE_ASSERTS=YES -DMOTIVO_OVERFLOW_SAFE=YES ..
           - make
           - make test
           - make package

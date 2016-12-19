@@ -12,9 +12,13 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++14 -Wconversion -Wall -Wextra -Wpedantic -pedantic-errors -Wdisabled-optimization -Wfloat-equal -Wold-style-cast -Wsign-conversion -Winline -Wzero-as-null-pointer-constant -Wuseless-cast -Wno-unknown-warning-option")
 
+if(ENABLE_ASSERTS)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -UNDEBUG ")
+endif()
+
 if(OPTIMIZE_MORE)
     message(STATUS "Setting additional optimization flags. Binaries might not work on other machines")
-    set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O4 -funroll-loops -march=native -flto")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -funroll-loops -march=native -flto")
 endif()
 
 INCLUDE(CheckCXXSourceCompiles)
@@ -28,8 +32,6 @@ check_type_size("short" MOTIVO_SHORT_SIZE LANGUAGE CXX)
 check_type_size("int" MOTIVO_INT_SIZE LANGUAGE CXX)
 check_type_size("long" MOTIVO_LONG_SIZE LANGUAGE CXX)
 check_type_size("long long" MOTIVO_LONG_LONG_SIZE LANGUAGE CXX)
-
-set(MOTIVO_OVERFLOW_SAFE ON)
 
 if(MOTIVO_OVERFLOW_SAFE AND NOT MOTIVO_HAS_BUILTIN_ADD_OVERFLOW)
     message(WARNING "No builtin function for checking addition overflow. Will use slow implementation.")
