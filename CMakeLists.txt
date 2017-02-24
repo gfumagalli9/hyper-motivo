@@ -45,7 +45,6 @@ if(MOTIVO_OVERFLOW_SAFE AND NOT MOTIVO_HAS_BUILTIN_MUL_OVERFLOW)
 endif()
 
 configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
-
 include_directories(${CMAKE_BINARY_DIR})
 
 set(COMMON_SOURCE_FILES src/common/UndirectedGraph.cpp src/common/UndirectedGraph.h src/common/Treelet.h src/common/GraphColoring.cpp src/common/GraphColoring.h src/common/Random.h src/common/Treelet.cpp src/common/TreeletTableCollection.cpp src/common/TreeletTableCollection.h src/common/TreeletTable.cpp src/common/TreeletTable.h src/platform.h src/common/AliasMethodSampler.cpp src/common/AliasMethodSampler.h)
@@ -86,12 +85,30 @@ else()
     endif()
 endif()
 
+find_library(NAUTY NAMES nauty)
+if(NOT NAUTY)
+    message(FATAL_ERROR "Could not find nauty")
+endif()
+
+find_path(NAUTY_INCLUDE_DIR nauty/nauty.h)
+if(NAUTY_INCLUDE_DIR)
+   include_directories("${NAUTY_INCLUDE_DIR}")
+else()
+    message(FATAL_ERROR "Could not find nauty header files")
+endif()
+
+find_path(SPARSEHASH_INCLUDE_DIR sparsehash/sparse_hash_map)
+if(SPARSEHASH_INCLUDE_DIR)
+    include_directories("${SPARSEHASH_INCLUDE_DIR}")
+else()
+    message(FATAL_ERROR "Could not find sparsehash header files")
+endif()
 
 set(COMMON_LIBRARIES m)
-set(SAMPLER_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} boost_program_options nauty)
+set(SAMPLER_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} boost_program_options ${NAUTY})
 set(BUILDER_LIBRARIES ${COMMON_LIBRARIES} boost_program_options)
 set(MERGER_LIBRARIES ${COMMON_LIBRARIES} boost_program_options)
-set(TEST_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} nauty)
+set(TEST_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
 
 add_executable(motivo-build ${BUILDER_SOURCE_FILES})
 add_executable(motivo-merge ${MERGER_SOURCE_FILES})
