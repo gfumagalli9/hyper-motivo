@@ -54,6 +54,9 @@ set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp s
 
 set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp tests/Treelet.cpp tests/Occurrence.cpp src/sampler/Occurrence.cpp src/sampler/Occurrence.h tests/leftmost_bit_tie.cpp)
 
+string(REPLACE ":" ";" LIBRARY_PATH_STR "$ENV{LIBRARY_PATH}")
+set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} ${LIBRARY_PATH_STR})
+
 find_library(OPENBLAS NAMES openblas)
 if(OPENBLAS)
     message(STATUS "openblas library found")
@@ -94,7 +97,6 @@ find_library(BOOST_PO NAMES boost_program_options)
 if(NOT BOOST_PO)
     message(FATAL_ERROR "Could not find boost::program_options library")
 endif()
-
 
 find_path(NAUTY_INCLUDE_DIR nauty/nauty.h)
 if(NAUTY_INCLUDE_DIR)
