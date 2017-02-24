@@ -26,7 +26,7 @@ Support for [mmap](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mma
 
 ###Compiling
 
-Install CMake (>= 3.6), checkout the source files and run:
+Install CMake (>= 3.5), checkout the source files and run:
 
 ~~~~
 $ mkdir build

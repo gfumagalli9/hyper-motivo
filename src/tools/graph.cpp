@@ -45,8 +45,8 @@ void graph2bin(const std::string &graph_filename, const std::string &output_base
 
     offsets.write(reinterpret_cast<const char*>(&processed_edges), sizeof(UndirectedGraph::vertex_t));
 
-    if(processed_edges!=num_edges)
-        throw std::runtime_error("Number of edges in header does not match the sum of degrees");
+    if(processed_edges != 2*num_edges)
+        throw std::runtime_error("Number of edges in header does not match half the sum of degrees");
 
     edges.close();
     offsets.close();
