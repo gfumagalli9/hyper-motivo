@@ -118,7 +118,7 @@ int main(const int argc, const char** argv)
         if (size < 1 || size > 16)
             throw std::runtime_error("'size' option is invalid");
 
-        std::ofstream outfile = std::ofstream(output_filename, std::ofstream::binary | std::ofstream::trunc);
+        std::ofstream outfile(output_filename, std::ofstream::binary | std::ofstream::trunc);
         UndirectedGraph G(graph_basename);
         TreeletTableCollection ttc(tables_basename, size);
 
