@@ -11,7 +11,6 @@
 #include "../common/Treelet.h"
 #include "../common/TreeletTable.h"
 
-
 namespace po = boost::program_options;
 
 void merge(const std::vector<std::string>& count_files, const std::string& output_basename)

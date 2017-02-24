@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 #include <stdexcept>
 #include <fstream>
+#include <boost/multiprecision/cpp_int.hpp>
 #include "AliasMethodSampler.h"
 #include "../platform.h"
 
@@ -26,7 +27,7 @@ AliasMethodSampler::AliasMethodSampler(const std::string &filename)
     fread(&num_elements, sizeof(uint64_t), 1, elements_fd);
     fread(&total_weight, sizeof(uint64_t), 1, elements_fd);
 
-    elements = static_cast<element*>(mmap(nullptr, (num_elements+1)*sizeof(uint64_t), PROT_READ, MAP_PRIVATE, fileno(elements_fd), 0));
+    elements = static_cast<element*>(mmap(nullptr, (num_elements+1)*sizeof(element), PROT_READ, MAP_PRIVATE, fileno(elements_fd), 0));
     assert(elements!=MAP_FAILED);
     elements += 1;
 
@@ -50,21 +51,43 @@ void AliasMethodSampler::build()
     if(readonly)
         throw std::runtime_error("Table has already been built or is read only");
 
+    boost::multiprecision::uint128_t* U = new boost::multiprecision::uint128_t[num_elements];
+
     uint64_t noverfull=0;
     uint64_t* overfull = new uint64_t[num_elements];
     uint64_t nunderfull=0;
     uint64_t* underfull = new uint64_t[num_elements];
+
+#ifndef NDEBUG
+    boost::multiprecision::uint128_t of_weight=0;
+    boost::multiprecision::uint128_t uf_weight=0;
+#endif
+
     for(uint64_t i=0; i<num_elements; i++)
     {
         //elements[i].U *= num_elements;
-        mul_overflow(elements[i].U, num_elements, &elements[i].U);
+        //mul_overflow(elements[i].U, num_elements, &elements[i].U);
+        U[i] = static_cast<boost::multiprecision::uint128_t>(elements[i].U) * num_elements;
 
         // n p_i > 1 <=> n weight_i/tot_weight > 1 <=> n weight_i > tot_weight
-        if( elements[i].U > total_weight )
-            overfull[noverfull++]=i;
-        else if( elements[i].U < total_weight )
-            underfull[nunderfull++]=i;
+        if( U[i] > total_weight )
+        {
+            overfull[noverfull++] = i;
+#ifndef NDEBUG
+            of_weight += U[i]-total_weight;
+#endif
+        }
+        else if( U[i] < total_weight )
+        {
+            underfull[nunderfull++] = i;
+#ifndef NDEBUG
+            uf_weight += total_weight-U[i];
+#endif
+        }
     }
+
+    assert(!(uf_weight > of_weight));
+    assert(!(uf_weight < of_weight));
 
     while(noverfull>0)
     {
@@ -72,18 +95,26 @@ void AliasMethodSampler::build()
         uint64_t of = overfull[--noverfull];
         uint64_t uf = underfull[--nunderfull];
         elements[uf].K=of;
-        elements[of].U-=total_weight-elements[uf].U;
+        //elements[of].U-=total_weight-elements[uf].U;
+        U[of] -= total_weight - U[uf];
 
-        if(elements[of].U > total_weight)
-            overfull[noverfull++]=of;
-        else if(elements[of].U < total_weight )
-            underfull[nunderfull++]=of;
+        if(U[of] > total_weight)
+            overfull[noverfull++] = of;
+        else if(U[of] < total_weight )
+            underfull[nunderfull++] = of;
     }
 
     assert(nunderfull==0);
 
+    for(uint64_t i=0; i<num_elements; i++)
+    {
+        assert(U[i] <= total_weight);
+        elements[i].U = static_cast<uint64_t>(U[i]);
+    }
+
     delete[] overfull;
     delete[] underfull;
+    delete[] U;
 
     readonly = true;
 }

@@ -47,6 +47,9 @@ public:
 
         uint64_t i = rng->random_uint64(0, num_elements);
         uint64_t y = rng->random_uint64(0, total_weight);
+
+        assert(elements[i].U==total_weight || elements[i].K<num_elements);
+
         return (y<elements[i].U)?i:elements[i].K;
     };
 

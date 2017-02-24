@@ -14,7 +14,7 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
     if(t.number_of_vertices() == 1)
         return true;
 
-    ReservoirSampler<std::pair<Treelet, UndirectedGraph::vertex_t> > sampler(std::make_pair(Treelet::invalid_treelet, 0), &rng);
+    ReservoirSampler<std::pair<Treelet, UndirectedGraph::vertex_t> > sampler(std::make_pair(Treelet::invalid_treelet, 0), rng);
 
     Treelet split = t.split_child();
     assert(!split.is_colored());

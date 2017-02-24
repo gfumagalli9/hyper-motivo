@@ -13,15 +13,19 @@ namespace po = boost::program_options;
 void sample(const UndirectedGraph &G, const TreeletTableCollection &ttc, unsigned int size, uint64_t num_samples,
             std::ostream& out, bool text, bool canonicize, bool graphlets, bool footprints_only)
 {
-    TreeletSampler sampler(&G, &ttc);
-    UndirectedGraph::vertex_t occ_vertices[16];
+    Random rng;
+    TreeletSampler sampler(&G, &ttc, &rng);
+    UndirectedGraph::vertex_t occ_vertices[16] = {0};
 
     //FIXME: Cache spanning trees count and/or footprints?
 
     //GraphFootprint footprint;
-    for(uint64_t i=0; i<num_samples; i++)
+    uint64_t sampled=0;
+    uint64_t rejected=0;
+    while(sampled<num_samples)
     {
         UndirectedGraph::vertex_t root = sampler.sample_root(size);
+        assert(root<G.number_of_vertices());
         Treelet t = sampler.sample_treelet(size, root);
 #ifndef NDEBUG
         bool success =
@@ -29,12 +33,21 @@ void sample(const UndirectedGraph &G, const TreeletTableCollection &ttc, unsigne
         sampler.sample_rooted_occurrence(t, root, occ_vertices);
         assert(success);
 
-        std::unique_ptr<Occurrence> occurrence;
+        Occurrence *occurrence = nullptr;
+        if(graphlets)
+        {
+            occurrence = new Occurrence(size, occ_vertices, &G);
+            uint64_t spanning_trees=occurrence->number_of_spanning_trees();
 
-        if(graphlets) //FIXME: Rejection
-            occurrence = std::make_unique<Occurrence>(size, occ_vertices, &G);
+            if(rng.random_uint64(0, spanning_trees)!=0)
+            {
+                rejected++;
+                delete occurrence;
+                continue; //Rejection
+            }
+        }
         else
-            occurrence = std::make_unique<Occurrence>(occ_vertices, t);
+            occurrence = new Occurrence(occ_vertices, t);
 
         if(canonicize)
             occurrence->canonicize();
@@ -46,7 +59,12 @@ void sample(const UndirectedGraph &G, const TreeletTableCollection &ttc, unsigne
             //FIXME
             out.write(reinterpret_cast<const char*>(occ_vertices), static_cast<std::streamsize>(sizeof(UndirectedGraph::vertex_t)*size));
         }
+
+        delete occurrence;
+        sampled++;
     }
+
+    std::cout << "Sampled: " << sampled << " Rejected:" << rejected << std::endl;
 }
 
 int main(const int argc, const char** argv)

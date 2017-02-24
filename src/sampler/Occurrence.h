@@ -13,7 +13,7 @@ class Occurrence
 {
 private:
     const unsigned int size;
-    UndirectedGraph::vertex_t vertices[16];
+    UndirectedGraph::vertex_t vertices[16] = {0};
     uint8_t edges[15] = {0}; //edge (i,j) with i>j is in position sum_{k=1}^(i-1) k + j = (i-1)*i/2 + j
 
     inline void add_edge(unsigned int i, unsigned int j)
