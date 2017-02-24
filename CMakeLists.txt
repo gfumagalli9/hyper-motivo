@@ -62,7 +62,7 @@ if(OPENBLAS)
 
     set(OLD_CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES})
     set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} openblas)
-    check_cxx_source_compiles("int main() { LAPACKE_dpotrf_work('X', 'X', 0, nullptr, 0); }" OPENBLAS_HAS_LAPACKE)
+    check_cxx_source_compiles("#include <lapacke.h>\n int main() { LAPACKE_dpotrf_work('X', 'X', 0, NULL, 0); }" OPENBLAS_HAS_LAPACKE)
     set(CMAKE_REQUIRED_LIBRARIES ${OLD_CMAKE_REQUIRED_LIBRARIES})
 else()
     find_library(CBLAS NAMES cblas)
