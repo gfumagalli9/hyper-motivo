@@ -88,7 +88,7 @@ endif()
 
 
 set(COMMON_LIBRARIES m)
-set(SAMPLER_LIBRARIES ${COMMON_LIBRARIES} boost_program_options openblas lapacke nauty)
+set(SAMPLER_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} boost_program_options nauty)
 set(BUILDER_LIBRARIES ${COMMON_LIBRARIES} boost_program_options)
 set(MERGER_LIBRARIES ${COMMON_LIBRARIES} boost_program_options)
 set(TEST_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} nauty)
