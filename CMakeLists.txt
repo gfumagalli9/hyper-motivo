@@ -12,7 +12,12 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++14 -Wconversion -Wall -Wextra -Wpedantic -pedantic-errors -Wdisabled-optimization -Wfloat-equal -Wold-style-cast -Wsign-conversion -Winline -Wzero-as-null-pointer-constant -Wuseless-cast -Wno-zero-as-null-pointer-constant -Wno-unknown-warning-option")
 
+option(ENABLE_ASSERTS "Enable asserts (slower)" OFF)
+option(OPTIMIZE_MORE "Optimize for current hardware" OFF)
+option(MOTIVO_OVERFLOW_SAFE "Check for overflows during computation" ON)
+
 if(ENABLE_ASSERTS)
+    message(STATUS "Assertions enabled. Code might be slower.")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -UNDEBUG ")
     set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -UNDEBUG ")
 
@@ -36,6 +41,30 @@ check_type_size("int" MOTIVO_INT_SIZE LANGUAGE CXX)
 check_type_size("long" MOTIVO_LONG_SIZE LANGUAGE CXX)
 check_type_size("long long" MOTIVO_LONG_LONG_SIZE LANGUAGE CXX)
 
+check_type_size("uint64_t" MOTIVO_HAS_UINT64_T)
+check_type_size("uint128_t" MOTIVO_HAS_UINT128_T)
+check_type_size("__uint128_t" MOTIVO_HAS___UINT128_T)
+
+if(NOT MOTIVO_HAS_UINT64_T)
+    message(FATAL_ERROR "Compiler does not support required type uint64_t")
+endif()
+
+if(MOTIVO_HAS_UINT128_T)
+    message(STATUS "Compiler supports type uint128_t")
+else()
+    message(STATUS "Compiler does not support type uint128_t")
+
+    if(MOTIVO_HAS___UINT128_T)
+        message(STATUS "Compiler supports type __uint128_t")
+    else()
+        message(WARNING "Compiler does not support any 128-bit unsigned integer. Will use slow implementation.")
+    endif()
+endif()
+
+if(MOTIVO_OVERFLOW_SAFE)
+    message(STATUS "Building with overflow checks")
+endif()
+
 if(MOTIVO_OVERFLOW_SAFE AND NOT MOTIVO_HAS_BUILTIN_ADD_OVERFLOW)
     message(WARNING "No builtin function for checking addition overflow. Will use slow implementation.")
 endif()
@@ -47,7 +76,7 @@ endif()
 configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 include_directories(${CMAKE_BINARY_DIR})
 
-set(COMMON_SOURCE_FILES src/common/UndirectedGraph.cpp src/common/UndirectedGraph.h src/common/Treelet.h src/common/GraphColoring.cpp src/common/GraphColoring.h src/common/Random.h src/common/Treelet.cpp src/common/TreeletTableCollection.cpp src/common/TreeletTableCollection.h src/common/TreeletTable.cpp src/common/TreeletTable.h src/platform.h src/common/AliasMethodSampler.cpp src/common/AliasMethodSampler.h)
+set(COMMON_SOURCE_FILES src/common/UndirectedGraph.cpp src/common/UndirectedGraph.h src/common/Treelet.h src/common/GraphColoring.cpp src/common/GraphColoring.h src/common/Random.h src/common/Treelet.cpp src/common/TreeletTableCollection.cpp src/common/TreeletTableCollection.h src/common/TreeletTable.cpp src/common/TreeletTable.h src/platform/platform.h src/common/AliasMethodSampler.cpp src/common/AliasMethodSampler.h src/platform/fallback_uint128_t.h src/platform/fallback_uint128_t.cpp src/common/OptionsParser.cpp src/common/OptionsParser.h)
 set(MERGER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/merger/merger.cpp)
 set(BUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/builder/TreeletTableBuilder.cpp src/builder/TreeletTableBuilder.h src/builder/builder.cpp)
 set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp src/sampler/TreeletSampler.h src/sampler/ReservoirSampler.h src/sampler/sampler.cpp src/sampler/include_nauty.h src/sampler/Occurrence.cpp src/sampler/Occurrence.h)
@@ -93,10 +122,6 @@ if(NOT NAUTY)
     message(FATAL_ERROR "Could not find nauty library")
 endif()
 
-find_library(BOOST_PO NAMES boost_program_options)
-if(NOT BOOST_PO)
-    message(FATAL_ERROR "Could not find boost::program_options library")
-endif()
 
 find_path(NAUTY_INCLUDE_DIR nauty/nauty.h)
 if(NAUTY_INCLUDE_DIR)
@@ -112,24 +137,10 @@ else()
     message(FATAL_ERROR "Could not find sparsehash header files")
 endif()
 
-find_path(BOOST_PO_INCLUDE_DIR boost/program_options.hpp)
-if(BOOST_PO_INCLUDE_DIR)
-    include_directories("${BOOST_PO_INCLUDE_DIR}")
-else()
-    message(FATAL_ERROR "Could not find boost::program_options header files")
-endif()
-
-find_path(BOOST_MULTIPRECISION_INCLUDE_DIR boost/multiprecision/cpp_int.hpp)
-if(BOOST_MULTIPRECISION_INCLUDE_DIR)
-    include_directories("${BOOST_MULTIPRECISION_INCLUDE_DIR}")
-else()
-    message(FATAL_ERROR "Could not find boost::multiprecision header files")
-endif()
-
 set(COMMON_LIBRARIES m)
-set(SAMPLER_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${BOOST_PO} ${NAUTY})
-set(BUILDER_LIBRARIES ${COMMON_LIBRARIES} ${BOOST_PO})
-set(MERGER_LIBRARIES ${COMMON_LIBRARIES} ${BOOST_PO})
+set(SAMPLER_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
+set(BUILDER_LIBRARIES ${COMMON_LIBRARIES})
+set(MERGER_LIBRARIES ${COMMON_LIBRARIES})
 set(TEST_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
 
 add_executable(motivo-build ${BUILDER_SOURCE_FILES})
@@ -142,8 +153,7 @@ target_link_libraries(motivo-merge ${MERGER_LIBRARIES})
 target_link_libraries(motivo-sample ${SAMPLER_LIBRARIES})
 target_link_libraries(motivo-tests ${TEST_LIBRARIES})
 
-add_executable(motivo-graph src/common/UndirectedGraph.cpp src/tools/graph.cpp)
-target_link_libraries(motivo-graph ${BOOST_PO})
+add_executable(motivo-graph src/common/UndirectedGraph.h src/common/UndirectedGraph.cpp src/common/OptionsParser.h src/common/OptionsParser.cpp src/tools/graph.cpp)
 
 file(COPY scripts/build-many.sh DESTINATION .)
 

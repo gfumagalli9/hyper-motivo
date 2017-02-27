@@ -3,12 +3,10 @@
 //
 
 #include <fstream>
-#include <boost/program_options.hpp>
 #include "../common/UndirectedGraph.h"
 #include "TreeletSampler.h"
 #include "Occurrence.h"
-
-namespace po = boost::program_options;
+#include "../common/OptionsParser.h"
 
 void sample(const UndirectedGraph &G, const TreeletTableCollection &ttc, unsigned int size, uint64_t num_samples,
             std::ostream& out, bool text, bool canonicize, bool graphlets, bool footprints_only)
@@ -69,60 +67,51 @@ void sample(const UndirectedGraph &G, const TreeletTableCollection &ttc, unsigne
 
 int main(const int argc, const char** argv)
 {
-    std::string output_filename;
-    std::string graph_basename;
-    unsigned int size;
-    uint64_t num_samples;
-    bool text;
-    bool canonicize;
-    bool graphlets;
-    bool footprints_only;
-    std::string tables_basename;
 
-    po::options_description visible_desc("Allowed options");
-    visible_desc.add_options()
-            ("help", "Print help and exit")
-            ("graph,g", po::value<std::string>(&graph_basename)->required(), "Input graph basename (required)")
-            ("size,s", po::value < unsigned int > (&size)->required(), "Size of the treelets to sample (required)")
-            ("num-samples,n", po::value<uint64_t>(&num_samples)->default_value(1), "Number of samples (required)")
-            ("output,o", po::value<std::string>(&output_filename)->required(), "Output file (required)")
-            ("text,t", po::bool_switch(&text)->default_value(false), "Output occurrences in text format")
-            ("canonicize,c", po::bool_switch(&canonicize)->default_value(false), "Output occurrences in canonical format")
-            ("graphlets,G", po::bool_switch(&graphlets)->default_value(false), "Sample graphlets occurrences (instead of treelets)")
-            ("footprints-only,f", po::bool_switch(&footprints_only)->default_value(false), "Only output the footprints (and not the actual vertices)");
+    OptionsParser op;
+    OptionsParser::Option *help_opt = op.add_option(false, false, "help", '\0', "", "Print help and exit");
+    OptionsParser::Option *graph_opt = op.add_option(true, true, "graph", 'g', "", "Input graph basename (required)");
+    OptionsParser::Option *size_opt = op.add_option(true, true, "size", 's', "", "Size of the treelets to sample (required)");
+    OptionsParser::Option *samples_opt = op.add_option(false, true, "num-samples", 'n', "1", "Number of samples (default: 1)");
+    OptionsParser::Option *input_opt = op.add_option(true, true, "input", 'i', "", "Input tables basename (required)");
+    OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
+    OptionsParser::Option *text_opt = op.add_option(false, false, "text", 't', "", "Output occurrences in text format");
+    OptionsParser::Option *canonicize_opt = op.add_option(false, false, "canonicize", 'c', "", "Output occurrences in canonical format");
+    OptionsParser::Option *graphlets_opt = op.add_option(false, false, "graphlets", '\0', "", "Sample graphlets occurrences (instead of treelets)");
+    OptionsParser::Option *footprints_opt = op.add_option(false, false, "footprints-only", 'f', "", "Only output the footprints (and not the actual vertices)");
 
-    po::options_description hidden_desc("Hidden options");
-    hidden_desc.add_options()("input", po::value<std::string>(&tables_basename), "Input tables basename");
+    bool parse_ok = op.parse(argc, argv);
+    if (!parse_ok || help_opt->is_found())
+    {
+        std::cout << "motivo-sample [OPTION]... BASENAME" << std::endl;
+        std::cout << "  Samples treelets from tables" << std::endl << std::endl;
+        std::cout << op.help() << std::endl;
 
-    po::positional_options_description positional_desc;
-    positional_desc.add("input", 1);
+        return EXIT_SUCCESS;
+    }
 
-    po::options_description desc;
-    desc.add(visible_desc).add(hidden_desc);
+    if(!op.has_required_options())
+    {
+        std::cout << "Required options are missing" << std::endl;
+        return EXIT_FAILURE;
+    }
 
-    po::variables_map vm;
     try
     {
-        po::store(po::command_line_parser(argc, argv).options(desc).positional(positional_desc).run(), vm);
-        if(vm.count("help"))
-        {
-            std::cout << "motivo-sample [OPTION]... BASENAME" << std::endl;
-            std::cout << "  Samples treelets from tables" << std::endl << std::endl;
-            std::cout << visible_desc << std::endl;
-
-            return EXIT_SUCCESS;
-        }
-
-        po::notify(vm);
-
+        int size = std::stoi(size_opt->get_value());
         if (size < 1 || size > 16)
             throw std::runtime_error("'size' option is invalid");
 
-        std::ofstream outfile(output_filename, std::ofstream::binary | std::ofstream::trunc);
-        UndirectedGraph G(graph_basename);
-        TreeletTableCollection ttc(tables_basename, size);
+        int64_t num_samples = std::stoll(samples_opt->get_value());
+        if(num_samples<=0)
+            throw std::runtime_error("'num-samples' option is invalid");
 
-        sample(G, ttc, size, num_samples, outfile, text, canonicize, graphlets, footprints_only);
+
+        std::ofstream outfile(output_opt->get_value(), std::ofstream::binary | std::ofstream::trunc);
+        UndirectedGraph G(graph_opt->get_value());
+        TreeletTableCollection ttc(input_opt->get_value(), static_cast<unsigned int>(size));
+
+        sample(G, ttc, static_cast<unsigned int>(size), static_cast<uint64_t>(num_samples), outfile, text_opt->is_found(), canonicize_opt->is_found(), graphlets_opt->is_found(), footprints_opt->is_found());
     }
     catch(std::exception& e)
     {

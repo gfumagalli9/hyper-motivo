@@ -4,65 +4,76 @@
 
 #include "../common/UndirectedGraph.h"
 #include "TreeletTableBuilder.h"
-#include "boost/program_options.hpp"
-
-namespace po = boost::program_options;
+#include "../common/OptionsParser.h"
 
 int main(const int argc, const char** argv)
 {
-    std::string graph_basename;
-    std::string output_filename;
-    unsigned int size;
-    unsigned int colors;
-    unsigned int from_vertex;
 
-    po::options_description desc("Allowed options");
-    desc.add_options()
-            ("help", "Print help and exit")
-            ("graph,g", po::value<std::string>(&graph_basename)->required(), "Input graph basename (required)")
-            ("size,s",  po::value<unsigned int>(&size)->required(), "Size of the table to build, between 1 and 16 (required)")
-            ("colors,c", po::value<unsigned int>(&colors), "Number of colors to use, between 1 and 16 (required if size=1, ignored if size>1)")
-            ("tables-basename,s", po::value<std::string>(), "Basename of table files of smaller size (required if size > 1, ignored if size=1)")
-            ("from-vertex", po::value<UndirectedGraph::vertex_t>(&from_vertex)->default_value(0), "First vertex (default: 0)")
-            ("to-vertex", po::value<UndirectedGraph::vertex_t>(), "Last vertex (default: last vertex of the graph)")
-            ("output,o", po::value<std::string>(&output_filename)->required(), "Output file (required)");
+    OptionsParser op;
+    OptionsParser::Option *help_opt = op.add_option(false, false, "help", '\0', "", "Print help and exit");
+    OptionsParser::Option *graph_opt = op.add_option(true, true, "graph", 'g', "", "Input graph basename (required)");
+    OptionsParser::Option *size_opt = op.add_option(true, true, "size", 's', "", "Size of the table to build, between 1 and 16 (required)");
+    OptionsParser::Option *colors_opt = op.add_option(false, true, "colors", 'c', "0", "Number of colors to use, between 1 and 16 (required if size=1, ignored if size>1)");
+    OptionsParser::Option *tables_opt = op.add_option(false, true, "tables-basename", 't', "", "Basename of table files of smaller size (required if size > 1, ignored if size=1)");
+    OptionsParser::Option *from_opt = op.add_option(false, true, "from-vertex", '\0', "", "First vertex (default: 0)");
+    OptionsParser::Option *to_opt = op.add_option(false, true, "to-vertex", '\0', "", "First vertex (default: 0)");
+    OptionsParser::Option* output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
 
-    po::variables_map vm;
+    bool parse_ok = op.parse(argc, argv);
+    if (!parse_ok || help_opt->is_found())
+    {
+        std::cout << "motivo-build [OPTION]..." << std::endl;
+        std::cout << "  Builds count tables for use with motivo-merge" << std::endl << std::endl;
+        std::cout << op.help() << std::endl;
+
+        return EXIT_SUCCESS;
+    }
+
+    if(!op.has_required_options())
+    {
+        std::cout << "Required options are missing" << std::endl;
+        return EXIT_FAILURE;
+    }
+
     try
     {
-        po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
-
-        if(vm.count("help"))
-        {
-            std::cout << "motivo-build [OPTION]..." << std::endl;
-            std::cout << "  Builds count tables for use with motivo-merge" << std::endl << std::endl;
-            std::cout << desc << std::endl;
-
-            return EXIT_SUCCESS;
-        }
-
-        po::notify(vm);
-
+        int size = std::stoi(size_opt->get_value());
         if (size < 1 || size > 16)
             throw std::runtime_error("'size' option is invalid");
 
-        if(size==1 && (!vm.count("colors") || colors < 1 || colors > 16))
+        int colors = std::stoi(colors_opt->get_value());
+        if(size==1 && (!colors_opt->is_found() || colors < 1 || colors > 16))
             throw std::runtime_error("'colors' option missing or invalid");
 
-        std::string tables_basename;
-        if(size != 1)
-        {
-            if(!vm.count("tables-basename"))
-                throw std::runtime_error("'tables-basename' option is required");
-            tables_basename = vm["tables-basename"].as<std::string>();
-        }
+        if(size != 1 && !tables_opt->is_found())
+            throw std::runtime_error("'tables-basename' option is required");
 
-        UndirectedGraph G(graph_basename);
+        UndirectedGraph G(graph_opt->get_value());
         std::cout << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
 
-        unsigned int to_vertex = vm.count("to-vertex")?vm["to-vertex"].as<UndirectedGraph::vertex_t>():G.number_of_vertices()-1;
-        if(from_vertex>to_vertex || to_vertex>=G.number_of_vertices())
-            throw std::runtime_error("'from-fertex' and 'to-vertex' options specify an empty range or exceed the number of vertices in the graph");
+        unsigned int from_vertex = 0;
+        if(to_opt->is_found())
+        {
+            int64_t from = std::stoll(from_opt->get_value());
+            if(from < 0 || from >=G.number_of_vertices())
+                throw std::runtime_error("'from-vertex' option specifies an invalid vertex");
+
+            from_vertex = static_cast<UndirectedGraph::vertex_t>(from);
+        }
+
+        unsigned int to_vertex = G.number_of_vertices()-1;
+        if(to_opt->is_found())
+        {
+            int64_t to = std::stoll(to_opt->get_value());
+            if(to < 0 || to >=G.number_of_vertices())
+                throw std::runtime_error("'to-vertex' option specifies an invalid vertex");
+
+            to_vertex = static_cast<UndirectedGraph::vertex_t>(to);
+        }
+
+
+        if(from_vertex>to_vertex)
+            throw std::runtime_error("'from-fertex' and 'to-vertex' options specify an empty range");
 
         std::unique_ptr<GraphColoring> coloring;
         if(size == 1)
@@ -75,20 +86,20 @@ int main(const int argc, const char** argv)
         if(size != 1)
         {
             std::cout << "Loading tables for smaller sizes" << std::endl;
-            ttc = std::make_unique<TreeletTableCollection>(tables_basename, size - 1);
+            ttc = std::make_unique<TreeletTableCollection>(tables_opt->get_value(), size - 1);
         }
 
-        std::ofstream out(  output_filename, std::ofstream::binary | std::ofstream::trunc);
+        std::ofstream out( output_opt->get_value(), std::ofstream::binary | std::ofstream::trunc);
         if(out.bad())
             throw std::runtime_error("Could not open output file for writing");
 
-        std::cout << "Computing treelet counts for vertices " << from_vertex << "--" << to_vertex << std::endl;
+        std::cout << "Computing counts of treelet of size " << size << " for vertices " << from_vertex << "--" << to_vertex << std::endl;
 
-        TreeletTableBuilder builder(&G, coloring.get(), size, ttc.get(), &out);
+        TreeletTableBuilder builder(&G, coloring.get(), static_cast<unsigned  int>(size), ttc.get(), &out);
         builder.build(from_vertex, to_vertex);
         out.close();
 
-        std::cout << "Output written to " << output_filename << std::endl;
+        std::cout << "Output written to " << output_opt->get_value() << std::endl;
     }
     catch(std::exception& e)
     {

@@ -3,10 +3,7 @@
 //
 
 #include "TreeletTable.h"
-#include "../sampler/ReservoirSampler.h"
-#include <stdexcept>
 #include <sys/mman.h>
-#include <algorithm>
 
 TreeletTable::TreeletTable(const std::string& basename)
 {
@@ -15,7 +12,11 @@ TreeletTable::TreeletTable(const std::string& basename)
     if(offsets_fd==NULL)
         throw std::runtime_error("Could not open file " + offsets_filename);
 
-    fread(&num_vertices, sizeof(uint64_t), 1, offsets_fd);
+    uint64_t nverts;
+    fread(&nverts, sizeof(uint64_t), 1, offsets_fd);
+    assert(nverts < std::numeric_limits<UndirectedGraph::vertex_t>::max()-1);
+    num_vertices = static_cast<UndirectedGraph::vertex_t>(nverts);
+
     offsets = static_cast<uint64_t*>(mmap(nullptr, (num_vertices+2)*sizeof(uint64_t), PROT_READ, MAP_PRIVATE, fileno(offsets_fd), 0));
     assert(offsets!=MAP_FAILED);
     offsets += 1;
@@ -53,7 +54,7 @@ TreeletTable::~TreeletTable()
 }
 
 ///@returns a pointer to the first treelet_count_pair in the range [begin, end) whose treelet is greater than or equal to "treelet"
-///If now such treelet_count_pair exists, returns @param end
+///If no such treelet_count_pair exists, returns @param end
 static const TreeletTable::treelet_count_pair* treelet_upper_bound(const TreeletTable::treelet_count_pair *begin,
        const TreeletTable::treelet_count_pair *end, const Treelet &treelet)
 {
@@ -79,7 +80,7 @@ static const TreeletTable::treelet_count_pair* treelet_upper_bound(const Treelet
 
 
 ///@returns a pointer to the first treelet_count_pair in the range [begin, end) whose count is greater than or equal to "count"
-///If now such treelet_count_pair exists, returns @param end
+///If no such treelet_count_pair exists, returns @param end
 static const TreeletTable::treelet_count_pair* count_upper_bound(const TreeletTable::treelet_count_pair *begin,
         const TreeletTable::treelet_count_pair *end, TreeletTable::treelet_count_t count)
 {
@@ -114,14 +115,22 @@ UndirectedGraph::vertex_t TreeletTable::get_random_root(Random *rng) const
     if(root_sampler)
         return static_cast<UndirectedGraph::vertex_t>(root_sampler->sample(rng));
 
-    ReservoirSampler<UndirectedGraph::vertex_t> sampler(0, rng);
-    for(UndirectedGraph::vertex_t u=0; u<num_vertices; u++)
-    {
-        treelet_count_t ntreelets = (data + offsets[u+1]-1)->count;
-        sampler.feed(u, ntreelets);
-    }
+    uint64_t r = rng->random_uint64(0, offsets[num_vertices]);
 
-    return sampler.get_sample();
+    UndirectedGraph::vertex_t begin = 0;
+    UndirectedGraph::vertex_t end = num_vertices + 1;
+
+    ///find the vertex v in the range [begin, end) such that offset[v] is greater than or equal to r
+    while(begin<end)
+    {
+        const UndirectedGraph::vertex_t mid = begin + (end - begin) / 2;
+        if(offsets[mid] < r)
+            begin=mid+1;
+        else
+            end=mid;
+    }
+    return begin-1; //v=begin. Return v-1
+
 }
 
 const Treelet& TreeletTable::get_random_treelet(UndirectedGraph::vertex_t root, Random* rng) const

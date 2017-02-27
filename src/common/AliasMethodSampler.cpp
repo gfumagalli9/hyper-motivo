@@ -7,9 +7,8 @@
 #include <sys/mman.h>
 #include <stdexcept>
 #include <fstream>
-#include <boost/multiprecision/cpp_int.hpp>
 #include "AliasMethodSampler.h"
-#include "../platform.h"
+#include "../platform/platform.h"
 
 AliasMethodSampler::AliasMethodSampler(uint64_t n) : num_elements(n), total_weight(0), elements_fd(nullptr), readonly(false)
 {
@@ -51,7 +50,7 @@ void AliasMethodSampler::build()
     if(readonly)
         throw std::runtime_error("Table has already been built or is read only");
 
-    boost::multiprecision::uint128_t* U = new boost::multiprecision::uint128_t[num_elements];
+    uint128_t* U = new uint128_t[num_elements];
 
     uint64_t noverfull=0;
     uint64_t* overfull = new uint64_t[num_elements];
@@ -59,15 +58,15 @@ void AliasMethodSampler::build()
     uint64_t* underfull = new uint64_t[num_elements];
 
 #ifndef NDEBUG
-    boost::multiprecision::uint128_t of_weight=0;
-    boost::multiprecision::uint128_t uf_weight=0;
+    uint128_t of_weight=0;
+    uint128_t uf_weight=0;
 #endif
 
     for(uint64_t i=0; i<num_elements; i++)
     {
         //elements[i].U *= num_elements;
         //mul_overflow(elements[i].U, num_elements, &elements[i].U);
-        U[i] = static_cast<boost::multiprecision::uint128_t>(elements[i].U) * num_elements;
+        U[i] = static_cast<uint128_t>(elements[i].U) * num_elements;
 
         // n p_i > 1 <=> n weight_i/tot_weight > 1 <=> n weight_i > tot_weight
         if( U[i] > total_weight )
@@ -86,8 +85,8 @@ void AliasMethodSampler::build()
         }
     }
 
-    assert(!(uf_weight > of_weight));
-    assert(!(uf_weight < of_weight));
+    assert(uf_weight <= of_weight);
+    assert(uf_weight >= of_weight);
 
     while(noverfull>0)
     {

@@ -17,4 +17,8 @@
 #cmakedefine MOTIVO_HAS_BUILTIN_MUL_OVERFLOW 1
 #cmakedefine MOTIVO_OVERFLOW_SAFE 1
 
+#cmakedefine MOTIVO_HAS_UINT64_T 1
+#cmakedefine MOTIVO_HAS_UINT128_T 1
+#cmakedefine MOTIVO_HAS___UINT128_T 1
+
 #endif //MOTIVO_CONFIG_H

@@ -6,7 +6,7 @@
 #define MOTIVO_RESERVOIRSAMPLER_H
 
 #include "../common/Random.h"
-#include "../platform.h"
+#include "../platform/platform.h"
 
 template <typename T> class ReservoirSampler
 {

@@ -3,7 +3,7 @@
 //
 
 #include "doctest.h"
-#include "../src/platform.h"
+#include "../src/platform/platform.h"
 
 int reference (uint32_t x)
 {

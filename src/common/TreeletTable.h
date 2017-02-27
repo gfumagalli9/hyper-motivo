@@ -45,7 +45,7 @@ public:
     };
 
 private:
-    unsigned int num_vertices;
+    UndirectedGraph::vertex_t num_vertices;
     uint64_t* offsets;
     treelet_count_pair* data;
     FILE* data_fd;

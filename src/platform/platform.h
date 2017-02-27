@@ -12,7 +12,7 @@
 #include <iostream>
 #include <memory.h>
 #include <limits>
-#include "generated/leftmost_bit_tie_lut.h"
+#include "../generated/leftmost_bit_tie_lut.h"
 #include "config.h"
 
 #ifdef MOTIVO_OVERFLOW_SAFE
@@ -74,6 +74,15 @@ inline int popcount32 [[gnu::const]] (uint32_t v)
     v = (v & 0x33333333) + ((v >> 2) & 0x33333333);     // temp
     return (((v + (v >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24; // count
 }
+#endif
+
+#ifndef MOTIVO_HAS_UINT128_T
+#ifdef MOTIVO_HAS___UINT128_T
+    typedef __uint128_t uint128_t;
+#else
+#include "fallback_uint128_t.h"
+typedef fallback_uint128_t uint128_t;
+#endif
 #endif
 
 ///@pre the leftmost bit of x is 1

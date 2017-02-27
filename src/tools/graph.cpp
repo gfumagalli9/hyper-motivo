@@ -5,10 +5,8 @@
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
-#include <boost/program_options.hpp>
 #include "../common/UndirectedGraph.h"
-
-namespace po = boost::program_options;
+#include "../common/OptionsParser.h"
 
 void graph2bin(const std::string &graph_filename, const std::string &output_basename)
 {
@@ -75,38 +73,34 @@ void bin2graph(const std::string &graph_basename, const std::string &output)
 
 int main(const int argc, const char** argv)
 {
-    std::string output;
-    std::string input;
-    bool dump;
+    OptionsParser op;
+    OptionsParser::Option* help_opt = op.add_option(false, false, "help", '\0', "", "Print help and exit");
+    OptionsParser::Option* dump_opt = op.add_option(false, false, "dump", '\0', "", "Dumps the contents of the given binary graph in text format");
+    OptionsParser::Option* input_opt = op.add_option(true, true, "input", 'i', "", "Input graph file or basename if --dump is specified (required)");
+    OptionsParser::Option* output_opt = op.add_option(true, true, "output", 'o', "", "Output basename or file if --dump is specified (required)");
 
-    po::options_description desc("Allowed options");
-    desc.add_options()
-            ("help", "Print help and exit")
-            ("dump", po::bool_switch(&dump)->default_value(false), "Dumps the contents of the given binary graph in text format")
-            ("input,i", po::value<std::string>(&input)->required(), "Input graph file or basename if --dump is specified")
-            ("output,o", po::value<std::string>(&output)->required(), "Output basename or file if --dump is specified");
+    bool parse_ok = op.parse(argc, argv);
+    if(!parse_ok || help_opt->is_found())
+    {
+        std::cout << "motivo-graph2bin [OPTION]..." << std::endl;
+        std::cout << "  Converts a ascii representation of a graph to Motivo's binary format or vice-versa" << std::endl << std::endl;
+        std::cout << op.help() << std::endl;
 
-    po::variables_map vm;
+        return parse_ok?EXIT_SUCCESS:EXIT_FAILURE;
+    }
+
+    if(!op.has_required_options())
+    {
+        std::cout << "Required options are missing" << std::endl;
+        return EXIT_FAILURE;
+    }
 
     try
     {
-        po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
-
-        if(vm.count("help"))
-        {
-            std::cout << "motivo-graph2bin [OPTION]..." << std::endl;
-            std::cout << "  Converts a ascii representation of a graph to Motivo's binary format or vice-versa" << std::endl << std::endl;
-            std::cout << desc << std::endl;
-
-            return EXIT_SUCCESS;
-        }
-
-        po::notify(vm);
-
-        if(dump)
-            bin2graph(input, output);
+        if(dump_opt->is_found())
+            bin2graph(input_opt->get_value(), output_opt->get_value());
         else
-            graph2bin(input, output);
+            graph2bin(input_opt->get_value(), output_opt->get_value());
     }
     catch(std::exception& e)
     {

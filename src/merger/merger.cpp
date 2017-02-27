@@ -6,12 +6,10 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <boost/program_options.hpp>
 #include "../common/UndirectedGraph.h"
 #include "../common/Treelet.h"
 #include "../common/TreeletTable.h"
-
-namespace po = boost::program_options;
+#include "../common/OptionsParser.h"
 
 void merge(const std::vector<std::string>& count_files, const std::string& output_basename)
 {
@@ -105,43 +103,36 @@ void merge(const std::vector<std::string>& count_files, const std::string& outpu
 
 int main(const int argc, const char** argv)
 {
-    std::string output_basename;
-    std::vector<std::string> count_files;
+    OptionsParser op;
+    OptionsParser::Option *help_opt = op.add_option(false, false, "help", '\0', "", "Print help and exit");
+    OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output basename (required)");
 
-    po::options_description visible_desc("Allowed options");
-    visible_desc.add_options()
-            ("help", "Print help and exit")
-            ("output,o", po::value<std::string>(&output_basename)->required(), "Output basename (required)");
+    bool parse_ok = op.parse(argc, argv);
+    if (!parse_ok || help_opt->is_found())
+    {
+        std::cout << "motivo-merge [OPTION]... FILE [FILE]..." << std::endl;
+        std::cout << "  Builds treelet tables for use with motivo-sample" << std::endl << std::endl;
+        std::cout << op.help() << std::endl;
 
-    po::options_description hidden_desc("Hidden options");
-    hidden_desc.add_options()("input", po::value<std::vector<std::string>>(&count_files), "Input count files");
+        return parse_ok ? EXIT_SUCCESS : EXIT_FAILURE;
+    }
 
-    po::positional_options_description positional_desc;
-    positional_desc.add("input", -1);
+    if(!op.has_required_options())
+    {
+        std::cout << "Required options are missing" << std::endl;
+        return EXIT_FAILURE;
+    }
 
-    po::options_description desc;
-    desc.add(visible_desc).add(hidden_desc);
+    const std::vector<std::string> &count_files = op.positional_arguments();
+    if (count_files.size() == 0)
+    {
+        std::cout << "No inputs specified" << std::endl;
+        return EXIT_FAILURE;
+    }
 
-    po::variables_map vm;
     try
     {
-        po::store(po::command_line_parser(argc, argv).options(desc).positional(positional_desc).run(), vm);
-
-        if (vm.count("help"))
-        {
-            std::cout << "motivo-merge [OPTION]... FILE [FILE]..." << std::endl;
-            std::cout << "  Builds treelet tables for use with motivo-sample" << std::endl << std::endl;
-            std::cout << visible_desc << std::endl;
-
-            return EXIT_SUCCESS;
-        }
-
-        po::notify(vm);
-
-        if(count_files.size()==0)
-            throw std::runtime_error("No inputs specified");
-
-        merge(count_files, output_basename);
+        merge(count_files, output_opt->get_value());
     }
     catch(std::exception& e)
     {

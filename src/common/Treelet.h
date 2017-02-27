@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <cassert>
 #include <utility>
-#include "../platform.h"
+#include "../platform/platform.h"
 
 
 //The following classsis already packed.
@@ -91,7 +91,7 @@ public:
 };
 //#pragma test(pop)
 
-static_assert(sizeof(Treelet) == 6, "treelet_t_union is not packed in 8 bytes");
+static_assert(sizeof(Treelet) == 6, "treelet_t_union is not packed in 6 bytes");
 
 
 #endif //MOTIVO_TREELET_H

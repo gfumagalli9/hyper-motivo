@@ -11,14 +11,13 @@ Motivo depends on the following libraries:
 
 - [Google's sparsehash library](https://github.com/sparsehash/sparsehash),
 - [OpenBLAS](http://www.openblas.net/) (or any other BLAS library),
-- [LAPACKE](http://www.netlib.org/lapack/lapacke.html),
+- [LAPACKE](http://www.netlib.org/lapack/lapacke.html) if not already provided by your blas library,
 - [Nauty](http://pallini.di.uniroma1.it/),
 - [Boost.Program_options](http://www.boost.org/doc/libs/release/libs/program_options/)
-- [Boost.Multiprecision](http://www.boost.org/doc/libs/releaselibs/multiprecision/)
 
 Your Linux distribution might have premade packages, i.e., on Debian you can run:
 ~~~~
-# apt-get install lib{sparsehash,openblas,lapacke,nauty2,boost-program-options,boost}-dev
+# apt-get install lib{sparsehash,openblas,lapacke,nauty2,boost-program-options}-dev
 ~~~~
 
 A C++14 aware compiler is required along with support for [u]int{8,16,32,64} types.
