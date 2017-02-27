@@ -86,6 +86,13 @@ set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp t
 string(REPLACE ":" ";" LIBRARY_PATH_STR "$ENV{LIBRARY_PATH}")
 set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} ${LIBRARY_PATH_STR})
 
+#https://gcc.gnu.org/onlinedocs/cpp/Environment-Variables.html
+string(REPLACE ":" ";" INCLUDE_PATH_STR "$ENV{CPLUS_INCLUDE_PATH}")
+INCLUDE_DIRECTORIES(INCLUDE_PATH_STR)
+
+string(REPLACE ":" ";" INCLUDE_PATH_STR "$ENV{CPATH}")
+INCLUDE_DIRECTORIES(INCLUDE_PATH_STR)
+
 find_library(OPENBLAS NAMES openblas)
 if(OPENBLAS)
     message(STATUS "openblas library found")
