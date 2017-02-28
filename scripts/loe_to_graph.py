@@ -53,7 +53,8 @@ nedges = sum( [ len(edges[u]) for u in range(nverts) ] ) / 2
 print "Loaded graph with %d vertices and %d edges" % (nverts, nedges)
 
 #generate random permutation
-perm = list(range(nverts))
+newid = list(range(nverts))
+oldid = list(range(nverts))
 
 if seed!=0:
     print "Generating random permutation of vertices"
@@ -61,22 +62,25 @@ if seed!=0:
     #Knuth Shuffle
     for i in range(nverts-1):
         j = random.randint(i+1, nverts-1)
-        perm[i],perm[j] = perm[j],perm[i]
+        newid[i],newid[j] = newid[j],newid[i]
 
+    for i in range(nverts):
+        oldid[newid[i]]=i
 
 print "Writing output"
 
 with open(output_graph, "w") as f:
     f.write("%d %d\n" % (nverts, nedges))
 
-    for u in perm:
+    for i in range(nverts):
+        u = oldid[i]
         f.write("%d " % len(edges[u]))
-        for v in sorted( [ perm[x] for x in edges[u] ]  ):
+        for v in sorted( [ newid[x] for x in edges[u] ]  ):
             f.write("%d " % v)
         f.write("\n")
 
 
 with open(output_map, "w") as f:
     f.write("#Seed: %d\n#Format: oldname newname\n" % seed)
-    for oldname, newname in verts.iteritems():
-        f.write("%s %d\n" % (oldname, perm[newname]))
+    for oldname, id in verts.iteritems():
+        f.write("%s %d\n" % (oldname, newid[id]))

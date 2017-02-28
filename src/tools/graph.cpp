@@ -37,6 +37,7 @@ void graph2bin(const std::string &graph_filename, const std::string &output_base
         for(UndirectedGraph::vertex_t i=0; i < degree; i++)
         {
             stream >> v;
+            assert(v < num_verts);
             edges.write(reinterpret_cast<const char*>(&v), sizeof(UndirectedGraph::vertex_t));
         }
     }

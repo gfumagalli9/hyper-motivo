@@ -16,7 +16,7 @@ int main(const int argc, const char** argv)
     OptionsParser::Option *colors_opt = op.add_option(false, true, "colors", 'c', "0", "Number of colors to use, between 1 and 16 (required if size=1, ignored if size>1)");
     OptionsParser::Option *tables_opt = op.add_option(false, true, "tables-basename", 't', "", "Basename of table files of smaller size (required if size > 1, ignored if size=1)");
     OptionsParser::Option *from_opt = op.add_option(false, true, "from-vertex", '\0', "", "First vertex (default: 0)");
-    OptionsParser::Option *to_opt = op.add_option(false, true, "to-vertex", '\0', "", "First vertex (default: 0)");
+    OptionsParser::Option *to_opt = op.add_option(false, true, "to-vertex", '\0', "", "Last vertex (default: last vertex if the graph)");
     OptionsParser::Option* output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
 
     bool parse_ok = op.parse(argc, argv);
