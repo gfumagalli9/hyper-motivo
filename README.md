@@ -93,12 +93,12 @@ You can pass the option -DOPTIMIZE_MORE=YES to cmake to enable additional optimi
 
 The option -DENABLE_ASSERTS=YES enables asserts even when the code is compiled in release mode (the default setting). These perform additional sanity checks during the computation but result in slower code.
 
-The option -DMOTIVO_OVERFLOW_SAFE=YES enables overflow checks on arithmetic operations involving large numbers. This results in slower (but safer) code.
+The option -DMOTIVO_OVERFLOW_SAFE=NO disables overflow checks on arithmetic operations involving large numbers. This results in faster (but less safe) code. 
 
 Example:
 
 ~~~
-$ cmake -DOPTIMIZE_MORE=YES -DMOTIVO_OVERFLOW_SAFE=YES ..
+$ cmake -DOPTIMIZE_MORE=YES -DMOTIVO_OVERFLOW_SAFE=NO ..
 ~~~
 
 ##Usage
@@ -112,4 +112,3 @@ Here: https://bitbucket.org/steven_/motivo/issues
 ##License
 
 Yet to be chosen.
-
