@@ -163,12 +163,14 @@ target_link_libraries(motivo-tests ${TEST_LIBRARIES})
 add_executable(motivo-graph src/common/UndirectedGraph.h src/common/UndirectedGraph.cpp src/common/OptionsParser.h src/common/OptionsParser.cpp src/tools/graph.cpp)
 
 file(COPY scripts/build-many.sh DESTINATION .)
+file(COPY scripts/loe_to_graph.py DESTINATION .)
 
 INSTALL(TARGETS motivo-build DESTINATION bin)
 INSTALL(TARGETS motivo-merge DESTINATION bin)
 INSTALL(TARGETS motivo-sample DESTINATION bin)
 INSTALL(TARGETS motivo-graph DESTINATION bin)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/build-many.sh DESTINATION share/motivo)
+INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/loe_to_graph.py DESTINATION share/motivo)
 
 enable_testing()
 add_test(NAME build-graph COMMAND motivo-graph --input ../graphs/test-graph.txt --output test-graph)
