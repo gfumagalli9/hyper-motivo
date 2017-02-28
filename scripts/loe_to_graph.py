@@ -49,7 +49,7 @@ with open(loe_graph, "r") as f:
         edges[uid].add(vid)
         edges[vid].add(uid)
 
-nedges = sum( [ len(edges[u]) for u in range(nverts) ] )
+nedges = sum( [ len(edges[u]) for u in range(nverts) ] ) / 2
 print "Loaded graph with %d vertices and %d edges" % (nverts, nedges)
 
 #generate random permutation
