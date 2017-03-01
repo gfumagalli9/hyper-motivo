@@ -9,10 +9,9 @@
 #include "../common/OptionsParser.h"
 
 void sample(const UndirectedGraph &G, const TreeletTableCollection &ttc, unsigned int size, uint64_t num_samples,
-            std::ostream& out, bool text, bool canonicize, bool graphlets, bool footprints_only)
+            std::ostream& out, bool text, bool canonicize, bool graphlets, bool footprints_only, Random* rng)
 {
-    Random rng;
-    TreeletSampler sampler(&G, &ttc, &rng);
+    TreeletSampler sampler(&G, &ttc, rng);
     UndirectedGraph::vertex_t occ_vertices[16] = {0};
 
     //FIXME: Cache spanning trees count and/or footprints?
@@ -37,7 +36,7 @@ void sample(const UndirectedGraph &G, const TreeletTableCollection &ttc, unsigne
             occurrence = new Occurrence(size, occ_vertices, &G);
             uint64_t spanning_trees=occurrence->number_of_spanning_trees();
 
-            if(rng.random_uint64(0, spanning_trees)!=0)
+            if(rng->random_uint64(0, spanning_trees)!=0)
             {
                 rejected++;
                 delete occurrence;
@@ -79,6 +78,7 @@ int main(const int argc, const char** argv)
     OptionsParser::Option *canonicize_opt = op.add_option(false, false, "canonicize", 'c', "", "Output occurrences in canonical format");
     OptionsParser::Option *graphlets_opt = op.add_option(false, false, "graphlets", '\0', "", "Sample graphlets occurrences (instead of treelets)");
     OptionsParser::Option *footprints_opt = op.add_option(false, false, "footprints-only", 'f', "", "Only output the footprints (and not the actual vertices)");
+    OptionsParser::Option *seed_opt = op.add_option(false, true, "seed", '\0', "", "String used to seed the random number generator (default or empty string: seed from system random device)");
 
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
@@ -111,7 +111,9 @@ int main(const int argc, const char** argv)
         UndirectedGraph G(graph_opt->get_value());
         TreeletTableCollection ttc(input_opt->get_value(), static_cast<unsigned int>(size));
 
-        sample(G, ttc, static_cast<unsigned int>(size), static_cast<uint64_t>(num_samples), outfile, text_opt->is_found(), canonicize_opt->is_found(), graphlets_opt->is_found(), footprints_opt->is_found());
+        Random rng(seed_opt->get_value());
+
+        sample(G, ttc, static_cast<unsigned int>(size), static_cast<uint64_t>(num_samples), outfile, text_opt->is_found(), canonicize_opt->is_found(), graphlets_opt->is_found(), footprints_opt->is_found(), &rng);
     }
     catch(std::exception& e)
     {

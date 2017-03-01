@@ -21,7 +21,7 @@ def get_or_add_vertex_id(u):
 
 argc = len(sys.argv)
 if argc !=4 and argc != 5:
-    print "Usage %s loe_graph output_graph output_map [seed]" % sys.argv[0]
+    print "Usage: %s loe_graph output_graph output_map [seed]" % sys.argv[0]
     exit(0)
 
 loe_graph, output_graph, output_map = sys.argv[1:4]

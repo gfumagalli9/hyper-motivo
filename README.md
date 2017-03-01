@@ -103,7 +103,55 @@ $ cmake -DOPTIMIZE_MORE=YES -DMOTIVO_OVERFLOW_SAFE=NO ..
 
 ##Usage
 
-Yet to come.
+###Graph format
+
+Motivo uses its own binary graph format. The tool motivo-graph allows to convert between a text representation of the graph to motivo's binary format, and vice-versa.
+All graphs are simple, undirected, and loop-free. Vertices are consecutive integers starting from 0.
+
+#### Textual graph format
+
+A graph G with n vertices and m edges is encoded in a text file containing n+1 lines as follows:
+ - The first line contains the integers n and m, sperated by a space. Notice that m is the number edges of the *undirected* graph G (i.e., half the sum of the vertices' degrees).
+ - For i>=0, The (i+1)th line encodes the neighbors of vertex i. It contains d+1 space-separated integers, where d is the degree of vertex i in G. The first integer is d and the remaining d integers are the neighbors of vertex i, in ascending order. 
+
+#### Converting textual format to binary format
+
+You can use
+~~~
+$ motivo-graph --input <text_graph> --output <basename>
+~~~
+to convert file <text_graph> in textual graph format to Motivo's binary format, which consists of two files: <basename>.gof and <basename>.ged
+
+Example:
+~~~
+$ motivo-graph --input test-graph.txt --output test-graph
+~~~
+
+#### Converting binary format to textual format
+
+You can also convert a graph in binary format back to its textual format:
+~~~
+$ motivo-graph --dump --input <basename> --output <text_graph>
+~~~
+
+Example:
+~~~
+$ motivo-graph --input test-graph --output test-graph-dump.txt
+$ diff -sZ test-graph.txt test-graph-dump.txt
+Files test-graph.txt and test-graph-dump.txt are identical
+~~~
+
+#### Converting list-of-edges format to textual format
+
+TODO
+
+### Building tables
+
+TODO
+
+### Sampling
+
+TODO
 
 ##Bug reports
 

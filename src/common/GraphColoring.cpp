@@ -3,12 +3,17 @@
 //
 
 #include "GraphColoring.h"
-#include "Random.h"
 
-GraphColoring::GraphColoring(const UndirectedGraph::vertex_t n, unsigned int number_of_colors)
+GraphColoring::GraphColoring(const UndirectedGraph::vertex_t from, const UndirectedGraph::vertex_t to, unsigned int number_of_colors, Random* rng) : from(from), to(to)
 {
-    Random r;
-    colors = new color_t[n];
-    for(UndirectedGraph::vertex_t u=0; u<n; u++)
-        colors[u] = static_cast<color_t>(r.random_uint32(0, number_of_colors));
+    assert(to>=from);
+    UndirectedGraph::vertex_t size = to-from+1;
+    colors = new color_t[size];
+    for(UndirectedGraph::vertex_t u=0; u<size; u++)
+        colors[u] = static_cast<color_t>(rng->random_uint32(0, number_of_colors));
+}
+
+GraphColoring::~GraphColoring()
+{
+    delete[] colors;
 }

@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include "UndirectedGraph.h"
+#include "Random.h"
 
 class GraphColoring
 {
@@ -15,16 +16,20 @@ class GraphColoring
 
 private:
     color_t* colors;
+    const UndirectedGraph::vertex_t from;
+    const UndirectedGraph::vertex_t to;
 
     GraphColoring(const GraphColoring&) = delete;
     void operator=(const GraphColoring&) = delete;
 
 public:
     ///Contructs a random coloring of @param n vertices using @param number_of_colors colors
-    GraphColoring(const UndirectedGraph::vertex_t n, unsigned int number_of_colors);
+    GraphColoring(const UndirectedGraph::vertex_t from, const UndirectedGraph::vertex_t to, unsigned int number_of_colors, Random* rng);
+
+    ~GraphColoring();
 
     ///@returns the color of vertex @param u
-    color_t color_of(long u) const { return colors[u]; };
+    color_t color_of(long u) const { assert(u>=from); assert(u<=to); return colors[u-from]; };
 };
 
 

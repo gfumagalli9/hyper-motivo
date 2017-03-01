@@ -9,19 +9,43 @@
 #include <chrono>
 #include <cassert>
 #include <random>
+#include <string>
+
 
 class Random
 {
 private:
     std::mt19937_64 rng;
+    std::string seed;
 
 public:
-    Random()
+    Random(const std::string& seed="")
     {
-        std::random_device device;
-        std::seed_seq seq{device(), device(), device(), device()};
+        //Take into account 0 without overflowing
+        static_assert( ((std::random_device::max()%256)+1)%256 == 0, "Random device range is not a multiple of 256");
+        if(seed.empty())
+        {
+            std::random_device device;
+            this->seed = "";
+            for(int i=0; i<8; i++) //FIXME: We are wasting entropy
+            {
+                unsigned char r = static_cast<unsigned char>(device()%256);
+
+                unsigned char c = static_cast<unsigned char>(r>>4);
+                this->seed += static_cast<char>((c<10)?('0'+c):('A'+(c-10)));
+
+                c = static_cast<unsigned char>(r & 0xF);
+                this->seed += static_cast<char>((c<10)?('0'+c):('A'+(c-10)));
+            }
+        }
+        else
+            this->seed = seed;
+
+        std::seed_seq seq(seed.begin(), seed.end());
         rng.seed(seq);
     }
+
+    const std::string& get_seed() { return seed; }
 
     ///Returns an integer chosen uniformaly at random from @param from to @param to_exclusive - 1
     uint64_t random_uint64(uint64_t from, uint64_t to_exclusive)

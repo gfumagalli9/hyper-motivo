@@ -17,7 +17,9 @@ int main(const int argc, const char** argv)
     OptionsParser::Option *tables_opt = op.add_option(false, true, "tables-basename", 't', "", "Basename of table files of smaller size (required if size > 1, ignored if size=1)");
     OptionsParser::Option *from_opt = op.add_option(false, true, "from-vertex", '\0', "", "First vertex (default: 0)");
     OptionsParser::Option *to_opt = op.add_option(false, true, "to-vertex", '\0', "", "Last vertex (default: last vertex if the graph)");
+    OptionsParser::Option *seed_opt = op.add_option(false, true, "seed", '\0', "", "String used to seed the random number generator for the initial coloring (default or empty string: seed from system random device)");
     OptionsParser::Option* output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
+
 
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
@@ -78,8 +80,10 @@ int main(const int argc, const char** argv)
         std::unique_ptr<GraphColoring> coloring;
         if(size == 1)
         {
-            std::cout << "Generating random coloring using " << std::to_string(colors) << " colors" << std::endl;
-            coloring = std::make_unique<GraphColoring>(G.number_of_vertices(), colors);
+            std::cout << "Generating random coloring of " << (to_vertex-from_vertex+1) << "vertices using " << std::to_string(colors) << " colors" << std::endl;
+            Random rng(seed_opt->get_value());
+            std::cout << "Using seed: \"" << rng.get_seed() <<"\"" << std::endl;
+            coloring = std::make_unique<GraphColoring>(from_vertex, to_vertex, colors, &rng);
         }
 
         std::unique_ptr<TreeletTableCollection> ttc;
