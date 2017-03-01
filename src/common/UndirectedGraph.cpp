@@ -27,7 +27,7 @@ UndirectedGraph::UndirectedGraph(const std::string &basename)
     assert(offsets!=MAP_FAILED);
     offsets += 2;
 
-    edges = static_cast<vertex_t*>(mmap(nullptr, (num_edges)*sizeof(uint32_t), PROT_READ, MAP_PRIVATE, fileno(edges_fd), 0));
+    edges = static_cast<vertex_t*>(mmap(nullptr, 2*num_edges*sizeof(uint32_t), PROT_READ, MAP_PRIVATE, fileno(edges_fd), 0));
     assert(edges!=MAP_FAILED);
 }
 
@@ -36,7 +36,7 @@ UndirectedGraph::~UndirectedGraph()
     munmap(offsets-2, (num_verts+2)*sizeof(vertex_t));
     fclose(offsets_fd);
 
-    munmap(edges, (num_edges)*sizeof(uint32_t));
+    munmap(edges, 2*num_edges*sizeof(uint32_t));
     fclose(edges_fd);
 }
 

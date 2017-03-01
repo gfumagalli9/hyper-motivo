@@ -65,7 +65,10 @@ void bin2graph(const std::string &graph_basename, const std::string &output)
 
         const UndirectedGraph::vertex_t *neighbors = G.neighbors(u);
         for(UndirectedGraph::vertex_t d=0; d<degree; d++)
+        {
+            assert(neighbors[d] < G.number_of_vertices());
             out << " " << neighbors[d];
+        }
         out << std::endl;
     }
 

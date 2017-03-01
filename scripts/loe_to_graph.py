@@ -71,7 +71,6 @@ print "Writing output"
 
 with open(output_graph, "w") as f:
     f.write("%d %d\n" % (nverts, nedges))
-
     for i in range(nverts):
         u = oldid[i]
         f.write("%d " % len(edges[u]))
