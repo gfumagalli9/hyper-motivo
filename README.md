@@ -95,6 +95,8 @@ The option -DENABLE_ASSERTS=YES enables asserts even when the code is compiled i
 
 The option -DMOTIVO_OVERFLOW_SAFE=NO disables overflow checks on arithmetic operations involving large numbers. This results in faster (but less safe) code. 
 
+The option -DMOTIVO_MULTITHREAD=NO disables multithreading support.
+
 Example:
 
 ~~~
@@ -137,7 +139,7 @@ $ motivo-graph --dump --input <basename> --output <text_graph>
 Example:
 ~~~
 $ motivo-graph --input test-graph --output test-graph-dump.txt
-$ diff -sZ test-graph.txt test-graph-dump.txt
+$ diff -bs test-graph.txt test-graph-dump.txt
 Files test-graph.txt and test-graph-dump.txt are identical
 ~~~
 

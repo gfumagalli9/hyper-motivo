@@ -6,15 +6,15 @@ const fallback_uint128_t fallback_uint128_0(0u);
 const fallback_uint128_t fallback_uint128_1(1u);
 
 fallback_uint128_t::fallback_uint128_t()
-        : UPPER(0u), LOWER(0u)
+        : LOWER(0u), UPPER(0u)
 {}
 
 fallback_uint128_t::fallback_uint128_t(const fallback_uint128_t & rhs)
-        : UPPER(rhs.UPPER), LOWER(rhs.LOWER)
+        : LOWER(rhs.LOWER), UPPER(rhs.UPPER)
 {}
 
 fallback_uint128_t::fallback_uint128_t(const fallback_uint128_t && rhs)
-        : UPPER(std::move(rhs.UPPER)), LOWER(std::move(rhs.LOWER))
+        : LOWER(std::move(rhs.LOWER)), UPPER(std::move(rhs.UPPER))
 {}
 
 fallback_uint128_t fallback_uint128_t::operator=(const fallback_uint128_t & rhs){

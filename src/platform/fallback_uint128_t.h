@@ -43,7 +43,7 @@ to do a general rewrite of this class.
 
 class fallback_uint128_t{
 private:
-    uint64_t UPPER, LOWER;
+    uint64_t LOWER, UPPER; //Little endian order on little endian machines
 
 public:
     // Constructors
@@ -51,11 +51,11 @@ public:
     fallback_uint128_t(const fallback_uint128_t & rhs);
     fallback_uint128_t(const fallback_uint128_t && rhs);
 
-    template <typename T> fallback_uint128_t(const T & rhs) : UPPER(0u), LOWER(static_cast<typename std::make_unsigned<T>::type>(rhs))
+    template <typename T> fallback_uint128_t(const T & rhs) : LOWER(static_cast<typename std::make_unsigned<T>::type>(rhs)), UPPER(0u)
     {}
 
     template <typename S, typename T> fallback_uint128_t(const S & upper_rhs, const T & lower_rhs)
-            : UPPER(upper_rhs), LOWER(lower_rhs)
+            : LOWER(lower_rhs), UPPER(upper_rhs)
     {}
 
     //  RHS input args only

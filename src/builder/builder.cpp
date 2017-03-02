@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
+#include <thread>
 
 #include "../common/UndirectedGraph.h"
 #include "TreeletTableBuilder.h"
@@ -18,6 +19,7 @@ int main(const int argc, const char** argv)
     OptionsParser::Option *from_opt = op.add_option(false, true, "from-vertex", '\0', "", "First vertex (default: 0)");
     OptionsParser::Option *to_opt = op.add_option(false, true, "to-vertex", '\0', "", "Last vertex (default: last vertex if the graph)");
     OptionsParser::Option *seed_opt = op.add_option(false, true, "seed", '\0', "", "String used to seed the random number generator for the initial coloring (default or empty string: seed from system random device)");
+    OptionsParser::Option *threads_opt = op.add_option(false, true, "threads", '\0', "1", "Number of threads to use or 0 for to use the number of logical processors (default: 1)");
     OptionsParser::Option* output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
 
 
@@ -73,6 +75,17 @@ int main(const int argc, const char** argv)
             to_vertex = static_cast<UndirectedGraph::vertex_t>(to);
         }
 
+        unsigned int nthreads=1;
+
+        {
+            int threads = std::stoi(threads_opt->get_value());
+            if (threads == 0)
+                nthreads = std::thread::hardware_concurrency();
+            else if(threads>0)
+                nthreads= static_cast<unsigned int>(threads);
+        }
+        if(nthreads<=0)
+            throw std::runtime_error("The number of threads is invalid or it is not possible to determine the number of logical processors");
 
         if(from_vertex>to_vertex)
             throw std::runtime_error("'from-fertex' and 'to-vertex' options specify an empty range");
@@ -80,7 +93,7 @@ int main(const int argc, const char** argv)
         std::unique_ptr<GraphColoring> coloring;
         if(size == 1)
         {
-            std::cout << "Generating random coloring of " << (to_vertex-from_vertex+1) << "vertices using " << std::to_string(colors) << " colors" << std::endl;
+            std::cout << "Generating random coloring of " << (to_vertex-from_vertex+1) << " vertices using " << std::to_string(colors) << " colors" << std::endl;
             Random rng(seed_opt->get_value());
             std::cout << "Using seed: \"" << rng.get_seed() <<"\"" << std::endl;
             coloring = std::make_unique<GraphColoring>(from_vertex, to_vertex, colors, &rng);
@@ -97,10 +110,11 @@ int main(const int argc, const char** argv)
         if(out.bad())
             throw std::runtime_error("Could not open output file for writing");
 
-        std::cout << "Computing counts of treelet of size " << size << " for vertices " << from_vertex << "--" << to_vertex << std::endl;
+        std::cout << "Computing counts of treelet of size " << size << " for vertices " << from_vertex << "--"
+                  << to_vertex << " using " << nthreads << " thread(s)" << std::endl;
 
-        TreeletTableBuilder builder(&G, coloring.get(), static_cast<unsigned  int>(size), ttc.get(), &out);
-        builder.build(from_vertex, to_vertex);
+        TreeletTableBuilder builder(&G, coloring.get(), static_cast<unsigned  int>(size), ttc.get(), from_vertex, to_vertex, &out);
+        builder.build(nthreads);
         out.close();
 
         std::cout << "Output written to " << output_opt->get_value() << std::endl;
