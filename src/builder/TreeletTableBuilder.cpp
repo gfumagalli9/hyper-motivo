@@ -7,7 +7,6 @@
 #include <iostream>
 #include <algorithm>
 #include <atomic>
-#include <utility>
 #include "config.h"
 
 
@@ -57,17 +56,17 @@ void TreeletTableBuilder::do_build_1_st()
 {
     for(UndirectedGraph::vertex_t u=from; u<=to; u++)
     {
-        table_t counts;
-        Treelet treelet = Treelet::singleton(coloring->color_of(u));
-        counts[treelet] = 1;
-        write(u, counts);
+        TreeletTable::treelet_count_pair tcp;
+        tcp.treelet = Treelet::singleton(coloring->color_of(u));
+        tcp.count = 1;
+        write_one(u, &tcp, 1);
     }
 }
 
 #ifdef MOTIVO_MULTITHREAD
 void TreeletTableBuilder::do_build_1_mt(std::atomic<UndirectedGraph::vertex_t> *atomic_cnt)
 {
-    table_t* processed = new table_t[thread_buffer_size];
+    TreeletTable::treelet_count_pair* processed = new TreeletTable::treelet_count_pair[thread_buffer_size];
     while(true)
     {
         UndirectedGraph::vertex_t start = atomic_cnt->fetch_add(thread_buffer_size);
@@ -77,19 +76,16 @@ void TreeletTableBuilder::do_build_1_mt(std::atomic<UndirectedGraph::vertex_t> *
         UndirectedGraph::vertex_t count = (start+thread_buffer_size<=to)?thread_buffer_size:(to-start+1);
         for(UndirectedGraph::vertex_t i=0; i<count; i++)
         {
-            Treelet treelet = Treelet::singleton(coloring->color_of(start+i));
-            (processed[i])[treelet] = 1;
+            processed[i].treelet = Treelet::singleton(coloring->color_of(start+i));
+            processed[i].count = 1;
         }
 
         write_mutex.lock();
         for(UndirectedGraph::vertex_t i=0; i<count; i++)
-            write(start+i, processed[i]);
+            write_one(start+i, processed, 1);
         write_mutex.unlock();
 
-        for(UndirectedGraph::vertex_t i=0; i<count; i++)
-            processed[i].clear();
     }
-
     delete[] processed;
 }
 #endif
@@ -98,20 +94,22 @@ void TreeletTableBuilder::do_build_st()
 {
     for(UndirectedGraph::vertex_t u=from; u<=to; u++)
     {
-        table_t counts;
+        table_t table;
         const UndirectedGraph::vertex_t *neighbors = graph->neighbors(u);
         for (UndirectedGraph::vertex_t d = 0; d < graph->degree(u); d++)
-            combine(u, neighbors[d], counts);
+            combine(u, neighbors[d], table);
 
-        normalize(counts);
-        write(u, counts);
+        TreeletTable::treelet_count_pair* tcp = to_normalized_sorted_array(table);
+        write_one(u, tcp, table.size());
+        delete[] tcp;
     }
 }
 
 #ifdef MOTIVO_MULTITHREAD
 void TreeletTableBuilder::do_build_mt(std::atomic<UndirectedGraph::vertex_t> *atomic_cnt)
 {
-    table_t* processed = new table_t[thread_buffer_size];
+    table_t* tables = new table_t[thread_buffer_size];
+    TreeletTable::treelet_count_pair** processed = new TreeletTable::treelet_count_pair*[thread_buffer_size];
     while(true)
     {
         UndirectedGraph::vertex_t start = atomic_cnt->fetch_add(thread_buffer_size);
@@ -124,31 +122,55 @@ void TreeletTableBuilder::do_build_mt(std::atomic<UndirectedGraph::vertex_t> *at
             const UndirectedGraph::vertex_t u = start+i;
             const UndirectedGraph::vertex_t *neighbors = graph->neighbors(u);
             for (UndirectedGraph::vertex_t d = 0; d < graph->degree(u); d++)
-                combine(u, neighbors[d], processed[i]);
+                combine(u, neighbors[d], tables[i]);
 
-            normalize(processed[i]);
+            processed[i] = to_normalized_sorted_array(tables[i]);
         }
 
         write_mutex.lock();
         for(UndirectedGraph::vertex_t i=0; i<count; i++)
-            write(start+i, processed[i]);
+            write_one(start+i, processed[i], tables[i].size());
         write_mutex.unlock();
 
         for(UndirectedGraph::vertex_t i=0; i<count; i++)
-            processed[i].clear();
+        {
+            tables[i].clear(); //FIXME: Clear early?
+            delete[] processed[i];
+        }
     }
 
+    delete[] tables;
     delete[] processed;
 }
 #endif
+
+TreeletTable::treelet_count_pair* TreeletTableBuilder::to_normalized_sorted_array(const table_t &table)
+{
+    TreeletTable::treelet_count_pair *counts = new TreeletTable::treelet_count_pair[table.size()];
+    TreeletTable::treelet_count_t i=0;
+    table_t::const_iterator u_it = table.begin();
+    while(u_it != table.end())
+    {
+        assert(u_it->second > 0);
+        assert(u_it->second % u_it->first.normalization_factor() == 0);
+        counts[i].treelet = u_it->first;
+        counts[i].count = u_it->second / counts[i].treelet.normalization_factor();
+
+        u_it++;
+        i++;
+    }
+
+    std::sort(counts, counts+table.size(), [](const TreeletTable::treelet_count_pair& tc1, const TreeletTable::treelet_count_pair& tc2) { return tc1.treelet < tc2.treelet; } );
+
+    return counts;
+}
 
 void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const UndirectedGraph::vertex_t v, table_t& counts)
 {
     for(unsigned int size1=1; size1<size; size1++)
     {
-        unsigned int size2=size-size1;
         const TreeletTable* u_table = lower->get_table(size1);
-        const TreeletTable* v_table = lower->get_table(size2);
+        const TreeletTable* v_table = lower->get_table(size-size1);
 
         for(TreeletTable::const_iterator u_it = u_table->begin(u); u_it != u_table->end(u); u_it++)
         {
@@ -177,30 +199,21 @@ void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const Undir
     }
 }
 
-void TreeletTableBuilder::normalize(table_t& counts)
-{
-    for(table_t::iterator u_it = counts.begin(); u_it != counts.end(); u_it++)
-    {
-        assert(u_it->second % u_it->first.normalization_factor() == 0);
-        u_it->second /= u_it->first.normalization_factor();
-    }
-}
-
-void  TreeletTableBuilder::write(const UndirectedGraph::vertex_t vertex, const table_t &counts)
+void TreeletTableBuilder::write_one(const UndirectedGraph::vertex_t vertex, const TreeletTable::treelet_count_pair* counts, const TreeletTable::treelet_count_t ntreelets)
 {
     output->write(reinterpret_cast<const char*>(&vertex), sizeof(UndirectedGraph::vertex_t));
-    TreeletTable::treelet_count_t nrecords = counts.size();
-    output->write(reinterpret_cast<const char*>(&nrecords), sizeof(TreeletTable::treelet_count_t));
+    output->write(reinterpret_cast<const char*>(&ntreelets), sizeof(TreeletTable::treelet_count_t));
 
-    const uint64_t ntreelets = counts.size();
-    auto sorted = new std::pair<Treelet, TreeletTable::treelet_count_t>[ntreelets];
-    std::copy(counts.begin(), counts.end(), sorted);
-    std::sort(sorted, sorted+ntreelets);
-
+#ifndef NDEBUG
     for(TreeletTable::treelet_count_t i=0; i<ntreelets; i++)
     {
-        output->write(reinterpret_cast<const char*>(&sorted[i].first), sizeof(Treelet));
-        output->write(reinterpret_cast<const char*>(&sorted[i].second), sizeof(TreeletTable::treelet_count_t));
+        assert(counts[i].treelet.is_valid());
+        assert(counts[i].count>0);
+        assert(i==0 || counts[i-1].treelet<counts[i].treelet);
     }
+#endif
+
+    assert(sizeof(TreeletTable::treelet_count_pair)*ntreelets < static_cast< std::make_unsigned<std::streamsize>::type >(std::numeric_limits<std::streamsize>::max()) );
+    output->write(reinterpret_cast<const char*>(counts), static_cast<std::streamsize>(sizeof(TreeletTable::treelet_count_pair)*ntreelets));
 }
 

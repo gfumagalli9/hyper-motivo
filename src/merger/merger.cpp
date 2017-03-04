@@ -64,7 +64,10 @@ void merge(const std::vector<std::string>& count_files, const std::string& outpu
 
             f->read(reinterpret_cast<char*>(&nrecords), sizeof(TreeletTable::treelet_count_t));
             file_records+=nrecords;
-            f->ignore(nrecords * sizeof(TreeletTable::treelet_count_pair) );
+
+            assert( nrecords * sizeof(TreeletTable::treelet_count_pair) < static_cast< std::make_unsigned<std::streamsize>::type >(std::numeric_limits<std::streamsize>::max()) );
+
+            f->ignore(static_cast<std::streamsize>(nrecords * sizeof(TreeletTable::treelet_count_pair)) );
         }
 
         f->clear();

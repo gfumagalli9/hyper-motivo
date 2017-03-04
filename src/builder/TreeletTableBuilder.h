@@ -45,26 +45,25 @@ private:
     std::mutex write_mutex;
 
      /// Fills a size-1 table
-    void do_build_1_mt [[gnu::hot]](std::atomic<UndirectedGraph::vertex_t> *atomic_cnt);
+    void do_build_1_mt [[gnu::hot,gnu::flatten]](std::atomic<UndirectedGraph::vertex_t> *atomic_cnt);
 
     /// Fills a table for sizes > 1
-    void do_build_mt [[gnu::hot]](std::atomic<UndirectedGraph::vertex_t> *atomic_cnt);
+    void do_build_mt [[gnu::hot,gnu::flatten]](std::atomic<UndirectedGraph::vertex_t> *atomic_cnt);
 #endif
 
     /// Fills a size-1 table
-    void do_build_1_st [[gnu::hot]]();
+    void do_build_1_st [[gnu::hot,gnu::flatten]]();
 
     /// Fills a table for sizes > 1
-    void do_build_st [[gnu::hot]]();
+    void do_build_st [[gnu::hot,gnu::flatten]]();
 
     /// Combines the treelets of vertex @param u with the treelets of vertex @param v
-    void combine [[gnu::hot]] (const UndirectedGraph::vertex_t u, const UndirectedGraph::vertex_t v, table_t& counts);
+    inline void combine [[gnu::hot]] (const UndirectedGraph::vertex_t u, const UndirectedGraph::vertex_t v, table_t& counts);
 
-    /// Normalizes the counts of treelets in @param counts
-    void normalize [[gnu::hot]] (table_t& counts);
+    inline TreeletTable::treelet_count_pair* to_normalized_sorted_array [[gnu::hot]] (const table_t &table);
 
     ///Writes the content of the table to steam
-    void write [[gnu::hot]](const UndirectedGraph::vertex_t vertex, const table_t &counts);
+    void write_one [[gnu::hot]] (const UndirectedGraph::vertex_t vertex, const TreeletTable::treelet_count_pair *counts, const TreeletTable::treelet_count_t ntreelets);
 
 public:
     TreeletTableBuilder(const UndirectedGraph* graph, const GraphColoring* coloring, const unsigned int size,
@@ -74,6 +73,8 @@ public:
 
     /// Fills the treelet table computing the number of treelets of each kind rooted at each vertex
     void build(unsigned int nthreads=1);
+
+
 };
 
 #endif //MOTIVO_TREELETTABLEBUILDER_H
