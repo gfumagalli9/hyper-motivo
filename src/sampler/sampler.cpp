@@ -36,7 +36,7 @@ void sample(const UndirectedGraph &G, const TreeletTableCollection &ttc, unsigne
             occurrence = new Occurrence(size, occ_vertices, &G);
             uint64_t spanning_trees=occurrence->number_of_spanning_trees();
 
-            if(rng->random_uint64(0, spanning_trees)!=0)
+            if(rng->random_uint<uint64_t>(0, spanning_trees)!=0)
             {
                 rejected++;
                 delete occurrence;

@@ -3,7 +3,7 @@
 //
 
 #include "TreeletTable.h"
-#include <sys/mman.h>
+#include "../platform/platform.h"
 
 TreeletTable::TreeletTable(const std::string& basename)
 {
@@ -17,7 +17,7 @@ TreeletTable::TreeletTable(const std::string& basename)
     assert(nverts < std::numeric_limits<UndirectedGraph::vertex_t>::max()-1);
     num_vertices = static_cast<UndirectedGraph::vertex_t>(nverts);
 
-    offsets = static_cast<uint64_t*>(mmap(nullptr, (num_vertices+2)*sizeof(uint64_t), PROT_READ, MAP_PRIVATE, fileno(offsets_fd), 0));
+    offsets = static_cast<uint64_t*>(mmap(nullptr, (num_vertices+2)*sizeof(uint64_t), PROT_READ, MOTIVO_MMAP_FLAGS_PRIVATE_POPULATE, fileno(offsets_fd), 0));
     assert(offsets!=MAP_FAILED);
     offsets += 1;
 
@@ -28,12 +28,13 @@ TreeletTable::TreeletTable(const std::string& basename)
     if(offsets_fd==NULL)
         throw std::runtime_error("Could not open file " + data_filename);
 
-    data = static_cast<treelet_count_pair*>(mmap(nullptr, offsets[num_vertices] * sizeof(treelet_count_pair), PROT_READ, MAP_PRIVATE, fileno(data_fd), 0));
+    data = static_cast<treelet_count_pair*>(mmap(nullptr, offsets[num_vertices] * sizeof(treelet_count_pair), PROT_READ, MOTIVO_MMAP_FLAGS_PRIVATE_POPULATE, fileno(data_fd), 0));
+    //madvise(data, offsets[num_vertices] * sizeof(treelet_count_pair), MADV_SEQUENTIAL);
     assert(data!=MAP_FAILED);
 
     try
     {
-        root_sampler = new AliasMethodSampler(basename+".rts");
+        root_sampler = new AliasMethodSampler<UndirectedGraph::vertex_t, treelet_count_t>(basename+".rts");
     }
     catch(...)
     {
@@ -113,9 +114,9 @@ TreeletTable::const_iterator TreeletTable::begin(const UndirectedGraph::vertex_t
 UndirectedGraph::vertex_t TreeletTable::get_random_root(Random *rng) const
 {
     if(root_sampler)
-        return static_cast<UndirectedGraph::vertex_t>(root_sampler->sample(rng));
+        return root_sampler->sample(rng);
 
-    uint64_t r = rng->random_uint64(0, offsets[num_vertices]);
+    uint64_t r = rng->random_uint<uint64_t>(0, offsets[num_vertices]-1);
 
     UndirectedGraph::vertex_t begin = 0;
     UndirectedGraph::vertex_t end = num_vertices + 1;
@@ -142,7 +143,7 @@ const Treelet& TreeletTable::get_random_treelet(UndirectedGraph::vertex_t root, 
     if(ntreelets==0)
         return Treelet::invalid_treelet;
 
-    treelet_count_t r =  rng->random_uint64(1, ntreelets+1);
+    treelet_count_t r =  rng->random_uint<treelet_count_t>(1, ntreelets);
     const treelet_count_pair *tcp = count_upper_bound(data + offsets[root]+1, data + offsets[root+1], r);
     assert(tcp!=data + offsets[root+1]);
     assert(tcp->treelet.is_valid());

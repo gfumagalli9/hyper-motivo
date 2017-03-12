@@ -11,11 +11,12 @@
 #include "Random.h"
 #include "UndirectedGraph.h"
 #include "AliasMethodSampler.h"
+#include "../platform/platform.h"
 
 class TreeletTable
 {
 public:
-    typedef uint64_t treelet_count_t;
+    typedef uint128_t treelet_count_t;
 
     struct [[gnu::packed]] treelet_count_pair
     {
@@ -50,7 +51,7 @@ private:
     treelet_count_pair* data;
     FILE* data_fd;
     FILE* offsets_fd;
-    AliasMethodSampler* root_sampler;
+    AliasMethodSampler<UndirectedGraph::vertex_t, treelet_count_t>* root_sampler;
 
     TreeletTable(const TreeletTable&) = delete;
     void operator=(const TreeletTable&) = delete;

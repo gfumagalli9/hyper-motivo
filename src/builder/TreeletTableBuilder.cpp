@@ -189,8 +189,8 @@ void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const Undir
 
                     TreeletTable::treelet_count_t &count = counts[merged];
                     TreeletTable::treelet_count_t tmp;
-                    mul_overflow(u_it.count(), v_it.count(), &tmp);
-                    add_overflow(count, tmp, &count);
+                    safe_mul(u_it.count(), v_it.count(), &tmp);
+                    safe_add(count, tmp, &count);
                 }
                 else if(merged == Treelet::invalid_merge_structure)
                     break; //All the remaining treelets t2 will have a structure that is too small.

@@ -41,7 +41,7 @@ private:
     std::ostream* output;
 
 #ifdef MOTIVO_MULTITHREAD
-    constexpr static unsigned int thread_buffer_size = 1000;
+    constexpr static const unsigned int thread_buffer_size = 1000;
     std::mutex write_mutex;
 
      /// Fills a size-1 table

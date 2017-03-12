@@ -10,6 +10,7 @@
 #include <cassert>
 #include <random>
 #include <string>
+#include "../platform/platform.h"
 
 
 class Random
@@ -47,28 +48,19 @@ public:
 
     const std::string& get_seed() { return seed; }
 
-    ///Returns an integer chosen uniformaly at random from @param from to @param to_exclusive - 1
-    uint64_t random_uint64(uint64_t from, uint64_t to_exclusive)
+    ///Returns an integer chosen uniformaly at random from @param from to @param to_inclusive
+    template<typename T> T random_uint(T from, T to_inclusive)
     {
-        static_assert(std::is_same<uint64_t, unsigned short>::value |
-                      std::is_same<uint64_t, unsigned int>::value |
-                      std::is_same<uint64_t, unsigned long>::value |
-                      std::is_same<uint64_t, unsigned long long>::value, "Undefined behaviour according to the standard");
+        static_assert(std::is_same<T, unsigned short>::value |
+                      std::is_same<T, unsigned int>::value |
+                      std::is_same<T, unsigned long>::value |
+                      std::is_same<T, unsigned long long>::value, "Undefined behaviour according to the standard");
 
-        std::uniform_int_distribution<uint64_t> uniform(from, to_exclusive-1);
-        return uniform(rng);
-    }
-
-    uint64_t random_uint32(uint32_t from, uint32_t to_exclusive)
-    {
-        static_assert(std::is_same<uint32_t, unsigned short>::value |
-                      std::is_same<uint32_t, unsigned int>::value |
-                      std::is_same<uint32_t, unsigned long>::value |
-                      std::is_same<uint32_t, unsigned long long>::value, "Undefined behaviour according to the standard");
-
-        std::uniform_int_distribution<uint32_t> uniform(from, to_exclusive-1);
+        std::uniform_int_distribution<T> uniform(from, to_inclusive);
         return uniform(rng);
     }
 };
+
+template<> uint128_t Random::random_uint<uint128_t>(uint128_t from, uint128_t to_inclusive);
 
 #endif //MOTIVO_RANDOM_H

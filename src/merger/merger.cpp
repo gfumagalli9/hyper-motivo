@@ -12,6 +12,43 @@
 #include "../common/TreeletTable.h"
 #include "../common/OptionsParser.h"
 
+unsigned int bits_needed(uint128_t n)
+{
+    unsigned int needed = 1;
+    while(n>=2)
+    {
+        n/=2;
+        needed++;
+    }
+
+    return needed;
+}
+
+std::string to_string(uint128_t n)
+{
+    static const constexpr uint128_t ten_19 = 0x8ac7230489e80000; //10^19;
+    static const constexpr uint128_t ten_38 = ten_19*ten_19; //Maximum power of 10 representable with an uint128_t
+
+    if(n==0)
+        return "0";
+
+    std::string s = "";
+    bool significant_digit_found = false;
+    for (uint128_t max_dec=ten_38; max_dec!=0; max_dec/=10)
+    {
+        unsigned int digit = static_cast<unsigned int>(n / max_dec);
+        n = n%max_dec;
+        assert(digit<=9);
+        if(significant_digit_found || digit!=0)
+        {
+            significant_digit_found = true;
+            s += static_cast<char>('0' + digit);
+        }
+    }
+
+    return s;
+}
+
 void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, const std::pair<std::ifstream *, std::streampos> *vertexpos);
 
 void merge(const std::vector<std::string>& count_files, const std::string& output_basename)
@@ -44,7 +81,7 @@ void merge(const std::vector<std::string>& count_files, const std::string& outpu
 
 
         UndirectedGraph::vertex_t file_vertices = 0;
-        TreeletTable::treelet_count_t file_records = 0;
+        uint64_t file_records = 0;
         while(true)
         {
             UndirectedGraph::vertex_t vertex;
@@ -63,7 +100,7 @@ void merge(const std::vector<std::string>& count_files, const std::string& outpu
             vertexpos[vertex] = std::make_pair(f, f->tellg());
 
             f->read(reinterpret_cast<char*>(&nrecords), sizeof(TreeletTable::treelet_count_t));
-            file_records+=nrecords;
+            file_records+= static_cast<uint64_t>(nrecords);
 
             assert( nrecords * sizeof(TreeletTable::treelet_count_pair) < static_cast< std::make_unsigned<std::streamsize>::type >(std::numeric_limits<std::streamsize>::max()) );
 
@@ -103,7 +140,11 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
     off.write(reinterpret_cast<char*>(&nv64), sizeof(uint64_t));
 
     uint64_t num_records_total=0;
-    AliasMethodSampler alias_sampler(num_vertices);
+    TreeletTable::treelet_count_t num_occ_treelet = 0;
+    uint128_t num_occ_total = 0;
+    uint128_t num_occ_max = 0;
+    bool num_occ_total_overflow = false;
+    AliasMethodSampler<UndirectedGraph::vertex_t, TreeletTable::treelet_count_t> alias_sampler(num_vertices);
 
     for(UndirectedGraph::vertex_t u=0; u < num_vertices; u++)
     {
@@ -115,25 +156,32 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
         f->read(reinterpret_cast<char*>(&nrecords), sizeof(TreeletTable::treelet_count_t));
 
         off.write(reinterpret_cast<char*>(&num_records_total), sizeof(uint64_t));
-        add_overflow(num_records_total, nrecords, &num_records_total);
-        add_overflow(num_records_total, 1, &num_records_total);
+        safe_add(num_records_total, nrecords, &num_records_total);
+        safe_add(num_records_total, 1, &num_records_total);
 
-        Treelet t = Treelet::invalid_treelet;
         TreeletTable::treelet_count_t total=0;
+        TreeletTable::treelet_count_pair tcp;
+        tcp.treelet = Treelet::invalid_treelet;
+        tcp.count = 0;
 
-        out.write(reinterpret_cast<char*>(&t), sizeof(Treelet));
-        out.write(reinterpret_cast<char*>(&total), sizeof(TreeletTable::treelet_count_t));
+        out.write(reinterpret_cast<char*>(&tcp), sizeof(TreeletTable::treelet_count_pair));
 
         for(TreeletTable::treelet_count_t r=0; r < nrecords; r++)
         {
-            TreeletTable::treelet_count_t c;
-            f->read(reinterpret_cast<char*>(&t), sizeof(Treelet));
-            f->read(reinterpret_cast<char*>(&c), sizeof(TreeletTable::treelet_count_t));
+            f->read(reinterpret_cast<char*>(&tcp), sizeof(TreeletTable::treelet_count_pair));
+            if(num_occ_treelet < tcp.count)
+                num_occ_treelet = tcp.count;
 
-            add_overflow(total, c, &total);
-            out.write(reinterpret_cast<char*>(&t), sizeof(Treelet));
-            out.write(reinterpret_cast<char*>(&total), sizeof(TreeletTable::treelet_count_t));
+            safe_add(total, tcp.count, &total);
+            tcp.count=total;
+            out.write(reinterpret_cast<char*>(&tcp), sizeof(TreeletTable::treelet_count_pair));
         }
+
+        if( add_overflow(num_occ_total, total, &num_occ_total) )
+            num_occ_total_overflow = true;
+
+        if(total>num_occ_max)
+            num_occ_max=total;
 
         alias_sampler.set(u, total);
     }
@@ -147,6 +195,13 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
     alias_sampler.write(root_sampler_filename);
 
     std::cout << "Processed " << num_vertices << " vertices (wrote " << num_records_total << " records)" << std::endl;
+    std::cout << "Total number of treelet occurrences: ";
+    if(num_occ_total_overflow)
+        std::cout <<"Overflow!" << std::endl;
+    else
+        std::cout << to_string(num_occ_total) << " (" << bits_needed(num_occ_total) << " bits)" << std::endl;
+    std::cout << "Maximum number of treelet occurrences rooted in a single vertex: " << to_string(num_occ_max) << " ("<< bits_needed(num_occ_max) << " bits)" << std::endl;
+    std::cout << "Maximum number of occurrences of a single rooted treelet: " << to_string(num_occ_treelet) << " ("<< bits_needed(num_occ_treelet) << " bits)" << std::endl;
     std::cout << "Output written to files: " << output_filename << ", " << offset_filename << ", and " << root_sampler_filename << std::endl;
 }
 

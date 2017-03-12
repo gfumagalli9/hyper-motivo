@@ -9,22 +9,25 @@
 #include <cstdio>
 #include <cstdint>
 #include <iostream>
+#include <sys/mman.h>
+#include <fstream>
 #include "Random.h"
+#include "../platform/platform.h"
 
-class AliasMethodSampler
+template<typename E, typename W> class AliasMethodSampler
 {
 private:
-    struct element
+    struct entry
     {
-        uint64_t U;
-        uint64_t K;
+        W U;
+        E K;
     };
 
-    static_assert(sizeof(element) == 16, "struct element is not packed");
+    //FIXME: static_assert(sizeof(entry) == sizeof(W) + sizeof(E), "struct entry is not packed");
 
-    uint64_t num_elements;
-    uint64_t total_weight;
-    element* elements;
+    E num_elements;
+    W total_weight;
+    entry* elements;
     FILE* elements_fd;
     bool readonly;
 
@@ -32,28 +35,150 @@ private:
     void operator=(const AliasMethodSampler&) = delete;
 
 public:
-    AliasMethodSampler(const std::string& filename);
-    AliasMethodSampler(uint64_t n);
-    ~AliasMethodSampler();
+    AliasMethodSampler(const std::string& filename)
+    {
+        elements_fd = fopen(filename.c_str(), "rb");
 
-    void set(const uint64_t n, const uint64_t weight);
+        if(elements_fd==nullptr)
+            throw std::runtime_error("Could not open file");
 
-    void build();
+        entry e;
+        fread(&e, sizeof(entry), 1, elements_fd);
+        num_elements = e.K;
+        total_weight = e.U;
 
-    inline uint64_t sample(Random* rng)
+        elements = static_cast<entry*>(mmap(nullptr, (num_elements+1)*sizeof(entry), PROT_READ, MAP_PRIVATE, fileno(elements_fd), 0));
+        assert(elements!=MAP_FAILED);
+        elements += 1;
+
+        readonly=true;
+    }
+
+    AliasMethodSampler(E n) : num_elements(n), total_weight(0), elements_fd(nullptr), readonly(false)
+    {
+        elements = new entry[num_elements];
+        memset(elements, 0, num_elements*sizeof(entry));
+    }
+
+    ~AliasMethodSampler()
+    {
+        if(elements_fd != nullptr)
+        {
+            munmap(elements - 1, (num_elements + 1) * sizeof(entry));
+            fclose(elements_fd);
+        }
+        else
+            delete[] elements;
+    }
+
+    void set(const E n, const W weight)
+    {
+        if(readonly)
+            throw std::runtime_error("Table is read only");
+
+
+        total_weight-=elements[n].U;
+        elements[n].U=weight;
+        //total_weight+=weight;
+        safe_add(total_weight, weight, &total_weight);
+    }
+
+    void build()
+    {
+        if(readonly)
+            throw std::runtime_error("Table has already been built or is read only");
+
+        E noverfull=0;
+        E* overfull = new E[num_elements];
+        E nunderfull=0;
+        E* underfull = new E[num_elements];
+
+#ifndef NDEBUG
+        W of_weight=0;
+        W uf_weight=0;
+#endif
+
+        for(E i=0; i<num_elements; i++)
+        {
+            //elements[i].U *= num_elements;
+            safe_mul(elements[i].U, num_elements, &elements[i].U);
+
+            // n p_i > 1 <=> n weight_i/tot_weight > 1 <=> n weight_i > tot_weight
+            if( elements[i].U > total_weight )
+            {
+                overfull[noverfull++] = i;
+#ifndef NDEBUG
+                of_weight += elements[i].U-total_weight;
+#endif
+            }
+            else if( elements[i].U < total_weight )
+            {
+                underfull[nunderfull++] = i;
+#ifndef NDEBUG
+                uf_weight += total_weight-elements[i].U;
+#endif
+            }
+        }
+
+        assert(uf_weight <= of_weight);
+        assert(uf_weight >= of_weight);
+
+        while(noverfull>0)
+        {
+            assert(nunderfull>0);
+            E of = overfull[--noverfull];
+            E uf = underfull[--nunderfull];
+            elements[uf].K=of;
+            elements[of].U -= total_weight - elements[uf].U;
+
+            if(elements[of].U > total_weight)
+                overfull[noverfull++] = of;
+            else if(elements[of].U < total_weight )
+                underfull[nunderfull++] = of;
+        }
+
+        assert(nunderfull==0);
+
+        delete[] overfull;
+        delete[] underfull;
+
+        readonly = true;
+    }
+
+    inline E sample(Random* rng)
     {
         assert(readonly);
         assert(total_weight>0);
 
-        uint64_t i = rng->random_uint64(0, num_elements);
-        uint64_t y = rng->random_uint64(0, total_weight);
+        E i = rng->random_uint<E>(0, num_elements-1);
+        W y = rng->random_uint<W>(0, total_weight-1);
 
         assert(elements[i].U==total_weight || elements[i].K<num_elements);
 
         return (y<elements[i].U)?i:elements[i].K;
     };
 
-    bool write(const std::string& filename);
+    bool write(const std::string& filename)
+    {
+        if(!readonly)
+            throw std::runtime_error("Table has not been built yet");
+
+        std::ofstream ofs(filename, std::ofstream::binary | std::ofstream::trunc);
+
+        if(ofs.bad())
+            return false;
+
+        entry e;
+        e.K = num_elements;
+        e.U = total_weight;
+
+        ofs.write(reinterpret_cast<const char*>(&e), sizeof(entry));
+        for(E i=0; i<num_elements; i++)
+
+            ofs.write(reinterpret_cast<const char*>(&elements[i]), sizeof(entry));
+
+        return !ofs.bad();
+    }
 };
 
 

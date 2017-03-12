@@ -12,53 +12,54 @@
 #include <iostream>
 #include <memory.h>
 #include <limits>
+#include <sys/mman.h>
 #include "../generated/leftmost_bit_tie_lut.h"
 #include "config.h"
 
-#ifdef MOTIVO_OVERFLOW_SAFE
-    #define FAIL_OVERFLOW do { std::cerr << "Overflow in " << __FILE__ <<":"<< __LINE__ << std::endl << std::flush; std::abort(); } while(false)
+#define FAIL_OVERFLOW do { std::cerr << "Overflow in " << __FILE__ <<":"<< __LINE__ << std::endl << std::flush; std::abort(); } while(false)
 
-    #ifdef MOTIVO_HAS_BUILTIN_ADD_OVERFLOW
-        #define _add_overflow(a, b, res) __builtin_add_overflow( (a), (b), (res) )
-    #else
-        template<typename T> inline bool _add_overflow(T a, T b, T* res)
-        {
-            if( (b>0 && a>std::numeric_limits<T>::max()-b) || (b<0 && a < std::numeric_limits<T>::min()-b) )
-                return true;
-
-            *res=a+b;
-            return false;
-        }
-    #endif
-    #define add_overflow(a, b, res)  do { if( _add_overflow( (a), (b), (res) ) ) FAIL_OVERFLOW; } while(false)
-
-
-    #ifdef MOTIVO_HAS_BUILTIN_MUL_OVERFLOW
-        #define _mul_overflow(a, b, res) __builtin_mul_overflow( (a), (b), (res) )
-    #else
-        template<typename T> typename std::enable_if<std::is_unsigned<T>::value, bool>::type inline _mul_overflow(T a, T b, T* res)
-        {
-            if( (a>std::numeric_limits<T>::max()/b) || (a < std::numeric_limits<T>::min()/b) )
-                return true;
-
-            *res=a*b;
-            return false;
-        }
-
-        template<typename T> typename std::enable_if<!std::is_unsigned<T>::value, bool>::type inline _mul_overflow(T a, T b, T* res)
-        {
-            if( (a==-1 && b==std::numeric_limits<T>::min())  || (b==-1 && a==std::numeric_limits<T>::min())
-                || (a>std::numeric_limits<T>::max()/b) || (a < std::numeric_limits<T>::min()/b) )
-                return true;
-
-            *res=a*b;
-            return false;
-        }
-    #endif
-    #define mul_overflow(a, b, res)  do { if( _mul_overflow( (a), (b), (res) ) ) FAIL_OVERFLOW; } while(false)
+#ifdef MOTIVO_HAS_BUILTIN_ADD_OVERFLOW
+    #define add_overflow(a, b, res) __builtin_add_overflow( (a), (b), (res) )
 #else
-    #define add_overflow(a, b, res) do { (*res) = ( (a) + (b) ); } while(false)
-    #define mul_overflow(a, b, res) do { (*res) = ( (a) * (b) ); } while(false)
+    template<typename T> inline bool add_overflow(T a, T b, T* res)
+    {
+        if( (b>0 && a>std::numeric_limits<T>::max()-b) || (b<0 && a < std::numeric_limits<T>::min()-b) )
+            return true;
+
+        *res=a+b;
+        return false;
+    }
+#endif
+
+#ifdef MOTIVO_HAS_BUILTIN_MUL_OVERFLOW
+    #define mul_overflow(a, b, res) __builtin_mul_overflow( (a), (b), (res) )
+#else
+    template<typename T> typename std::enable_if<std::is_unsigned<T>::value, bool>::type inline mul_overflow(T a, T b, T* res)
+    {
+        if( (a>std::numeric_limits<T>::max()/b) || (a < std::numeric_limits<T>::min()/b) )
+            return true;
+
+        *res=a*b;
+        return false;
+    }
+
+    template<typename T> typename std::enable_if<!std::is_unsigned<T>::value, bool>::type inline mul_overflow(T a, T b, T* res)
+    {
+        if( (a==-1 && b==std::numeric_limits<T>::min())  || (b==-1 && a==std::numeric_limits<T>::min())
+            || (a>std::numeric_limits<T>::max()/b) || (a < std::numeric_limits<T>::min()/b) )
+            return true;
+
+        *res=a*b;
+        return false;
+    }
+#endif
+
+#ifdef MOTIVO_OVERFLOW_SAFE
+    #define safe_add(a, b, res)  do { if( add_overflow( (a), (b), (res) ) ) FAIL_OVERFLOW; } while(false)
+    #define safe_mul(a, b, res)  do { if( mul_overflow( (a), (b), (res) ) ) FAIL_OVERFLOW; } while(false)
+#else
+    #define safe_add(a, b, res) do { (*res) = ( (a) + (b) ); } while(false)
+    #define safe_mul(a, b, res) do { (*res) = ( (a) * (b) ); } while(false)
 #endif
 
 ///popcount32 returns the number of bits set to 1 in x where x is a 32 bit integer
@@ -80,8 +81,7 @@ inline int popcount32 [[gnu::const]] (uint32_t v)
 #ifdef MOTIVO_HAS___UINT128_T
     typedef __uint128_t uint128_t;
 #else
-#include "fallback_uint128_t.h"
-typedef fallback_uint128_t uint128_t;
+    #error "No 128-bit unsigned integer type"
 #endif
 #endif
 
@@ -114,5 +114,11 @@ inline int leftmost_bit_tie0 [[gnu::pure, gnu::flatten]] (uint32_t x) { return l
 
 ///@returns the index of the smallest index i>0 such that the number of 0s and 1s in the leftmost i bits of x are equal
 inline int leftmost_bit_tie [[gnu::pure, gnu::flatten]] (uint32_t x) { return leftmost_bit_tie1((x>>31)?x:~x); }
+
+#ifdef MAP_POPULATE
+    #define MOTIVO_MMAP_FLAGS_PRIVATE_POPULATE (MAP_PRIVATE | MAP_POPULATE)
+#else
+    #define MOTIVO_MMAP_FLAGS_PRIVATE_POPULATE (MAP_PRIVATE)
+#endif
 
 #endif //MOTIVO_PLATFORM_H

@@ -25,8 +25,8 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
     if(count==0)
         return false;
 
-    mul_overflow(count, t.normalization_factor(), &count);
-    TreeletTable::treelet_count_t r = rng->random_uint64(0,  count);
+    safe_mul(count, t.normalization_factor(), &count);
+    TreeletTable::treelet_count_t r = rng->random_uint<TreeletTable::treelet_count_t>(0,  count-1);
 
     Treelet child_treelet = Treelet::invalid_treelet;
     UndirectedGraph::vertex_t child_vertex=0;
