@@ -56,6 +56,7 @@ void TreeletTableBuilder::do_build_1_st()
 {
     for(UndirectedGraph::vertex_t u=from; u<=to; u++)
     {
+        report_progress(u);
         TreeletTable::treelet_count_pair tcp;
         tcp.treelet = Treelet::singleton(coloring->color_of(u));
         tcp.count = 1;
@@ -76,6 +77,8 @@ void TreeletTableBuilder::do_build_1_mt(std::atomic<UndirectedGraph::vertex_t> *
         UndirectedGraph::vertex_t count = (start+thread_buffer_size<=to)?thread_buffer_size:(to-start+1);
         for(UndirectedGraph::vertex_t i=0; i<count; i++)
         {
+            report_progress(start+i);
+
             processed[i].treelet = Treelet::singleton(coloring->color_of(start+i));
             processed[i].count = 1;
         }
@@ -94,6 +97,8 @@ void TreeletTableBuilder::do_build_st()
 {
     for(UndirectedGraph::vertex_t u=from; u<=to; u++)
     {
+        report_progress(u);
+
         table_t table;
         const UndirectedGraph::vertex_t *neighbors = graph->neighbors(u);
         for (UndirectedGraph::vertex_t d = 0; d < graph->degree(u); d++)
@@ -119,6 +124,8 @@ void TreeletTableBuilder::do_build_mt(std::atomic<UndirectedGraph::vertex_t> *at
         UndirectedGraph::vertex_t count = (start+thread_buffer_size<=to)?thread_buffer_size:(to-start+1);
         for(UndirectedGraph::vertex_t i=0; i<count; i++)
         {
+            report_progress(start+i);
+
             const UndirectedGraph::vertex_t u = start+i;
             const UndirectedGraph::vertex_t *neighbors = graph->neighbors(u);
             for (UndirectedGraph::vertex_t d = 0; d < graph->degree(u); d++)

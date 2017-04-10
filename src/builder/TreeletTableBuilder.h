@@ -21,6 +21,9 @@
 
 class TreeletTableBuilder
 {
+public:
+    typedef void (*progress_callback_t)(UndirectedGraph::vertex_t);
+
 private:
     struct TreeletHash
     {
@@ -32,6 +35,7 @@ private:
 
     typedef google::sparse_hash_map<Treelet, TreeletTable::treelet_count_t, TreeletHash> table_t;
 
+
     const UndirectedGraph* graph;
     const GraphColoring* coloring;
     const unsigned int size;
@@ -39,6 +43,8 @@ private:
     const UndirectedGraph::vertex_t from;
     const UndirectedGraph::vertex_t to;
     std::ostream* output;
+    progress_callback_t progress_callback;
+    UndirectedGraph::vertex_t progress_interval;
 
 #ifdef MOTIVO_MULTITHREAD
     constexpr static const unsigned int thread_buffer_size = 1000;
@@ -65,16 +71,27 @@ private:
     ///Writes the content of the table to steam
     void write_one [[gnu::hot]] (const UndirectedGraph::vertex_t vertex, const TreeletTable::treelet_count_pair *counts, const TreeletTable::treelet_count_t ntreelets);
 
+    inline void report_progress(UndirectedGraph::vertex_t next_vertex)
+    {
+        if(progress_callback!= nullptr && (next_vertex%progress_interval)==0)
+            (*progress_callback)(next_vertex);
+    }
+
 public:
     TreeletTableBuilder(const UndirectedGraph* graph, const GraphColoring* coloring, const unsigned int size,
                         const TreeletTableCollection* lower,  const UndirectedGraph::vertex_t from,
                         const UndirectedGraph::vertex_t to, std::ostream* output)
-            :  graph(graph), coloring(coloring), size(size), lower(lower), from(from), to(to), output(output) {};
+            :  graph(graph), coloring(coloring), size(size), lower(lower), from(from), to(to), output(output),
+               progress_callback(nullptr) {};
+
+    void set_progress_callback(progress_callback_t pc, UndirectedGraph::vertex_t pi)
+    {
+        progress_callback = pc;
+        progress_interval = pi;
+    }
 
     /// Fills the treelet table computing the number of treelets of each kind rooted at each vertex
     void build(unsigned int nthreads=1);
-
-
 };
 
 #endif //MOTIVO_TREELETTABLEBUILDER_H

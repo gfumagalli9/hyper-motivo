@@ -7,9 +7,11 @@
 #include "TreeletTableBuilder.h"
 #include "../common/OptionsParser.h"
 
+UndirectedGraph::vertex_t from_vertex, to_vertex;
+void progress_callback(UndirectedGraph::vertex_t);
+
 int main(const int argc, const char** argv)
 {
-
     OptionsParser op;
     OptionsParser::Option *help_opt = op.add_option(false, false, "help", '\0', "", "Print help and exit");
     OptionsParser::Option *graph_opt = op.add_option(true, true, "graph", 'g', "", "Input graph basename (required)");
@@ -21,6 +23,7 @@ int main(const int argc, const char** argv)
     OptionsParser::Option *seed_opt = op.add_option(false, true, "seed", '\0', "", "String used to seed the random number generator for the initial coloring (default or empty string: seed from system random device)");
     OptionsParser::Option *threads_opt = op.add_option(false, true, "threads", '\0', "1", "Number of threads to use or 0 for to use the number of logical processors (default: 1)");
     OptionsParser::Option* output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
+    OptionsParser::Option* progress_opt = op.add_option(false, true, "progress", 'P', "0", "Number of processed vertices between progress reports or 0 for no progress reports (default: 0)");
 
 
     bool parse_ok = op.parse(argc, argv);
@@ -55,7 +58,7 @@ int main(const int argc, const char** argv)
         UndirectedGraph G(graph_opt->get_value());
         std::cout << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
 
-        unsigned int from_vertex = 0;
+        from_vertex = 0;
         if(to_opt->is_found())
         {
             int64_t from = std::stoll(from_opt->get_value());
@@ -65,7 +68,7 @@ int main(const int argc, const char** argv)
             from_vertex = static_cast<UndirectedGraph::vertex_t>(from);
         }
 
-        unsigned int to_vertex = G.number_of_vertices()-1;
+        to_vertex = G.number_of_vertices()-1;
         if(to_opt->is_found())
         {
             int64_t to = std::stoll(to_opt->get_value());
@@ -114,6 +117,14 @@ int main(const int argc, const char** argv)
                   << to_vertex << " using " << nthreads << " thread(s)" << std::endl;
 
         TreeletTableBuilder builder(&G, coloring.get(), static_cast<unsigned  int>(size), ttc.get(), from_vertex, to_vertex, &out);
+
+        int64_t progress = std::stoll(progress_opt->get_value());
+        if(progress > 0)
+        {
+            std::cout << "Will print a progress reports every " << progress << " processed vertices" << std::endl;
+            builder.set_progress_callback(progress_callback, static_cast<UndirectedGraph::vertex_t>(progress));
+        }
+
         builder.build(nthreads);
         out.close();
 
@@ -126,4 +137,68 @@ int main(const int argc, const char** argv)
     }
 
     return EXIT_SUCCESS;
+}
+
+typedef std::chrono::time_point<std::chrono::steady_clock> tp;
+
+double timing(const std::string& name, const tp tstart, const tp tend, const UndirectedGraph::vertex_t vstart, const  UndirectedGraph::vertex_t vend)
+{
+    UndirectedGraph::vertex_t delta_v = vend-vstart;
+    std::chrono::duration<double> delta_t = tend - tstart;
+
+    double speed = delta_v/delta_t.count();
+
+    std::cout << "Timing (" << name << "): Processed " << delta_v << " vertices in " << delta_t.count() << " seconds (" << speed << "v/s)"<< std::endl;
+
+    return speed;
+}
+
+void progress_callback(UndirectedGraph::vertex_t next)
+{
+    static UndirectedGraph::vertex_t timing_no = 0;
+    static UndirectedGraph::vertex_t previous_progress;
+    static tp start_time;
+    static tp previous_time;
+    static double speed_mean; //Geometric mean of speed
+
+    tp current_time = std::chrono::steady_clock::now();
+
+    if(timing_no==0)
+    {
+        previous_progress = next;
+        start_time = current_time;
+        previous_time = current_time;
+        timing_no++;
+        return;
+    }
+
+    if(next>=previous_progress && current_time >= previous_time + std::chrono::seconds(10)) //No guarantee on the order of the callbacks
+    {
+        UndirectedGraph::vertex_t processed = next-from_vertex;
+        static UndirectedGraph::vertex_t total = to_vertex-from_vertex+1;
+
+        std::cout << "Progress report #"<< timing_no <<": " << (100*static_cast<double>(processed)/total) << "%" << std::endl;
+        timing("all", start_time, current_time, 0, processed);
+        double speed = timing("last", previous_time, current_time, previous_progress, next);
+
+        if(timing_no==1)
+            speed_mean = speed;
+        else
+            speed_mean = 0.2 * speed + 0.8 * speed_mean;
+
+        long ttc = static_cast<long>((total-processed)/speed_mean);
+        int ttc_s = static_cast<int>(ttc%60);
+        ttc/=60;
+        int ttc_m = static_cast<int>(ttc%60);
+        ttc/=60;
+        int ttc_h = static_cast<int>(ttc%24);
+        ttc /= 24;
+
+        std::cout << "ETC: " << ttc << " days " << ttc_h << "h " << ttc_m << "m " << ttc_s <<"s" << std::endl;
+        std::cout << std::flush;
+
+        previous_progress = next;
+        previous_time = current_time;
+        timing_no++;
+    }
 }

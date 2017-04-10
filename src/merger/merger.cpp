@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <utility>
 #include <stdlib.h>
 #include "../common/UndirectedGraph.h"
 #include "../common/Treelet.h"
@@ -49,86 +50,98 @@ std::string to_string(uint128_t n)
     return s;
 }
 
-void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, const std::pair<std::ifstream *, std::streampos> *vertexpos);
-
-void merge(const std::vector<std::string>& count_files, const std::string& output_basename)
+struct vertex_info
 {
+    char* ptr;
+    TreeletTable::treelet_count_t count;
+};
 
+void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, vertex_info* info);
+
+void merge(const std::vector<std::string>& count_filenames, const std::string& output_basename)
+{
+    const unsigned long no_files = count_filenames.size();
     UndirectedGraph::vertex_t num_vertices = 0;
-    UndirectedGraph::vertex_t processed_vertices = 0;
-    std::pair<std::ifstream*, std::streampos> *vertexpos = nullptr;
-    std::vector<std::ifstream*> streams;
-    std::vector<bool> *seen_vertices = nullptr;
-    for(unsigned int i=0; i<count_files.size(); i++)
+    std::pair<char*, size_t>* cnt_map = new std::pair<char*, size_t>[no_files];
+    FILE** count_files = new FILE*[no_files];
+    vertex_info* info = nullptr;
+    std::vector<bool> seen_vertices;
+    for(unsigned int i=0; i<no_files; i++)
     {
-        const std::string& filename = count_files[i];
-        std::ifstream* f = new std::ifstream(filename, std::ifstream::binary);
-        if(f->bad())
+        const std::string &filename = count_filenames[i];
+        count_files[i] = fopen(filename.c_str(), "rb");
+
+        if(count_files[i]==NULL)
             throw std::runtime_error("Unable to open file " + filename );
 
-        streams.push_back(f);
+        UndirectedGraph::vertex_t nv;
+        fread(&nv, sizeof(UndirectedGraph::vertex_t), 1, count_files[i]);
 
-        UndirectedGraph::vertex_t totalnv;
-        f->read(reinterpret_cast<char*>(&totalnv), sizeof(UndirectedGraph::vertex_t));
         if(i==0)
         {
-            num_vertices = totalnv;
-            vertexpos = new std::pair<std::ifstream*, std::streampos>[num_vertices];
-            seen_vertices = new std::vector<bool>(num_vertices);
+            num_vertices = nv;
+            info = new vertex_info[num_vertices];
+            seen_vertices.resize(num_vertices);
         }
-        else if(num_vertices!=totalnv)
+        else if(num_vertices != nv)
             throw std::runtime_error("Error while processing " + filename + ": wrong number of vertices");
 
+        fseeko(count_files[i], 0L, SEEK_END);
+        off_t size = ftello(count_files[i]);
+        assert(size>=0);
+        assert(static_cast<std::make_unsigned<off_t>::type>(size) <= std::numeric_limits<size_t>::max());
+        cnt_map[i].second =  static_cast<size_t>(size);
+        cnt_map[i].first = static_cast<char*>(mmap(nullptr, cnt_map[i].second, PROT_READ | PROT_WRITE, MAP_PRIVATE, fileno(count_files[i]), 0));
 
-        UndirectedGraph::vertex_t file_vertices = 0;
-        uint64_t file_records = 0;
-        while(true)
+        if(cnt_map[i].first == MAP_FAILED)
+            throw std::runtime_error("Error while processing " + filename + ": cannot mmap file");
+
+        const char* end = cnt_map[i].first + cnt_map[i].second;
+        char* ptr = cnt_map[i].first + sizeof(UndirectedGraph::vertex_t);
+        while(ptr + sizeof(UndirectedGraph::vertex_t) + sizeof(TreeletTable::treelet_count_t) <= end)
         {
             UndirectedGraph::vertex_t vertex;
-            TreeletTable::treelet_count_t nrecords;
+            memcpy(&vertex, ptr, sizeof(UndirectedGraph::vertex_t));
+            ptr+=sizeof(UndirectedGraph::vertex_t);
 
-            f->read(reinterpret_cast<char*>(&vertex), sizeof(UndirectedGraph::vertex_t));
-            if(!f->good())
-                break;
+            TreeletTable::treelet_count_t nocc;
+            memcpy(&nocc, ptr, sizeof(TreeletTable::treelet_count_t));
+            ptr += sizeof(TreeletTable::treelet_count_t);
 
-            if((*seen_vertices)[vertex])
-                throw std::runtime_error("Duplicate vertex");
+            assert(vertex<num_vertices);
+            if(seen_vertices[vertex])
+                throw std::runtime_error("Error while processing " + filename + ": duplicate vertex");
 
-            (*seen_vertices)[vertex]=true;
+            seen_vertices[vertex]=true;
 
-            file_vertices++;
-            vertexpos[vertex] = std::make_pair(f, f->tellg());
+            info[vertex].ptr = ptr;
+            info[vertex].count = nocc;
 
-            f->read(reinterpret_cast<char*>(&nrecords), sizeof(TreeletTable::treelet_count_t));
-            file_records+= static_cast<uint64_t>(nrecords);
-
-            assert( nrecords * sizeof(TreeletTable::treelet_count_pair) < static_cast< std::make_unsigned<std::streamsize>::type >(std::numeric_limits<std::streamsize>::max()) );
-
-            f->ignore(static_cast<std::streamsize>(nrecords * sizeof(TreeletTable::treelet_count_pair)) );
+            ptr += nocc * sizeof(TreeletTable::treelet_count_pair);
         }
 
-        f->clear();
+        if(ptr!=end)
+            throw std::runtime_error("Error while processing " + filename + ": abnormal file termination");
 
-        processed_vertices+=file_vertices;
-        std::cout << "File " << filename << " contains counts for " << file_vertices << " vertices (" << file_records << " records)" << std::endl;
+        std::cout << "Loaded offsets for file " << filename << " vertices" << std::endl;
     }
 
-    delete seen_vertices;
+    std::cout << "Writing output" << std::endl;
+    write_table(output_basename, num_vertices, info);
 
-    if(processed_vertices!=num_vertices)
-        throw std::runtime_error("Number of graph vertices does not match total number vertices in input files");
+    delete[] info;
 
-    write_table(output_basename, num_vertices, vertexpos);
-
-    delete[] vertexpos;
-    for(unsigned int i=0; i<streams.size(); i++)
+    for(unsigned int i=0; i<no_files; i++)
     {
-        streams[i]->close();
-        delete streams[i];
+        munmap(cnt_map[i].first, cnt_map[i].second);
+        fclose(count_files[i]);
     }
+
+    delete[] cnt_map;
+    delete[] count_files;
 }
 
-void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, const std::pair<std::ifstream *, std::streampos> *vertexpos)
+void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, vertex_info* info)
 {
     std::string output_filename = output_basename + ".dat";
     std::ofstream out(output_filename, std::ofstream::binary | std::ofstream::trunc);
@@ -148,15 +161,8 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
 
     for(UndirectedGraph::vertex_t u=0; u < num_vertices; u++)
     {
-        std::ifstream *f = vertexpos[u].first;
-        std::streampos pos = vertexpos[u].second;
-
-        f->seekg(pos);
-        TreeletTable::treelet_count_t nrecords;
-        f->read(reinterpret_cast<char*>(&nrecords), sizeof(TreeletTable::treelet_count_t));
-
         off.write(reinterpret_cast<char*>(&num_records_total), sizeof(uint64_t));
-        safe_add(num_records_total, nrecords, &num_records_total);
+        safe_add(num_records_total, info[u].count, &num_records_total);
         safe_add(num_records_total, 1, &num_records_total);
 
         TreeletTable::treelet_count_t total=0;
@@ -166,9 +172,11 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
 
         out.write(reinterpret_cast<char*>(&tcp), sizeof(TreeletTable::treelet_count_pair));
 
-        for(TreeletTable::treelet_count_t r=0; r < nrecords; r++)
+        for(;info[u].count!=0;info[u].count--)
         {
-            f->read(reinterpret_cast<char*>(&tcp), sizeof(TreeletTable::treelet_count_pair));
+            memcpy(&tcp, info[u].ptr, sizeof(TreeletTable::treelet_count_pair));
+            info[u].ptr += sizeof(TreeletTable::treelet_count_pair);
+
             if(num_occ_treelet < tcp.count)
                 num_occ_treelet = tcp.count;
 
@@ -190,9 +198,11 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
     off.close();
     out.close();
 
+    std::cout << "Building root sampler alias table... ";
     std::string root_sampler_filename = output_basename + ".rts";
     alias_sampler.build();
     alias_sampler.write(root_sampler_filename);
+    std::cout << "done" << std::endl;
 
     std::cout << "Processed " << num_vertices << " vertices (wrote " << num_records_total << " records)" << std::endl;
     std::cout << "Total number of treelet occurrences: ";
