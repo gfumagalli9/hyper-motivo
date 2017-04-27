@@ -48,7 +48,7 @@ private:
     const unsigned int number_of_threads;
 
 #ifdef MOTIVO_MULTITHREAD
-    ConcurrentFIFO< std::pair<char*, std::streamsize> > write_queue;
+    ConcurrentFIFO< std::pair<char*, std::streamsize>* > write_queue;
     constexpr static const unsigned int thread_batch_size = 1000;
     std::mutex write_mutex;
 

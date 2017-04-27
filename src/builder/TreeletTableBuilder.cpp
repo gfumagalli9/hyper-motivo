@@ -23,7 +23,7 @@ TreeletTableBuilder::TreeletTableBuilder(const UndirectedGraph* graph, const Gra
         :  graph(graph), coloring(coloring), size(size), lower(lower), from(from), to(to), output(output),
            progress_callback(nullptr), number_of_threads(num_threads)
 #ifdef MOTIVO_MULTITHREAD
-        , write_queue(2*num_threads*thread_batch_size)
+        , write_queue(2*num_threads)
 #endif
 {
     if(num_threads==0)
@@ -116,6 +116,8 @@ void TreeletTableBuilder::do_build_mt(std::atomic<UndirectedGraph::vertex_t> *at
             break;
 
         UndirectedGraph::vertex_t end = (start+thread_batch_size-1<=to)?(start+thread_batch_size-1):to;
+        std::pair<char*, std::streamsize>* batch = new std::pair<char*, std::streamsize>[end-start+2];
+        batch[end-start+1].first = nullptr;
         for(UndirectedGraph::vertex_t u=start; u<=end; u++)
         {
             report_progress(u);
@@ -125,8 +127,10 @@ void TreeletTableBuilder::do_build_mt(std::atomic<UndirectedGraph::vertex_t> *at
             for (UndirectedGraph::vertex_t d = 0; d < graph->degree(u); d++)
                 combine(u, neighbors[d], table);
 
-            write_queue.push( to_normalized_sorted_byte_array(u, table) );
+            batch[u-start] = to_normalized_sorted_byte_array(u, table);
         }
+
+        write_queue.push( batch );
     }
 }
 #endif
@@ -200,11 +204,20 @@ void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const Undir
 
 void TreeletTableBuilder::writer_loop()
 {
-    for(UndirectedGraph::vertex_t u=from; u<=to; u++)
+    UndirectedGraph::vertex_t written=from;
+    while(written<=to)
     {
-        std::pair<char*, std::streamsize> to_write = write_queue.pop();
-        output->write(to_write.first, to_write.second);
+        std::pair<char*, std::streamsize>* to_write = write_queue.pop();
+        std::pair<char*, std::streamsize>* p = to_write;
 
-        delete[] to_write.first;
+        while(p->first!=nullptr)
+        {
+            output->write(p->first, p->second);
+            delete[] p->first;
+            p++;
+            written++;
+        }
+
+        delete[] to_write;
     }
 }
