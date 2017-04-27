@@ -218,6 +218,8 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
 
 int main(const int argc, const char** argv)
 {
+    std::cout << "This is motivo-merge. Version: " << MOTIVO_VERSION_STRING << std::endl;
+
     OptionsParser op;
     OptionsParser::Option *help_opt = op.add_option(false, false, "help", '\0', "", "Print help and exit");
     OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output basename (required)");
@@ -231,8 +233,6 @@ int main(const int argc, const char** argv)
 
         return parse_ok ? EXIT_SUCCESS : EXIT_FAILURE;
     }
-
-    std::cout << "This is motivo-merge. Version: " << MOTIVO_VERSION_STRING << std::endl;
 
     if(!op.has_required_options())
     {

@@ -12,6 +12,8 @@ void progress_callback(UndirectedGraph::vertex_t);
 
 int main(const int argc, const char** argv)
 {
+    std::cout << "This is motivo-build. Version: " << MOTIVO_VERSION_STRING << std::endl;
+
     OptionsParser op;
     OptionsParser::Option *help_opt = op.add_option(false, false, "help", '\0', "", "Print help and exit");
     OptionsParser::Option *graph_opt = op.add_option(true, true, "graph", 'g', "", "Input graph basename (required)");
@@ -25,7 +27,6 @@ int main(const int argc, const char** argv)
     OptionsParser::Option* output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
     OptionsParser::Option* progress_opt = op.add_option(false, true, "progress", 'P', "0", "Number of processed vertices between progress reports or 0 for no progress reports (default: 0)");
 
-
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
     {
@@ -35,8 +36,6 @@ int main(const int argc, const char** argv)
 
         return EXIT_SUCCESS;
     }
-
-    std::cout << "This is motivo-build. Version: " << MOTIVO_VERSION_STRING << std::endl;
 
     if(!op.has_required_options())
     {
@@ -115,7 +114,7 @@ int main(const int argc, const char** argv)
         if(out.bad())
             throw std::runtime_error("Could not open output file for writing");
 
-        std::cout << "Computing counts of treelet of size " << size << " for vertices " << from_vertex << "--"
+        std::cout << "Computing counts of treelets of size " << size << " for vertices " << from_vertex << "--"
                   << to_vertex << " using " << nthreads << " thread(s)" << std::endl;
 
         TreeletTableBuilder builder(&G, coloring.get(), static_cast<unsigned  int>(size), ttc.get(), from_vertex, to_vertex, &out);

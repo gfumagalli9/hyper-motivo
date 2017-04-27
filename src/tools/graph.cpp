@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
+#include <config.h>
 #include "../common/UndirectedGraph.h"
 #include "../common/OptionsParser.h"
 
@@ -77,6 +78,8 @@ void bin2graph(const std::string &graph_basename, const std::string &output)
 
 int main(const int argc, const char** argv)
 {
+    std::cout << "This is motivo-graph. Version: " << MOTIVO_VERSION_STRING << std::endl;
+
     OptionsParser op;
     OptionsParser::Option* help_opt = op.add_option(false, false, "help", '\0', "", "Print help and exit");
     OptionsParser::Option* dump_opt = op.add_option(false, false, "dump", '\0', "", "Dumps the contents of the given binary graph in text format");

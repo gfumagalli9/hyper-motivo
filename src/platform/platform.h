@@ -115,10 +115,4 @@ inline int leftmost_bit_tie0 [[gnu::pure, gnu::flatten]] (uint32_t x) { return l
 ///@returns the index of the smallest index i>0 such that the number of 0s and 1s in the leftmost i bits of x are equal
 inline int leftmost_bit_tie [[gnu::pure, gnu::flatten]] (uint32_t x) { return leftmost_bit_tie1((x>>31)?x:~x); }
 
-#ifdef MAP_POPULATE
-    #define MOTIVO_MMAP_FLAGS_PRIVATE_POPULATE (MAP_PRIVATE | MAP_POPULATE)
-#else
-    #define MOTIVO_MMAP_FLAGS_PRIVATE_POPULATE (MAP_PRIVATE)
-#endif
-
 #endif //MOTIVO_PLATFORM_H

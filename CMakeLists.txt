@@ -6,7 +6,7 @@ if(NOT HG_ID_RESULT EQUAL 0)
     set(HG_ID unknown)
 endif()
 
-message(STATUS "hg id: ${HG_ID}")
+message(STATUS "Detected hg id: ${HG_ID}")
 
 
 # Set a default build type if none was specified
