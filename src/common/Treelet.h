@@ -91,7 +91,7 @@ public:
 };
 //#pragma test(pop)
 
-static_assert(sizeof(Treelet) == 6, "treelet_t_union is not packed in 6 bytes");
+static_assert(sizeof(Treelet) == 6, "Treelet is not packed in 6 bytes");
 
 
 #endif //MOTIVO_TREELET_H

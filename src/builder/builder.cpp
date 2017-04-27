@@ -36,6 +36,8 @@ int main(const int argc, const char** argv)
         return EXIT_SUCCESS;
     }
 
+    std::cout << "This is motivo-build. Version: " << MOTIVO_VERSION_STRING << std::endl;
+
     if(!op.has_required_options())
     {
         std::cout << "Required options are missing" << std::endl;

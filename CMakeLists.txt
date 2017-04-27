@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.5)
 project(Motivo)
 
+execute_process(COMMAND hg id -i -b WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} TIMEOUT 5 RESULT_VARIABLE HG_ID_RESULT OUTPUT_VARIABLE HG_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT HG_ID_RESULT EQUAL 0)
+    set(HG_ID unknown)
+endif()
+
+message(STATUS "hg id: ${HG_ID}")
+
+
 # Set a default build type if none was specified
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     message(STATUS "Setting build type to 'RelWithDebInfo' as none was specified.")

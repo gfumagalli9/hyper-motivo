@@ -232,6 +232,8 @@ int main(const int argc, const char** argv)
         return parse_ok ? EXIT_SUCCESS : EXIT_FAILURE;
     }
 
+    std::cout << "This is motivo-merge. Version: " << MOTIVO_VERSION_STRING << std::endl;
+
     if(!op.has_required_options())
     {
         std::cout << "Required options are missing" << std::endl;
