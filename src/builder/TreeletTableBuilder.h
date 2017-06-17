@@ -15,6 +15,7 @@
 #include "../common/TreeletTable.h"
 #include "../common/TreeletTableCollection.h"
 #include "ConcurrentFIFO.h"
+#include "SpookyHash.h"
 
 #ifdef MOTIVO_MULTITHREAD
     #include <mutex>
@@ -28,9 +29,9 @@ public:
 private:
     struct TreeletHash
     {
-        inline size_t operator() (const Treelet t) const
+        inline size_t operator() [[gnu::hot,gnu::flatten]] (const Treelet t) const
         {
-            return t.hash();
+            return SpookyHash::Hash64(&t, sizeof(t), 0);
         }
     };
 

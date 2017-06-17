@@ -10,26 +10,6 @@ const Treelet Treelet::invalid_treelet = Treelet(invalid_structure, 0); //A gene
 const Treelet Treelet::invalid_merge_colors = Treelet(invalid_structure, 1); //Merge failed due to intersecting colors
 const Treelet Treelet::invalid_merge_structure = Treelet(invalid_structure, 2); //Merge failed due to wrong structure order
 
-
-
-/*
-uint32_t last_child_structure(uint32_t structure)
-{
-    uint32_t structure_bit = 1;
-    uint32_t last_child_mask = 0;
-    int depth = 0;
-
-    do
-    {
-        last_child_mask |= structure_bit;
-        depth += (structure & structure_bit) ? -1 : 1;
-        structure_bit <<= 1;
-    } while(depth > 0);
-
-
-    return (structure & last_child_mask) >> 1;
-}*/
-
 Treelet Treelet::merge(const Treelet other) const
 {
     if(colors & other.colors) //colors intersect
@@ -51,39 +31,6 @@ Treelet Treelet::merge(const Treelet other) const
 
     return Treelet(new_structure, colors | other.colors);
 }
-/*
-Treelet Treelet::split_child() const
-{
-    treelet_structure_t father_structure = structure;
-    treelet_structure_t child_structure = 0;
-
-    int depth = 0;
-    int child_size=0;
-    do
-    {
-        child_size++;
-        child_structure<<=1;
-
-        if(father_structure & treelet_structure_highest_bit)
-        {
-            depth++;
-            child_structure |= 1;
-        }
-        else
-            depth--;
-
-        father_structure<<=1;
-    } while(depth);
-
-    child_structure<<=(treelet_structure_bits-child_size+1);
-
-    assert(child_size>0);
-    assert(child_size%2==0);
-    child_size/=2;
-
-    return Treelet(child_structure, child_size);
-
-}*/
 
 Treelet Treelet::split_child() const
 {

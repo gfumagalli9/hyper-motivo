@@ -10,7 +10,6 @@
 #include <utility>
 #include "../platform/platform.h"
 
-
 //The following classsis already packed.
 //See: https://en.wikipedia.org/wiki/Data_structure_alignment#Typical_alignment_of_C_structs_on_x86
 //#pragma test(push,1)
@@ -77,9 +76,6 @@ public:
 
     ///@returns an opaque value representing the structure of the treelet
     inline treelet_structure_t get_structure() const { return structure; }
-
-    //FIXME: Better/faster hash? Currently we are casting to a larger typeso we can invoke std::hash
-    inline std::size_t hash() const { return std::hash<uint64_t>{}( (static_cast<uint64_t>(structure)<<16) | colors); }
 
     Treelet split_child() const;
 
