@@ -115,9 +115,9 @@ int main(const int argc, const char** argv)
             throw std::runtime_error("Could not open output file for writing");
 
         std::cout << "Computing counts of treelets of size " << size << " for vertices " << from_vertex << "--"
-                  << to_vertex << " using " << nthreads << " thread(s)" << std::endl;
+                  << to_vertex << " using " << nthreads << " worker thread(s)" << std::endl;
 
-        TreeletTableBuilder builder(&G, coloring.get(), static_cast<unsigned  int>(size), ttc.get(), from_vertex, to_vertex, &out);
+        TreeletTableBuilder builder(&G, coloring.get(), static_cast<unsigned  int>(size), ttc.get(), from_vertex, to_vertex, &out, nthreads);
 
         int64_t progress = std::stoll(progress_opt->get_value());
         if(progress > 0)
@@ -126,7 +126,7 @@ int main(const int argc, const char** argv)
             builder.set_progress_callback(progress_callback, static_cast<UndirectedGraph::vertex_t>(progress));
         }
 
-        builder.build(nthreads);
+        builder.build();
         out.close();
 
         std::cout << "Output written to " << output_opt->get_value() << std::endl;

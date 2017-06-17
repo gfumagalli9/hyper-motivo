@@ -14,6 +14,7 @@
 #include "../common/GraphColoring.h"
 #include "../common/TreeletTable.h"
 #include "../common/TreeletTableCollection.h"
+#include "ConcurrentFIFO.h"
 
 #ifdef MOTIVO_MULTITHREAD
     #include <mutex>
@@ -35,7 +36,6 @@ private:
 
     typedef google::sparse_hash_map<Treelet, TreeletTable::treelet_count_t, TreeletHash> table_t;
 
-
     const UndirectedGraph* graph;
     const GraphColoring* coloring;
     const unsigned int size;
@@ -45,16 +45,18 @@ private:
     std::ostream* output;
     progress_callback_t progress_callback;
     UndirectedGraph::vertex_t progress_interval;
+    const unsigned int number_of_threads;
 
 #ifdef MOTIVO_MULTITHREAD
-    constexpr static const unsigned int thread_buffer_size = 1000;
+    ConcurrentFIFO< std::pair<char*, std::streamsize>* > write_queue;
+    constexpr static const unsigned int thread_batch_size = 1000;
     std::mutex write_mutex;
-
-     /// Fills a size-1 table
-    void do_build_1_mt [[gnu::hot,gnu::flatten]](std::atomic<UndirectedGraph::vertex_t> *atomic_cnt);
 
     /// Fills a table for sizes > 1
     void do_build_mt [[gnu::hot,gnu::flatten]](std::atomic<UndirectedGraph::vertex_t> *atomic_cnt);
+
+    ///Writing thread entry point
+    void writer_loop();
 #endif
 
     /// Fills a size-1 table
@@ -66,10 +68,7 @@ private:
     /// Combines the treelets of vertex @param u with the treelets of vertex @param v
     inline void combine [[gnu::hot]] (const UndirectedGraph::vertex_t u, const UndirectedGraph::vertex_t v, table_t& counts);
 
-    inline TreeletTable::treelet_count_pair* to_normalized_sorted_array [[gnu::hot]] (const table_t &table);
-
-    ///Writes the content of the table to steam
-    void write_one [[gnu::hot]] (const UndirectedGraph::vertex_t vertex, const TreeletTable::treelet_count_pair *counts, const TreeletTable::treelet_count_t ntreelets);
+    inline std::pair<char*, std::streamsize> to_normalized_sorted_byte_array [[gnu::hot]](const UndirectedGraph::vertex_t u, const table_t &table);
 
     inline void report_progress(UndirectedGraph::vertex_t next_vertex)
     {
@@ -80,9 +79,7 @@ private:
 public:
     TreeletTableBuilder(const UndirectedGraph* graph, const GraphColoring* coloring, const unsigned int size,
                         const TreeletTableCollection* lower,  const UndirectedGraph::vertex_t from,
-                        const UndirectedGraph::vertex_t to, std::ostream* output)
-            :  graph(graph), coloring(coloring), size(size), lower(lower), from(from), to(to), output(output),
-               progress_callback(nullptr) {};
+                        const UndirectedGraph::vertex_t to, std::ostream* output, const unsigned int num_threads=1);
 
     void set_progress_callback(progress_callback_t pc, UndirectedGraph::vertex_t pi)
     {
@@ -91,7 +88,7 @@ public:
     }
 
     /// Fills the treelet table computing the number of treelets of each kind rooted at each vertex
-    void build(unsigned int nthreads=1);
+    void build();
 };
 
 #endif //MOTIVO_TREELETTABLEBUILDER_H
