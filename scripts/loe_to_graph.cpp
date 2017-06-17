@@ -4,12 +4,19 @@
 #include<vector>
 #include<set>
 
+
+#ifdef NUMERIC
+    typedef uint32_t key_type;
+#else
+    typedef std::string key_type;
+#endif
+
 const std::string whitespace = " \t\r";
 std::vector< std::set<uint32_t> > edges;
 uint32_t n=0;
 uint64_t m=0;
 
-uint32_t getID(std::map<const std::string, uint32_t>& map, const std::string& name)
+uint32_t getID(std::map<const key_type, uint32_t>& map, const key_type& name)
 {
         auto it = map.find(name);
         if(it!=map.end())
@@ -21,7 +28,7 @@ uint32_t getID(std::map<const std::string, uint32_t>& map, const std::string& na
         return n++;
 }
 
-bool split(const std::string& str, std::string& first, std::string& second)
+bool split(const std::string& str, key_type& first, key_type& second)
 {
         size_t a = str.find_first_not_of(whitespace);
         assert(a!=std::string::npos);
@@ -37,15 +44,21 @@ bool split(const std::string& str, std::string& first, std::string& second)
         if(d==std::string::npos)
                 d=str.size();
 
+#ifdef NUMERIC
+        first=std::stoul(str.substr(a, b-a));
+        second=std::stoul(str.substr(c, d-c));
+#else
         first=str.substr(a, b-a);
         second=str.substr(c, d-c);
-        return true;        
+#endif
+        return true;
 }
 
 void read()
 {
-        std::map<const std::string, uint32_t> vertices;
-        std::string line, first, second;
+        std::map<const key_type, uint32_t> vertices;
+        std::string line;
+        key_type first, second;
         while(std::getline(std::cin, line))
         {
                 if(!split(line, first, second))
