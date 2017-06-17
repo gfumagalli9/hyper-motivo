@@ -69,7 +69,6 @@ void read()
         }
 
         edges.shrink_to_fit();
-        delete &vertices;
 }
 
 void write()
