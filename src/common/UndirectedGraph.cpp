@@ -5,9 +5,9 @@
 #include <istream>
 #include <fstream>
 #include <algorithm>
-#include <stdexcept>
 #include <sys/mman.h>
 #include "UndirectedGraph.h"
+#include "../platform/platform.h"
 
 UndirectedGraph::UndirectedGraph(const std::string &basename)
 {
@@ -23,20 +23,20 @@ UndirectedGraph::UndirectedGraph(const std::string &basename)
 
     fread(&num_verts, sizeof(vertex_t), 1, offsets_fd);
     fread(&num_edges, sizeof(uint32_t), 1, offsets_fd);
-    offsets = static_cast<vertex_t*>(mmap(nullptr, (num_verts+2)*sizeof(vertex_t), PROT_READ, MAP_PRIVATE, fileno(offsets_fd), 0));
+    offsets = static_cast<vertex_t*>(motivo_mmap((num_verts+2)*sizeof(vertex_t), PROT_READ, fileno(offsets_fd)));
     assert(offsets!=MAP_FAILED);
     offsets += 2;
 
-    edges = static_cast<vertex_t*>(mmap(nullptr, 2*num_edges*sizeof(uint32_t), PROT_READ, MAP_PRIVATE, fileno(edges_fd), 0));
+    edges = static_cast<vertex_t*>(motivo_mmap(2*num_edges*sizeof(uint32_t), PROT_READ, fileno(edges_fd)));
     assert(edges!=MAP_FAILED);
 }
 
 UndirectedGraph::~UndirectedGraph()
 {
-    munmap(offsets-2, (num_verts+2)*sizeof(vertex_t));
+    motivo_munmap(offsets-2, (num_verts+2)*sizeof(vertex_t));
     fclose(offsets_fd);
 
-    munmap(edges, 2*num_edges*sizeof(uint32_t));
+    motivo_munmap(edges, 2*num_edges*sizeof(uint32_t));
     fclose(edges_fd);
 }
 

@@ -17,7 +17,7 @@ TreeletTable::TreeletTable(const std::string& basename)
     assert(nverts < std::numeric_limits<UndirectedGraph::vertex_t>::max()-1);
     num_vertices = static_cast<UndirectedGraph::vertex_t>(nverts);
 
-    offsets = static_cast<uint64_t*>(mmap(nullptr, (num_vertices+2)*sizeof(uint64_t), PROT_READ, MAP_PRIVATE, fileno(offsets_fd), 0));
+    offsets = static_cast<uint64_t*>(motivo_mmap((num_vertices+2)*sizeof(uint64_t), PROT_READ,fileno(offsets_fd)));
     assert(offsets!=MAP_FAILED);
     offsets += 1;
 
@@ -28,7 +28,7 @@ TreeletTable::TreeletTable(const std::string& basename)
     if(offsets_fd==NULL)
         throw std::runtime_error("Could not open file " + data_filename);
 
-    data = static_cast<treelet_count_pair*>(mmap(nullptr, offsets[num_vertices] * sizeof(treelet_count_pair), PROT_READ, MAP_PRIVATE, fileno(data_fd), 0));
+    data = static_cast<treelet_count_pair*>(motivo_mmap(offsets[num_vertices] * sizeof(treelet_count_pair), PROT_READ, fileno(data_fd)));
     //madvise(data, offsets[num_vertices] * sizeof(treelet_count_pair), MADV_SEQUENTIAL);
     assert(data!=MAP_FAILED);
 
@@ -44,10 +44,10 @@ TreeletTable::TreeletTable(const std::string& basename)
 
 TreeletTable::~TreeletTable()
 {
-    munmap(data-1, offsets[num_vertices] * sizeof(treelet_count_pair));
+    motivo_munmap(data-1, offsets[num_vertices] * sizeof(treelet_count_pair));
     fclose(data_fd);
 
-    munmap(offsets-1, (num_vertices+2)*sizeof(uint64_t));
+    motivo_munmap(offsets-1, (num_vertices+2)*sizeof(uint64_t));
     fclose(offsets_fd);
 
     if(root_sampler)

@@ -47,7 +47,7 @@ public:
         num_elements = e.K;
         total_weight = e.U;
 
-        elements = static_cast<entry*>(mmap(nullptr, (num_elements+1)*sizeof(entry), PROT_READ, MAP_PRIVATE, fileno(elements_fd), 0));
+        elements = static_cast<entry*>(motivo_mmap((num_elements+1)*sizeof(entry), PROT_READ, fileno(elements_fd)));
         assert(elements!=MAP_FAILED);
         elements += 1;
 
@@ -64,7 +64,7 @@ public:
     {
         if(elements_fd != nullptr)
         {
-            munmap(elements - 1, (num_elements + 1) * sizeof(entry));
+            motivo_munmap(elements - 1, (num_elements + 1) * sizeof(entry));
             fclose(elements_fd);
         }
         else
