@@ -10,13 +10,13 @@
 Occurrence::Occurrence(const unsigned int size, const UndirectedGraph::vertex_t *occ, const UndirectedGraph *graph) : size(size)
 {
     for(unsigned int i=0; i<size; i++)
-        vertices[i]=occ[i];
+        verts[i]=occ[i];
 
     for(unsigned int i=1; i<size; i++)
     {
         for(unsigned int j=0; j<i; j++)
         {
-            if(graph->has_edge(vertices[i], vertices[j]))
+            if(graph->has_edge(verts[i], verts[j]))
                 add_edge(i,j);
         }
     }
@@ -25,7 +25,7 @@ Occurrence::Occurrence(const unsigned int size, const UndirectedGraph::vertex_t 
 Occurrence::Occurrence(const UndirectedGraph::vertex_t *occ, const Treelet& treelet) : size(treelet.number_of_vertices())
 {
     for(unsigned int i=0; i<size; i++)
-        vertices[i]=occ[i];
+        verts[i]=occ[i];
 
     unsigned int parents[16] = {0};
     unsigned int current = 0;
@@ -46,11 +46,10 @@ Occurrence::Occurrence(const UndirectedGraph::vertex_t *occ, const Treelet& tree
     assert(n==size-1);
 }
 
-
-std::string Occurrence::footprint()
+std::string Occurrence::text_footprint()
 {
-    char c[32];
-    for(unsigned int i=0; i<16; i++)
+    char c[text_footprint_bytes];
+    for(unsigned int i=0; i<binary_footprint_bytes; i++)
     {
         c[2*i]= static_cast<char>('A'+ (edges[i]>>4));
         c[2*i+1]= static_cast<char>('A'+ (edges[i] & 0x0F));
@@ -61,9 +60,9 @@ std::string Occurrence::footprint()
 
 std::string Occurrence::to_string()
 {
-    std::string s = footprint();
+    std::string s = text_footprint();
     for(unsigned int i=0; i<size; i++)
-        s += " " + std::to_string(vertices[i]);
+        s += " " + std::to_string(verts[i]);
 
     return s;
 }
@@ -103,10 +102,10 @@ void Occurrence::canonicize()
     //be relabelled to give canong
 
     UndirectedGraph::vertex_t verts[16];
-    memcpy(verts, vertices, sizeof(UndirectedGraph::vertex_t)*size);
+    memcpy(verts, verts, sizeof(UndirectedGraph::vertex_t)*size);
 
     for(unsigned int i=1; i<size; i++)
-        vertices[i] = verts[ lab[i] ];
+        verts[i] = verts[ lab[i] ];
 
     memset(edges, 0, sizeof(uint8_t)*size);
     for(unsigned int i=1; i<size; i++)
