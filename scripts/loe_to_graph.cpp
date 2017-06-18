@@ -4,19 +4,18 @@
 #include<vector>
 #include<set>
 
+#include <sparsehash/sparse_hash_set>
+#include <sparsehash/sparse_hash_map>
 
-#ifdef NUMERIC
-    typedef uint32_t key_type;
-#else
-    typedef std::string key_type;
-#endif
+typedef std::string key_type;
+typedef google::sparse_hash_map<key_type, uint32_t> table_t;
 
 const std::string whitespace = " \t\r";
-std::vector< std::set<uint32_t> > edges;
+std::vector< google::sparse_hash_set<uint32_t> > edges;
 uint32_t n=0;
 uint64_t m=0;
 
-uint32_t getID(std::map<const key_type, uint32_t>& map, const key_type& name)
+uint32_t getID(table_t& map, const key_type& name)
 {
         auto it = map.find(name);
         if(it!=map.end())
@@ -44,19 +43,14 @@ bool split(const std::string& str, key_type& first, key_type& second)
         if(d==std::string::npos)
                 d=str.size();
 
-#ifdef NUMERIC
-        first=std::stoul(str.substr(a, b-a));
-        second=std::stoul(str.substr(c, d-c));
-#else
         first=str.substr(a, b-a);
         second=str.substr(c, d-c);
-#endif
         return true;
 }
 
 void read()
 {
-        std::map<const key_type, uint32_t> vertices;
+        table_t vertices;
         std::string line;
         key_type first, second;
         while(std::getline(std::cin, line))
@@ -80,8 +74,6 @@ void read()
                 if(edges[u].insert(v).second)
                         m++;
         }
-
-        edges.shrink_to_fit();
 }
 
 void write()
@@ -89,15 +81,24 @@ void write()
         std::cout << n << " " << m << std::endl;
         for(uint32_t u=0; u<n; u++)
         {
-                std::cout << edges[u].size();
-                for(auto it : edges[u])
+            uint32_t d = edges[u].size();
+            std::cout << d;
+            if(d)
+            {
+                uint32_t* neighbors = new uint32_t[d];
+                std::copy(edges[u].begin(), edges[u].end(), neighbors);
+                edges[u].clear();
+                edges[u].resize(0);
+                std::sort(neighbors, neighbors+d);
+                for(uint32_t i=0; i<d; i++)
                 {
-                        std::cout << " " << it;
-                        if(it>u)
-                                edges[it].insert(u);
+                    std::cout << " " << neighbors[i];
+                    if(neighbors[i]>u)
+                        edges[neighbors[i]].insert(u);
                 }
-                std::cout << std::endl;
-                edges[u] = std::set<uint32_t>(); //Make sure memory is released
+                delete[] neighbors;
+            }
+            std::cout << std::endl;
         }
 }
 
