@@ -2,6 +2,7 @@
 // Created by steven on 12/3/16.
 //
 
+#include <new>
 #include <fstream>
 #include "../common/UndirectedGraph.h"
 #include "TreeletSampler.h"
