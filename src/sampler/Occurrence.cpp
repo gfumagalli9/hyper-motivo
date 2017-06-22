@@ -55,7 +55,7 @@ std::string Occurrence::text_footprint()
         c[2*i+1]= static_cast<char>('A'+ (edges[i] & 0x0F));
     }
 
-    return std::string(c, 32);
+    return std::string(c, text_footprint_bytes);
 }
 
 std::string Occurrence::to_string()
