@@ -42,7 +42,7 @@ public:
         else
             this->seed = seed;
 
-        std::seed_seq seq(seed.begin(), seed.end());
+        std::seed_seq seq(this->seed.begin(), this->seed.end());
         rng.seed(seq);
     }
 

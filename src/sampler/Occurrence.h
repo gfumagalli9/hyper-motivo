@@ -53,8 +53,6 @@ public:
     const char* binary_footprint() const { return reinterpret_cast<const char*>(edges); };
 
     std::string text_footprint();
-
-    std::string to_string();
 };
 
 

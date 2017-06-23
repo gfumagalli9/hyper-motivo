@@ -58,15 +58,6 @@ std::string Occurrence::text_footprint()
     return std::string(c, text_footprint_bytes);
 }
 
-std::string Occurrence::to_string()
-{
-    std::string s = text_footprint();
-    for(unsigned int i=0; i<size; i++)
-        s += " " + std::to_string(verts[i]);
-
-    return s;
-}
-
 void Occurrence::canonicize()
 {
     nauty_graph g[MOTIVO_NAUTY_MAXN*MOTIVO_NAUTY_MAXM];

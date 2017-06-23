@@ -10,58 +10,83 @@
 #include "../common/OptionsParser.h"
 
 void sample(const UndirectedGraph &G, const TreeletTableCollection &ttc, unsigned int size, uint64_t num_samples,
-            std::ostream& out, bool text, bool canonicize, bool graphlets, bool footprints_only, Random* rng)
+            uint64_t num_accepted, std::ostream& out, bool text, bool canonicize, bool graphlets, bool no_rejection, bool footprints,
+            bool spanning_trees_no, bool vertices, Random* rng)
 {
     TreeletSampler sampler(&G, &ttc, rng);
-    UndirectedGraph::vertex_t occ_vertices[16] = {0};
+    UndirectedGraph::vertex_t sampled_vertices[16] = {0};
 
     //FIXME: Cache spanning trees count and/or footprints?
 
-
     uint64_t sampled=0;
-    uint64_t rejected=0;
+    uint64_t accepted=0;
 
     Occurrence occurrence;
-    while(sampled<num_samples)
+    uint64_t spanning_trees = 1;
+    while(sampled<num_samples && accepted<num_accepted)
     {
+        sampled++;
         UndirectedGraph::vertex_t root = sampler.sample_root(size);
         assert(root<G.number_of_vertices());
         Treelet t = sampler.sample_treelet(size, root);
 #ifndef NDEBUG
         bool success =
 #endif
-        sampler.sample_rooted_occurrence(t, root, occ_vertices);
+        //TODO if vertices are not needed (!vertices && (!graphlets || (no_rejection && !spanning_trees_no)) ) we do not need this
+        sampler.sample_rooted_occurrence(t, root, sampled_vertices);
         assert(success);
 
         if(graphlets)
         {
-            new (&occurrence) Occurrence(size, occ_vertices, &G);
-            if(rng->random_uint<uint64_t>(0, occurrence.number_of_spanning_trees())!=0)
-            {
-                rejected++;
+            new (&occurrence) Occurrence(size, sampled_vertices, &G);
+
+            if(!no_rejection || spanning_trees_no)
+                spanning_trees = occurrence.number_of_spanning_trees();
+
+            if(!no_rejection && rng->random_uint<uint64_t>(0, spanning_trees-1)!=0)
                 continue; //Rejection
-            }
         }
         else
-            new (&occurrence) Occurrence(occ_vertices, t);
+            new (&occurrence) Occurrence(sampled_vertices, t);
 
         if(canonicize)
             occurrence.canonicize();
 
         if(text)
-            out << (footprints_only? occurrence.text_footprint():occurrence.to_string()) << std::endl;
+        {
+            if(footprints)
+                out << occurrence.text_footprint() << ";";
+
+            if(spanning_trees_no)
+                out << spanning_trees << ";";
+
+            if(vertices)
+            {
+                const UndirectedGraph::vertex_t* verts = occurrence.vertices();
+                for(unsigned int i=0; i<size; i++)
+                    out << verts[i] << ((i==size-1)?";":" ");
+            }
+
+            out << std::endl;
+        }
         else
         {
-            out.write(occurrence.binary_footprint(), Occurrence::binary_footprint_bytes);
+            if(footprints)
+                out.write(occurrence.binary_footprint(), Occurrence::binary_footprint_bytes);
 
-            if(!footprints_only)
+            if(spanning_trees_no)
+                out.write(reinterpret_cast<const char*>(&spanning_trees), sizeof(uint64_t));
+
+            if(vertices)
                 out.write(reinterpret_cast<const char*>(occurrence.vertices()), static_cast<std::streamsize>(sizeof(UndirectedGraph::vertex_t)*occurrence.size));
         }
 
-        sampled++;
+        accepted++;
     }
 
-    std::cerr << "Sampled: " << sampled << " Rejected:" << rejected << std::endl;
+    std::cerr << "Sampled treelets: " << sampled << std::endl;
+    std::cerr << "Accepted treelets/graphlets: "<< accepted << std::endl;
+    std::cerr << "Rejected treelets/graphlets: " << sampled - accepted << std::endl;
 }
 
 int main(const int argc, const char** argv)
@@ -71,13 +96,17 @@ int main(const int argc, const char** argv)
     OptionsParser::Option *help_opt = op.add_option(false, false, "help", '\0', "", "Print help and exit");
     OptionsParser::Option *graph_opt = op.add_option(true, true, "graph", 'g', "", "Input graph basename (required)");
     OptionsParser::Option *size_opt = op.add_option(true, true, "size", 's', "", "Size of the treelets to sample (required)");
-    OptionsParser::Option *samples_opt = op.add_option(false, true, "num-samples", 'n', "1", "Number of samples (default: 1)");
+    OptionsParser::Option *numsamples_opt = op.add_option(false, true, "num-samples", 'n', "", "Stop after this number of samples (default: unlimited)");
+    OptionsParser::Option *numaccepted_opt = op.add_option(false, true, "num-accepted", 'a', "", "Stop after this number of accepted samples (default: unlimited)");
     OptionsParser::Option *input_opt = op.add_option(true, true, "input", 'i', "", "Input tables basename (required)");
     OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
     OptionsParser::Option *text_opt = op.add_option(false, false, "text", 't', "", "Output occurrences in text format");
     OptionsParser::Option *canonicize_opt = op.add_option(false, false, "canonicize", 'c', "", "Output occurrences in canonical format");
     OptionsParser::Option *graphlets_opt = op.add_option(false, false, "graphlets", '\0', "", "Sample graphlets occurrences (instead of treelets)");
-    OptionsParser::Option *footprints_opt = op.add_option(false, false, "footprints-only", 'f', "", "Only output the footprints (and not the actual vertices)");
+    OptionsParser::Option *norejection_opt = op.add_option(false, false, "no-rejection", '\0', "", "Do not perform rejection on the sampled graphlets");
+    OptionsParser::Option *footprints_opt = op.add_option(false, false, "footprints", '\0', "", "Output the graphlet/treelet footprints");
+    OptionsParser::Option *spanning_opt = op.add_option(false, false, "spanning-trees-no", '\0', "", "Output the number of spanning trees in the sampels treelet/graphlet");
+    OptionsParser::Option *vertices_opt = op.add_option(false, false, "vertices", '\0', "", "Output the IDs of the sampled vertices");
     OptionsParser::Option *seed_opt = op.add_option(false, true, "seed", '\0', "", "String used to seed the random number generator (default or empty string: seed from system random device)");
 
     bool parse_ok = op.parse(argc, argv);
@@ -102,10 +131,23 @@ int main(const int argc, const char** argv)
         if (size < 1 || size > 16)
             throw std::runtime_error("'size' option is invalid");
 
-        int64_t num_samples = std::stoll(samples_opt->get_value());
-        if(num_samples<=0)
+        if(!numsamples_opt->is_found() && !numsamples_opt->is_found())
+            throw std::runtime_error("At least one of 'num-samples' and 'num-accepted' must be specified");
+
+        uint64_t num_samples = std::numeric_limits<uint64_t>::max();
+        if(numsamples_opt->is_found())
+            num_samples = std::stoull(numsamples_opt->get_value());
+        if(num_samples==0)
             throw std::runtime_error("'num-samples' option is invalid");
 
+        uint64_t num_accepted = std::numeric_limits<uint64_t>::max();
+        if(numaccepted_opt->is_found())
+            num_accepted = std::stoull(numaccepted_opt->get_value());
+        if(num_accepted==0)
+            throw std::runtime_error("'num-accepted' option is invalid");
+
+        if(!footprints_opt->is_found() && !spanning_opt->is_found() && !vertices_opt->is_found())
+            throw std::runtime_error("Nothing to output. Please specify at least one of --footprints, --spanning-trees-no, --vertices");
 
         std::ofstream outfile(output_opt->get_value(), std::ofstream::binary | std::ofstream::trunc);
         UndirectedGraph G(graph_opt->get_value());
@@ -113,7 +155,9 @@ int main(const int argc, const char** argv)
 
         Random rng(seed_opt->get_value());
 
-        sample(G, ttc, static_cast<unsigned int>(size), static_cast<uint64_t>(num_samples), outfile, text_opt->is_found(), canonicize_opt->is_found(), graphlets_opt->is_found(), footprints_opt->is_found(), &rng);
+        sample(G, ttc, static_cast<unsigned int>(size), num_samples, num_accepted, outfile, text_opt->is_found(),
+               canonicize_opt->is_found(), graphlets_opt->is_found(), norejection_opt->is_found(), footprints_opt->is_found(),
+               spanning_opt->is_found(), vertices_opt->is_found(), &rng);
     }
     catch(std::exception& e)
     {
