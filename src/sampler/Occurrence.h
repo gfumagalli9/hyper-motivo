@@ -41,8 +41,8 @@ private:
 
 public:
     Occurrence() : size(0) {}; //Empty constructor to take advantage of Stack allocation
-    Occurrence(const UndirectedGraph::vertex_t* occ, const Treelet& treelet);
-    Occurrence(const unsigned int size, const UndirectedGraph::vertex_t* occ, const UndirectedGraph* graph);
+    Occurrence(const Treelet& treelet, const UndirectedGraph::vertex_t* occ);
+    Occurrence(const unsigned int size, const UndirectedGraph* graph, const UndirectedGraph::vertex_t* occ);
 
     ///@returns the number of spanning trees of this occurrence
     uint64_t number_of_spanning_trees();

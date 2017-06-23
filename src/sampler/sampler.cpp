@@ -9,9 +9,9 @@
 #include "Occurrence.h"
 #include "../common/OptionsParser.h"
 
-void sample(const UndirectedGraph &G, const TreeletTableCollection &ttc, unsigned int size, uint64_t num_samples,
-            uint64_t num_accepted, std::ostream& out, bool text, bool canonicize, bool graphlets, bool no_rejection, bool footprints,
-            bool spanning_trees_no, bool vertices, Random* rng)
+void sample [[gnu::hot]] (const UndirectedGraph &G, const TreeletTableCollection &ttc, const unsigned int size, const uint64_t num_samples,
+            const uint64_t num_accepted, std::ostream& out, const  bool text, const bool canonicize, const  bool graphlets,
+            const bool no_rejection, const bool footprints, const bool spanning_trees_no, const  bool vertices, Random* rng)
 {
     TreeletSampler sampler(&G, &ttc, rng);
     UndirectedGraph::vertex_t sampled_vertices[16] = {0};
@@ -29,16 +29,19 @@ void sample(const UndirectedGraph &G, const TreeletTableCollection &ttc, unsigne
         UndirectedGraph::vertex_t root = sampler.sample_root(size);
         assert(root<G.number_of_vertices());
         Treelet t = sampler.sample_treelet(size, root);
+
+        if(vertices || graphlets) //If we want treelets but not the occurrence vertices we can skip sampling
+        {
 #ifndef NDEBUG
-        bool success =
+            bool success =
 #endif
-        //TODO if vertices are not needed (!vertices && (!graphlets || (no_rejection && !spanning_trees_no)) ) we do not need this
-        sampler.sample_rooted_occurrence(t, root, sampled_vertices);
-        assert(success);
+            sampler.sample_rooted_occurrence(t, root, sampled_vertices);
+            assert(success);
+        }
 
         if(graphlets)
         {
-            new (&occurrence) Occurrence(size, sampled_vertices, &G);
+            new (&occurrence) Occurrence(size, &G, sampled_vertices);
 
             if(!no_rejection || spanning_trees_no)
                 spanning_trees = occurrence.number_of_spanning_trees();
@@ -47,7 +50,7 @@ void sample(const UndirectedGraph &G, const TreeletTableCollection &ttc, unsigne
                 continue; //Rejection
         }
         else
-            new (&occurrence) Occurrence(sampled_vertices, t);
+            new (&occurrence) Occurrence(t, sampled_vertices);
 
         if(canonicize)
             occurrence.canonicize();
@@ -67,7 +70,7 @@ void sample(const UndirectedGraph &G, const TreeletTableCollection &ttc, unsigne
                     out << verts[i] << ((i==size-1)?";":" ");
             }
 
-            out << std::endl;
+            out << "\n";
         }
         else
         {

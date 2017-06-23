@@ -23,7 +23,7 @@ void test(unsigned int from, unsigned int size, uint64_t expected)
     for(unsigned int i=0; i<size; i++)
         subgraph[i]=from+i;
 
-    Occurrence occ(size, subgraph, &test_graph);
+    Occurrence occ(size, &test_graph,  subgraph);
     CHECK( occ.number_of_spanning_trees() == expected );
 
     delete[] subgraph;

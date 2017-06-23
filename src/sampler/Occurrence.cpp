@@ -7,7 +7,7 @@
 #include "Occurrence.h"
 #include "include_nauty.h"
 
-Occurrence::Occurrence(const unsigned int size, const UndirectedGraph::vertex_t *occ, const UndirectedGraph *graph) : size(size)
+Occurrence::Occurrence(const unsigned int size, const UndirectedGraph *graph, const UndirectedGraph::vertex_t *occ) : size(size)
 {
     for(unsigned int i=0; i<size; i++)
         verts[i]=occ[i];
@@ -22,10 +22,10 @@ Occurrence::Occurrence(const unsigned int size, const UndirectedGraph::vertex_t 
     }
 }
 
-Occurrence::Occurrence(const UndirectedGraph::vertex_t *occ, const Treelet& treelet) : size(treelet.number_of_vertices())
+Occurrence::Occurrence(const Treelet& treelet, const UndirectedGraph::vertex_t *occ) : size(treelet.number_of_vertices())
 {
-    for(unsigned int i=0; i<size; i++)
-        verts[i]=occ[i];
+     for(unsigned int i = 0; i < size; i++)
+            verts[i] = occ[i];
 
     unsigned int parents[16] = {0};
     unsigned int current = 0;
