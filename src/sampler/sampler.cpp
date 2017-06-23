@@ -115,7 +115,7 @@ int main(const int argc, const char** argv)
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
     {
-        std::cout << "motivo-sample [OPTION]... BASENAME" << std::endl;
+        std::cout << "motivo-sample [OPTION]..." << std::endl;
         std::cout << "  Samples treelets from tables" << std::endl << std::endl;
         std::cout << op.help() << std::endl;
 
