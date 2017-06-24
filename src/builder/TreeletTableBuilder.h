@@ -46,6 +46,7 @@ private:
     std::ostream* output;
     progress_callback_t progress_callback;
     UndirectedGraph::vertex_t progress_interval;
+    const bool store_0_only;
     const unsigned int number_of_threads;
 
 #ifdef MOTIVO_MULTITHREAD
@@ -80,7 +81,7 @@ private:
 public:
     TreeletTableBuilder(const UndirectedGraph* graph, const GraphColoring* coloring, const unsigned int size,
                         const TreeletTableCollection* lower,  const UndirectedGraph::vertex_t from,
-                        const UndirectedGraph::vertex_t to, std::ostream* output, const unsigned int num_threads=1);
+                        const UndirectedGraph::vertex_t to, std::ostream* output, const bool store_0_only=false, const unsigned int num_threads=1);
 
     void set_progress_callback(progress_callback_t pc, UndirectedGraph::vertex_t pi)
     {

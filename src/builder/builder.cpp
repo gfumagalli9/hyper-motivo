@@ -24,8 +24,9 @@ int main(const int argc, const char** argv)
     OptionsParser::Option *to_opt = op.add_option(false, true, "to-vertex", '\0', "", "Last vertex (default: last vertex if the graph)");
     OptionsParser::Option *seed_opt = op.add_option(false, true, "seed", '\0', "", "String used to seed the random number generator for the initial coloring (default or empty string: seed from system random device)");
     OptionsParser::Option *threads_opt = op.add_option(false, true, "threads", '\0', "1", "Number of threads to use or 0 for to use the number of logical processors (default: 1)");
-    OptionsParser::Option* output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
-    OptionsParser::Option* progress_opt = op.add_option(false, true, "progress", 'P', "0", "Number of processed vertices between progress reports or 0 for no progress reports (default: 0)");
+    OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
+    OptionsParser::Option *progress_opt = op.add_option(false, true, "progress", 'P', "0", "Number of processed vertices between progress reports or 0 for no progress reports (default: 0)");
+    OptionsParser::Option *store0_opt  = op.add_option(false, false, "store-on-0-colored-vertices-only", '0', "", "Store treelet counts only for the vertices with color 0 (default: false)");
 
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
@@ -117,12 +118,12 @@ int main(const int argc, const char** argv)
         std::cout << "Computing counts of treelets of size " << size << " for vertices " << from_vertex << "--"
                   << to_vertex << " using " << nthreads << " worker thread(s)" << std::endl;
 
-        TreeletTableBuilder builder(&G, coloring.get(), static_cast<unsigned  int>(size), ttc.get(), from_vertex, to_vertex, &out, nthreads);
+        TreeletTableBuilder builder(&G, coloring.get(), static_cast<unsigned  int>(size), ttc.get(), from_vertex, to_vertex, &out, store0_opt->is_found(), nthreads);
 
         int64_t progress = std::stoll(progress_opt->get_value());
         if(progress > 0)
         {
-            std::cout << "Will print a progress reports every " << progress << " processed vertices" << std::endl;
+            std::cout << "Will print a progress report every " << progress << " processed vertices" << std::endl;
             builder.set_progress_callback(progress_callback, static_cast<UndirectedGraph::vertex_t>(progress));
         }
 

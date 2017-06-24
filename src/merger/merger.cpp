@@ -53,7 +53,7 @@ std::string to_string(uint128_t n)
 struct vertex_info
 {
     char* ptr;
-    TreeletTable::treelet_count_t count;
+    TreeletTable::treelet_count_t count=0;
 };
 
 void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, vertex_info* info);

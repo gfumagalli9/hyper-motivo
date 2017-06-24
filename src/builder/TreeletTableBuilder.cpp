@@ -19,9 +19,9 @@
 
 TreeletTableBuilder::TreeletTableBuilder(const UndirectedGraph* graph, const GraphColoring* coloring, const unsigned int size,
                     const TreeletTableCollection* lower,  const UndirectedGraph::vertex_t from,
-                    const UndirectedGraph::vertex_t to, std::ostream* output, const unsigned int num_threads)
+                    const UndirectedGraph::vertex_t to, std::ostream* output, const bool store_0_only, const unsigned int num_threads)
         :  graph(graph), coloring(coloring), size(size), lower(lower), from(from), to(to), output(output),
-           progress_callback(nullptr), number_of_threads(num_threads)
+           progress_callback(nullptr), store_0_only(store_0_only), number_of_threads(num_threads)
 #ifdef MOTIVO_MULTITHREAD
         , write_queue(2*num_threads)
 #endif
@@ -83,6 +83,9 @@ void TreeletTableBuilder::do_build_1_st()
     {
         report_progress(u);
 
+        if(store_0_only && coloring->color_of(u) == 0)
+            continue;
+
         *vertex=u;
         tcp->treelet = Treelet::singleton(coloring->color_of(u));
         output->write(buffer, buf_size);
@@ -94,6 +97,9 @@ void TreeletTableBuilder::do_build_st()
     for(UndirectedGraph::vertex_t u=from; u<=to; u++)
     {
         report_progress(u);
+
+        if(store_0_only && coloring->color_of(u) == 0)
+            continue;
 
         table_t table;
         const UndirectedGraph::vertex_t *neighbors = graph->neighbors(u);
@@ -117,10 +123,16 @@ void TreeletTableBuilder::do_build_mt(std::atomic<UndirectedGraph::vertex_t> *at
 
         UndirectedGraph::vertex_t end = (start+thread_batch_size-1<=to)?(start+thread_batch_size-1):to;
         std::pair<char*, std::streamsize>* batch = new std::pair<char*, std::streamsize>[end-start+2];
-        batch[end-start+1].first = nullptr;
+        batch[end-start+1].second = -1;
         for(UndirectedGraph::vertex_t u=start; u<=end; u++)
         {
             report_progress(u);
+
+            if(store_0_only && coloring->color_of(u) == 0)
+            {
+                batch[u-start] = std::make_pair(nullptr, 0);
+                continue;
+            }
 
             table_t table;
             const UndirectedGraph::vertex_t *neighbors = graph->neighbors(u);
@@ -210,10 +222,14 @@ void TreeletTableBuilder::writer_loop()
         std::pair<char*, std::streamsize>* to_write = write_queue.pop();
         std::pair<char*, std::streamsize>* p = to_write;
 
-        while(p->first!=nullptr)
+        while(p->second!=-1)
         {
-            output->write(p->first, p->second);
-            delete[] p->first;
+            if(p->first)
+            {
+                output->write(p->first, p->second);
+                delete[] p->first;
+            }
+
             p++;
             written++;
         }
