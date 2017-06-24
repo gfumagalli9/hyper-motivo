@@ -98,7 +98,7 @@ void TreeletTableBuilder::do_build_st()
     {
         report_progress(u);
 
-        if(store_0_only && coloring->color_of(u) == 0)
+        if(store_0_only && lower->get_table(1)->begin(u).treelet().get_colors()==0)
             continue;
 
         table_t table;
@@ -128,7 +128,7 @@ void TreeletTableBuilder::do_build_mt(std::atomic<UndirectedGraph::vertex_t> *at
         {
             report_progress(u);
 
-            if(store_0_only && coloring->color_of(u) == 0)
+            if(store_0_only && lower->get_table(1)->begin(u).treelet().get_colors()==0)
             {
                 batch[u-start] = std::make_pair(nullptr, 0);
                 continue;
