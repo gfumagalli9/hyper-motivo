@@ -22,7 +22,7 @@ option(ENABLE_ASSERTS "Enable asserts (slower)" OFF)
 option(OPTIMIZE_MORE "Optimize for current hardware" OFF)
 option(MOTIVO_OVERFLOW_SAFE "Check for overflows during computation" ON)
 option(MOTIVO_MULTITHREAD "Enable multithread support" ON)
-option(TCMALLOC "Use tcmalloc allocator library" OFF)
+option(USE_TCMALLOC "Use tcmalloc allocator library" OFF)
 
 if(MOTIVO_MULTITHREAD)
     message(STATUS "Multithreading support enabled.")
@@ -41,14 +41,6 @@ if(OPTIMIZE_MORE)
     message(STATUS "Setting additional optimization flags. Binaries might not work on other machines")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -funroll-loops -march=native -flto")
     set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -funroll-loops -march=native -flto")
-endif()
-
-set(COMMON_LIBRARIES "m")
-if(TCMALLOC)
-    message(STATUS "Building with tcmalloc allocator")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free")
-    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free")
-    set(COMMON_LIBRARIES "${COMMON_LIBRARIES} tcmalloc")
 endif()
 
 INCLUDE(CheckCXXSourceCompiles)
@@ -115,6 +107,21 @@ set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} ${INCLUDE_PATH_STR})
 
 string(REPLACE ":" ";" INCLUDE_PATH_STR "$ENV{CPATH}")
 set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} ${INCLUDE_PATH_STR})
+
+
+set(COMMON_LIBRARIES "m")
+
+if(USE_TCMALLOC)
+    message(STATUS "Building with tcmalloc allocator")
+    find_library(TCMALLOC NAMES tcmalloc)
+    if(NOT TCMALLOC)
+        message(FATAL_ERROR "Could not find tcmalloc library")
+    endif()
+
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free")
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free")
+    set(COMMON_LIBRARIES "${COMMON_LIBRARIES} ${TCMALLOC}")
+endif()
 
 find_library(OPENBLAS NAMES openblas)
 if(OPENBLAS)
