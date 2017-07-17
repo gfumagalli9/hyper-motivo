@@ -22,6 +22,7 @@ option(ENABLE_ASSERTS "Enable asserts (slower)" OFF)
 option(OPTIMIZE_MORE "Optimize for current hardware" OFF)
 option(MOTIVO_OVERFLOW_SAFE "Check for overflows during computation" ON)
 option(MOTIVO_MULTITHREAD "Enable multithread support" ON)
+option(USE_TCMALLOC "Use tcmalloc allocator library" OFF)
 
 if(MOTIVO_MULTITHREAD)
     message(STATUS "Multithreading support enabled.")
@@ -107,6 +108,21 @@ set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} ${INCLUDE_PATH_STR})
 string(REPLACE ":" ";" INCLUDE_PATH_STR "$ENV{CPATH}")
 set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} ${INCLUDE_PATH_STR})
 
+
+set(COMMON_LIBRARIES "m")
+
+if(USE_TCMALLOC)
+    message(STATUS "Building with tcmalloc allocator")
+    find_library(TCMALLOC NAMES tcmalloc)
+    if(NOT TCMALLOC)
+        message(FATAL_ERROR "Could not find tcmalloc library")
+    endif()
+
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free")
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free")
+    set(COMMON_LIBRARIES "${COMMON_LIBRARIES} ${TCMALLOC}")
+endif()
+
 find_library(OPENBLAS NAMES openblas)
 if(OPENBLAS)
     message(STATUS "openblas library found")
@@ -158,7 +174,6 @@ else()
     message(FATAL_ERROR "Could not find sparsehash header files")
 endif()
 
-set(COMMON_LIBRARIES m)
 set(SAMPLER_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
 set(BUILDER_LIBRARIES ${COMMON_LIBRARIES})
 set(MERGER_LIBRARIES ${COMMON_LIBRARIES})

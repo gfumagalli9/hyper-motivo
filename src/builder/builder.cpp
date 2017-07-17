@@ -108,7 +108,7 @@ int main(const int argc, const char** argv)
         if(size != 1)
         {
             std::cout << "Loading tables for smaller sizes" << std::endl;
-            ttc = std::make_unique<TreeletTableCollection>(tables_opt->get_value(), size - 1);
+            ttc = std::make_unique<TreeletTableCollection>(tables_opt->get_value(), size - 1, false);
         }
 
         std::ofstream out( output_opt->get_value(), std::ofstream::binary | std::ofstream::trunc);

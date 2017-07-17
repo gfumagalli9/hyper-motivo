@@ -58,8 +58,8 @@ private:
 
 public:
     ///Loads a table stored with the given @param basename.
-    ///Also loads the associated perfect hash function, if available.
-    TreeletTable(const std::string& basename);
+    ///If @param load_root_sampler is true, it loads the associated root sampler, if available.
+    TreeletTable(const std::string& basename, const bool load_root_sampler=true);
     ~TreeletTable();
 
     ///@returns a root r chosen at random with probability proportional to the number of treelets  rooted in r

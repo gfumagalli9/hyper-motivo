@@ -5,7 +5,7 @@
 #include "TreeletTable.h"
 #include "../platform/platform.h"
 
-TreeletTable::TreeletTable(const std::string& basename)
+TreeletTable::TreeletTable(const std::string& basename, const bool load_root_sampler)
 {
     std::string offsets_filename = basename+".off";
     offsets_fd = fopen( offsets_filename.c_str(), "rb" );
@@ -32,14 +32,19 @@ TreeletTable::TreeletTable(const std::string& basename)
     //madvise(data, offsets[num_vertices] * sizeof(treelet_count_pair), MADV_SEQUENTIAL);
     assert(data!=MAP_FAILED);
 
-    try
+    if(load_root_sampler)
     {
-        root_sampler = new AliasMethodSampler<UndirectedGraph::vertex_t, treelet_count_t>(basename+".rts");
+        try
+        {
+            root_sampler = new AliasMethodSampler<UndirectedGraph::vertex_t, treelet_count_t>(basename+".rts");
+        }
+        catch(...)
+        {
+            root_sampler = nullptr;
+        }
     }
-    catch(...)
-    {
+    else
         root_sampler = nullptr;
-    }
 }
 
 TreeletTable::~TreeletTable()
