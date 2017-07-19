@@ -18,8 +18,8 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
     Treelet split = t.split_child();
     assert(!split.is_colored());
 
-    const TreeletTable *table = table_collection->get_table(t.number_of_vertices());
-    const TreeletTable *split_table = table_collection->get_table(split.number_of_vertices());
+    TreeletTable *table = table_collection->get_table(t.number_of_vertices());
+    TreeletTable *split_table = table_collection->get_table(split.number_of_vertices());
 
     TreeletTable::treelet_count_t count = table->get_count(u, t);
     if(count==0)
@@ -35,7 +35,7 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
     for(UndirectedGraph::vertex_t d = 0; d < graph->degree(u); ++d)
     {
         const UndirectedGraph::vertex_t v = neighbors[d];
-        for(TreeletTable::const_iterator it = split_table->begin(v, split); it != split_table->end(v); ++it)
+        for(TreeletTable::const_iterator it = split_table->begin(v, split); !it.is_over(); ++it)
         {
             const Treelet& t2 = it.treelet();
             if(t2.get_structure() != split.get_structure())

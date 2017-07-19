@@ -5,32 +5,10 @@
 #include "TreeletTable.h"
 #include "../platform/platform.h"
 
-TreeletTable::TreeletTable(const std::string& basename, const bool load_root_sampler)
+TreeletTable::TreeletTable(const std::string& basename, const bool load_root_sampler) : reader(basename + ".dtz")
 {
-    std::string offsets_filename = basename+".off";
-    offsets_fd = fopen( offsets_filename.c_str(), "rb" );
-    if(offsets_fd==NULL)
-        throw std::runtime_error("Could not open file " + offsets_filename);
-
-    uint64_t nverts;
-    fread(&nverts, sizeof(uint64_t), 1, offsets_fd);
-    assert(nverts < std::numeric_limits<UndirectedGraph::vertex_t>::max()-1);
-    num_vertices = static_cast<UndirectedGraph::vertex_t>(nverts);
-
-    offsets = static_cast<uint64_t*>(motivo_mmap((num_vertices+2)*sizeof(uint64_t), PROT_READ,fileno(offsets_fd)));
-    assert(offsets!=MAP_FAILED);
-    offsets += 1;
-
-    assert(offsets[num_vertices] != 0); //FIXME: Handle empty table
-
-    std::string data_filename = basename+".dat";
-    data_fd = fopen( data_filename.c_str(), "rb" );
-    if(offsets_fd==NULL)
-        throw std::runtime_error("Could not open file " + data_filename);
-
-    data = static_cast<treelet_count_pair*>(motivo_mmap(offsets[num_vertices] * sizeof(treelet_count_pair), PROT_READ, fileno(data_fd)));
-    //madvise(data, offsets[num_vertices] * sizeof(treelet_count_pair), MADV_SEQUENTIAL);
-    assert(data!=MAP_FAILED);
+    num_vertices = static_cast<UndirectedGraph::vertex_t>(reader.number_of_records());
+    assert(num_vertices < std::numeric_limits<UndirectedGraph::vertex_t>::max()-1);
 
     if(load_root_sampler)
     {
@@ -49,12 +27,6 @@ TreeletTable::TreeletTable(const std::string& basename, const bool load_root_sam
 
 TreeletTable::~TreeletTable()
 {
-    motivo_munmap(data-1, offsets[num_vertices] * sizeof(treelet_count_pair));
-    fclose(data_fd);
-
-    motivo_munmap(offsets-1, (num_vertices+2)*sizeof(uint64_t));
-    fclose(offsets_fd);
-
     if(root_sampler)
         delete root_sampler;
 }
@@ -101,56 +73,60 @@ static const TreeletTable::treelet_count_pair* count_upper_bound(const TreeletTa
     return begin;
 }
 
-TreeletTable::treelet_count_t TreeletTable::get_count(const UndirectedGraph::vertex_t u, const Treelet treelet) const
-{
-    const treelet_count_pair *tcp = treelet_upper_bound(data + offsets[u] + 1, data + offsets[u+1], treelet);
-    if(tcp!=data+offsets[u+1] && tcp->treelet==treelet)
-        return tcp->count - (tcp-1)->count;
-
-    return 0;
-}
-
-TreeletTable::const_iterator TreeletTable::begin(const UndirectedGraph::vertex_t u, Treelet treelet) const
+TreeletTable::treelet_count_t TreeletTable::get_count(const UndirectedGraph::vertex_t u, const Treelet treelet)
 {
     assert(u<num_vertices);
-    return TreeletTable::const_iterator( treelet_upper_bound(data + offsets[u] + 1, data + offsets[u + 1], treelet) );
+    CompressedRecord record = reader.get_record(u);
+    const treelet_count_pair* begin = reinterpret_cast<const treelet_count_pair*>(record.get())+1;
+    const treelet_count_pair* end = begin + record.length()/sizeof(treelet_count_pair);
+
+
+    const treelet_count_pair *tcp = treelet_upper_bound(begin, end, treelet);
+    TreeletTable::treelet_count_t count = 0;
+    if(tcp!= end && tcp->treelet==treelet)
+        count = tcp->count - (tcp-1)->count;
+
+    record.free();
+    return count;
 }
 
 UndirectedGraph::vertex_t TreeletTable::get_random_root(Random *rng) const
 {
     if(root_sampler)
         return root_sampler->sample(rng);
-
-    uint64_t r = rng->random_uint<uint64_t>(0, offsets[num_vertices]-1);
-
-    UndirectedGraph::vertex_t begin = 0;
-    UndirectedGraph::vertex_t end = num_vertices + 1;
-
-    ///find the vertex v in the range [begin, end) such that offset[v] is greater than or equal to r
-    while(begin<end)
-    {
-        const UndirectedGraph::vertex_t mid = begin + (end - begin) / 2;
-        if(offsets[mid] < r)
-            begin=mid+1;
-        else
-            end=mid;
-    }
-    return begin-1; //v=begin. Return v-1
-
+    else
+        throw std::runtime_error("Root sampler not available");
 }
 
-const Treelet& TreeletTable::get_random_treelet(UndirectedGraph::vertex_t root, Random* rng) const
+TreeletTable::const_iterator TreeletTable::begin(const UndirectedGraph::vertex_t u, Treelet treelet)
+{
+    assert(u<num_vertices);
+    CompressedRecord record = reader.get_record(u);
+    const treelet_count_pair* begin = reinterpret_cast<const treelet_count_pair*>(record.get())+1;
+    const treelet_count_pair* end = begin + record.length()/sizeof(treelet_count_pair);
+
+    return TreeletTable::const_iterator( record, treelet_upper_bound(begin, end, treelet), end );
+}
+
+const Treelet TreeletTable::get_random_treelet(UndirectedGraph::vertex_t root, Random* rng)
 {
     assert(root<num_vertices);
+    CompressedRecord record = reader.get_record(root);
+    const treelet_count_pair* begin = reinterpret_cast<const treelet_count_pair*>(record.get())+1;
+    const treelet_count_pair* end = begin + record.length()/sizeof(treelet_count_pair);
 
-    treelet_count_t ntreelets =  (data + offsets[root+1]-1)->count; //Number of treelets rooted in root
-
-    if(ntreelets==0)
+    if(begin==end)
+    {
+        record.free();
         return Treelet::invalid_treelet;
+    }
 
-    treelet_count_t r =  rng->random_uint<treelet_count_t>(1, ntreelets);
-    const treelet_count_pair *tcp = count_upper_bound(data + offsets[root]+1, data + offsets[root+1], r);
-    assert(tcp!=data + offsets[root+1]);
-    assert(tcp->treelet.is_valid());
-    return tcp->treelet;
+    assert((end-1)->count!=0);
+
+    treelet_count_t r =  rng->random_uint<treelet_count_t>(1, (end-1)->count);
+    const treelet_count_pair tcp = *count_upper_bound(begin, end, r);
+    assert(&tcp!=end);
+    assert(tcp.treelet.is_valid());
+    record.free();
+    return tcp.treelet;
 }

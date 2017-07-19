@@ -12,6 +12,7 @@
 #include "../common/Treelet.h"
 #include "../common/TreeletTable.h"
 #include "../common/OptionsParser.h"
+#include "../common/CompressedRecordFileWriter.h"
 
 unsigned int bits_needed(uint128_t n)
 {
@@ -56,9 +57,9 @@ struct vertex_info
     TreeletTable::treelet_count_t count=0;
 };
 
-void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, vertex_info* info);
+void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, vertex_info* info, bool allow_compression);
 
-void merge(const std::vector<std::string>& count_filenames, const std::string& output_basename)
+void merge(const std::vector<std::string>& count_filenames, const std::string& output_basename, bool allow_compression)
 {
     const unsigned long no_files = count_filenames.size();
     UndirectedGraph::vertex_t num_vertices = 0;
@@ -127,7 +128,7 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
     }
 
     std::cout << "Writing output" << std::endl;
-    write_table(output_basename, num_vertices, info);
+    write_table(output_basename, num_vertices, info, allow_compression);
 
     delete[] info;
 
@@ -141,78 +142,34 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
     delete[] count_files;
 }
 
-void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, vertex_info* info)
+void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, vertex_info* info, bool allow_compression)
 {
-    std::string output_filename = output_basename + ".dat";
-    std::ofstream out(output_filename, std::ofstream::binary | std::ofstream::trunc);
-
-    std::string offset_filename = output_basename + ".off";
-    std::ofstream off(offset_filename, std::ofstream::binary | std::ofstream::trunc);
-
-    uint64_t nv64=num_vertices;
-    off.write(reinterpret_cast<char*>(&nv64), sizeof(uint64_t));
-
-    uint64_t num_records_total=0;
-    TreeletTable::treelet_count_t num_occ_treelet = 0;
-    uint128_t num_occ_total = 0;
-    uint128_t num_occ_max = 0;
-    bool num_occ_total_overflow = false;
-    AliasMethodSampler<UndirectedGraph::vertex_t, TreeletTable::treelet_count_t> alias_sampler(num_vertices);
+    CompressedRecordFileWriter writer(output_basename + ".dtz", num_vertices);
+    writer.create_dictionary(nullptr, 0);
 
     for(UndirectedGraph::vertex_t u=0; u < num_vertices; u++)
     {
-        off.write(reinterpret_cast<char*>(&num_records_total), sizeof(uint64_t));
-        safe_add(num_records_total, info[u].count, &num_records_total);
-        safe_add(num_records_total, 1, &num_records_total);
-
-        TreeletTable::treelet_count_t total=0;
-        TreeletTable::treelet_count_pair tcp;
-        tcp.treelet = Treelet::invalid_treelet;
-        tcp.count = 0;
-
-        out.write(reinterpret_cast<char*>(&tcp), sizeof(TreeletTable::treelet_count_pair));
-
-        for(;info[u].count!=0;info[u].count--)
+        TreeletTable::treelet_count_pair *to_write = new TreeletTable::treelet_count_pair[info[u].count + 1];
+        TreeletTable::treelet_count_pair *p = to_write;
+        p->treelet = Treelet::invalid_treelet;
+        p->count = 0;
+        p++;
+        for (TreeletTable::treelet_count_t i = 0; i < info[u].count; i++)
         {
-            memcpy(&tcp, info[u].ptr, sizeof(TreeletTable::treelet_count_pair));
+            memcpy(p, info[u].ptr, sizeof(TreeletTable::treelet_count_pair));
+            p->count += (p-1)->count;
+            p++;
             info[u].ptr += sizeof(TreeletTable::treelet_count_pair);
-
-            if(num_occ_treelet < tcp.count)
-                num_occ_treelet = tcp.count;
-
-            safe_add(total, tcp.count, &total);
-            tcp.count=total;
-            out.write(reinterpret_cast<char*>(&tcp), sizeof(TreeletTable::treelet_count_pair));
         }
 
-        if( add_overflow(num_occ_total, total, &num_occ_total) )
-            num_occ_total_overflow = true;
-
-        if(total>num_occ_max)
-            num_occ_max=total;
-
-        alias_sampler.set(u, total);
+        writer.write_record(reinterpret_cast<char*>(to_write), (info[u].count+1) * sizeof(TreeletTable::treelet_count_pair), allow_compression);
+        delete[] to_write;
     }
 
-    off.write(reinterpret_cast<char*>(&num_records_total), sizeof(uint64_t));
-    off.close();
-    out.close();
+    writer.close();
 
-    std::cout << "Building root sampler alias table... ";
-    std::string root_sampler_filename = output_basename + ".rts";
-    alias_sampler.build();
-    alias_sampler.write(root_sampler_filename);
-    std::cout << "done" << std::endl;
-
-    std::cout << "Processed " << num_vertices << " vertices (wrote " << num_records_total << " records)" << std::endl;
-    std::cout << "Total number of treelet occurrences: ";
-    if(num_occ_total_overflow)
-        std::cout <<"Overflow!" << std::endl;
-    else
-        std::cout << to_string(num_occ_total) << " (" << bits_needed(num_occ_total) << " bits)" << std::endl;
-    std::cout << "Maximum number of treelet occurrences rooted in a single vertex: " << to_string(num_occ_max) << " ("<< bits_needed(num_occ_max) << " bits)" << std::endl;
-    std::cout << "Maximum number of occurrences of a single rooted treelet: " << to_string(num_occ_treelet) << " ("<< bits_needed(num_occ_treelet) << " bits)" << std::endl;
-    std::cout << "Output written to files: " << output_filename << ", " << offset_filename << ", and " << root_sampler_filename << std::endl;
+    std::cout << "Compressed size: " << writer.get_compressed_size() << " Original size: " << writer.get_uncompressed_size()
+              << " Ratio: " << static_cast<double>(writer.get_compressed_size())/writer.get_uncompressed_size() << std::endl;
 }
 
 
@@ -222,7 +179,9 @@ int main(const int argc, const char** argv)
 
     OptionsParser op;
     OptionsParser::Option *help_opt = op.add_option(false, false, "help", '\0', "", "Print help and exit");
+    OptionsParser::Option *no_compress = op.add_option(false, false, "no-compress", '\0', "", "Don't compress records");
     OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output basename (required)");
+
 
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
@@ -249,7 +208,7 @@ int main(const int argc, const char** argv)
 
     try
     {
-        merge(count_files, output_opt->get_value());
+        merge(count_files, output_opt->get_value(), !no_compress->is_found());
     }
     catch(std::exception& e)
     {
