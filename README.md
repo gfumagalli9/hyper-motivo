@@ -12,7 +12,8 @@ Motivo depends on the following libraries:
 - [Google's sparsehash library](https://github.com/sparsehash/sparsehash),
 - [OpenBLAS](http://www.openblas.net/) (or any other BLAS library),
 - [LAPACKE](http://www.netlib.org/lapack/lapacke.html) if not already provided by your blas library,
-- [Nauty](http://pallini.di.uniroma1.it/).
+- [Nauty](http://pallini.di.uniroma1.it/),
+- [LZ4](https://github.com/lz4/lz4).
 
 Your Linux distribution might have premade packages, i.e., on Debian you can run:
 ~~~~

@@ -12,7 +12,7 @@
 #include "UndirectedGraph.h"
 #include "AliasMethodSampler.h"
 #include "../platform/platform.h"
-#include "CompressedRecordFileReader.h"
+#include "CompressedRecordFile.h"
 
 class TreeletTable
 {

@@ -90,13 +90,13 @@ endif()
 configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 include_directories(${CMAKE_BINARY_DIR})
 
-set(COMMON_SOURCE_FILES src/common/UndirectedGraph.cpp src/common/UndirectedGraph.h src/common/Treelet.h src/common/GraphColoring.cpp src/common/GraphColoring.h src/common/Random.h src/common/Treelet.cpp src/common/TreeletTableCollection.cpp src/common/TreeletTableCollection.h src/common/TreeletTable.cpp src/common/TreeletTable.h src/platform/platform.h src/platform/platform.cpp src/common/AliasMethodSampler.h src/common/OptionsParser.cpp src/common/OptionsParser.h src/common/Random.cpp src/common/CompressedRecordFileReader.cpp src/common/CompressedRecordFileReader.h src/common/CompressedRecordFileWriter.cpp src/common/CompressedRecordFileWriter.h)
+set(COMMON_SOURCE_FILES src/common/UndirectedGraph.cpp src/common/UndirectedGraph.h src/common/Treelet.h src/common/GraphColoring.cpp src/common/GraphColoring.h src/common/Random.h src/common/Treelet.cpp src/common/TreeletTableCollection.cpp src/common/TreeletTableCollection.h src/common/TreeletTable.cpp src/common/TreeletTable.h src/platform/platform.h src/platform/platform.cpp src/common/AliasMethodSampler.h src/common/OptionsParser.cpp src/common/OptionsParser.h src/common/Random.cpp src/common/CompressedRecordFile.cpp src/common/CompressedRecordFile.h)
 set(MERGER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/merger/merger.cpp)
 set(BUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/builder/TreeletTableBuilder.cpp src/builder/TreeletTableBuilder.h src/builder/ConcurrentFIFO.h src/builder/builder.cpp src/builder/SpookyHash.h src/builder/SpookyHash.cpp)
 set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp src/sampler/TreeletSampler.h src/sampler/sampler.cpp src/sampler/include_nauty.h src/sampler/Occurrence.cpp src/sampler/Occurrence.h)
 set(GRAPH_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/graph.cpp)
 
-set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp tests/Treelet.cpp tests/Occurrence.cpp src/sampler/Occurrence.cpp src/sampler/Occurrence.h tests/leftmost_bit_tie.cpp tests/CompressedFile.cpp)
+set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp tests/Treelet.cpp tests/Occurrence.cpp src/sampler/Occurrence.cpp src/sampler/Occurrence.h tests/leftmost_bit_tie.cpp tests/CompressedRecordFile.cpp)
 
 string(REPLACE ":" ";" LIBRARY_PATH_STR "$ENV{LIBRARY_PATH}")
 set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} ${LIBRARY_PATH_STR})

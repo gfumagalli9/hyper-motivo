@@ -1,0 +1,91 @@
+//
+// Created by steven on 7/18/17.
+//
+#include <cstring>
+#include <cstdlib>
+#include <iostream>
+#include <chrono>
+#include "doctest.h"
+#include "../src/common/CompressedRecordFile.h"
+#include "../src/common/Random.h"
+#include <lz4.h>
+
+void test(const uint64_t data_size, const unsigned int nrecords, const bool random)
+{
+    char *data = new char[data_size]; //uninitialized data
+
+    Random r;
+    for (uint64_t i = 0; i < data_size; i++)
+        data[i] = random?static_cast<char>(r.random_uint<short>(0, 255)):static_cast<char>(i%256);
+
+    CompressedRecordFileWriter writer("compressedfile.test", nrecords);
+    std::cout << "Dictionary size: " << writer.create_dictionary(data, (data_size>1024*1024)?(1024*1024):data_size) << std::endl;
+
+    std::chrono::time_point<std::chrono::steady_clock>  tstart = std::chrono::steady_clock::now();
+    for (uint64_t i = 0; i < nrecords; i++)
+        writer.write_record(data + i * (data_size / nrecords), data_size / nrecords, 1.2);
+    writer.close();
+    std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
+
+    std::cout << "Compress ratio: " << writer.get_compressed_size() << " / " << writer.get_uncompressed_size() << " = "
+              << static_cast<double>(writer.get_compressed_size())/static_cast<double>(writer.get_uncompressed_size()) << "\n"
+              << "Compress speed: " << static_cast<double>(data_size)/(1024*1024*delta_t.count()) << "MiB/s" << std::endl;
+
+    CompressedRecordFileReader reader("compressedfile.test");
+    tstart = std::chrono::steady_clock::now();
+    for(uint64_t i=1; i<=nrecords; i++)
+    {
+        CompressedRecord result = reader.get_record(nrecords-i);
+        result.free();
+    }
+    delta_t = std::chrono::steady_clock::now() - tstart;
+    std::cout <<  "Decompress speed: " << static_cast<double>(data_size)/(1024*1024*delta_t.count()) << "MiB/s" << std::endl;
+
+
+    for(uint64_t i=0; i<nrecords; i++)
+    {
+        CompressedRecord result = reader.get_record(i);
+        CHECK( result.length() == data_size/nrecords );
+        CHECK( memcmp( result.get(), data+i*(data_size/nrecords), data_size/nrecords ) == 0 );
+        result.free();
+    }
+    reader.close();
+
+    delete[] data;
+    std::remove("compressedfile.test");
+}
+
+TEST_CASE("CompressedFile")
+{
+    test(10 * 1024L * 1024, 1000, true); //10MB, 1000 records
+    test(4*1024L*1024*1024+1, 1, false); //4GB+1byte, 1 record
+}
+
+/*
+TEST_CASE("LZ4")
+{
+    char* input = new char[LZ4_MAX_INPUT_SIZE];
+    for(unsigned int i=0; i<LZ4_MAX_INPUT_SIZE; i++)
+        input[i]= static_cast<char>(i%256);
+
+    int compress_ub = LZ4_COMPRESSBOUND(LZ4_MAX_INPUT_SIZE);
+    char* compressed = new char[compress_ub];
+
+    LZ4_stream_t encoder;
+    LZ4_resetStream(&encoder);
+    LZ4_loadDict(&encoder, nullptr, 0);
+    int compressed_size = LZ4_compress_fast_continue(&encoder, input, compressed, LZ4_MAX_INPUT_SIZE, compress_ub, 1);
+    CHECK(compressed_size>0);
+
+    char* output = new char[LZ4_MAX_INPUT_SIZE];
+    LZ4_streamDecode_t decoder;
+    int decompressed_size = LZ4_decompress_safe_continue(&decoder, compressed, output, compressed_size, LZ4_MAX_INPUT_SIZE);
+
+    CHECK(decompressed_size==LZ4_MAX_INPUT_SIZE);
+    CHECK(memcmp(input, output, static_cast<size_t>(decompressed_size))==0);
+
+    delete[] input;
+    delete[] output;
+}
+*/
+
