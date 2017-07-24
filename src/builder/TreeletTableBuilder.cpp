@@ -71,12 +71,12 @@ void TreeletTableBuilder::build()
 
 void TreeletTableBuilder::do_build_1_st()
 {
-    constexpr const std::streamsize buf_size = sizeof(UndirectedGraph::vertex_t) + sizeof(TreeletTable::treelet_count_t) + sizeof(TreeletTable::treelet_count_pair);
+    constexpr const std::streamsize buf_size = sizeof(UndirectedGraph::vertex_t) + sizeof(uint64_t) + sizeof(TreeletTable::treelet_count_pair);
 
     char buffer[buf_size];
     UndirectedGraph::vertex_t* vertex = reinterpret_cast<UndirectedGraph::vertex_t*>(buffer);
-    *(reinterpret_cast<TreeletTable::treelet_count_t*>(buffer + sizeof(UndirectedGraph::vertex_t))) = 1;
-    TreeletTable::treelet_count_pair* tcp = reinterpret_cast<TreeletTable::treelet_count_pair*>(buffer + sizeof(UndirectedGraph::vertex_t) + sizeof(TreeletTable::treelet_count_t) );
+    *(reinterpret_cast<uint64_t*>(buffer + sizeof(UndirectedGraph::vertex_t))) = 1;
+    TreeletTable::treelet_count_pair* tcp = reinterpret_cast<TreeletTable::treelet_count_pair*>(buffer + sizeof(UndirectedGraph::vertex_t) + sizeof(uint64_t) );
     tcp->count = 1;
 
     for(UndirectedGraph::vertex_t u=from; u<=to; u++)
@@ -152,15 +152,15 @@ void TreeletTableBuilder::do_build_mt(std::atomic<UndirectedGraph::vertex_t> *at
 std::pair<char*, std::streamsize> TreeletTableBuilder::to_normalized_sorted_byte_array(const UndirectedGraph::vertex_t u, const table_t &table)
 {
     std::pair<char*, std::streamsize> result;
-    result.second = static_cast<std::streamsize>(sizeof(UndirectedGraph::vertex_t) + sizeof(TreeletTable::treelet_count_t) + table.size() * sizeof(TreeletTable::treelet_count_pair));
+    result.second = static_cast<std::streamsize>(sizeof(UndirectedGraph::vertex_t) + sizeof(uint64_t) + table.size() * sizeof(TreeletTable::treelet_count_pair));
     result.first = new char[result.second];
     char* p = result.first;
 
     *(reinterpret_cast<UndirectedGraph::vertex_t*>(p)) = u;
     p += sizeof(UndirectedGraph::vertex_t);
 
-    *(reinterpret_cast<TreeletTable::treelet_count_t*>(p)) = table.size();
-    p += sizeof(TreeletTable::treelet_count_t);
+    *(reinterpret_cast<uint64_t*>(p)) = table.size();
+    p += sizeof(uint64_t);
 
     TreeletTable::treelet_count_pair *counts = reinterpret_cast<TreeletTable::treelet_count_pair*>(p);
     TreeletTable::treelet_count_t i=0;

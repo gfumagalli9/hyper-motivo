@@ -98,15 +98,15 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
 
         const char* end = cnt_map[i].first + cnt_map[i].second;
         char* ptr = cnt_map[i].first + sizeof(UndirectedGraph::vertex_t);
-        while(ptr + sizeof(UndirectedGraph::vertex_t) + sizeof(TreeletTable::treelet_count_t) <= end)
+        while(ptr + sizeof(UndirectedGraph::vertex_t) + sizeof(uint64_t) <= end)
         {
             UndirectedGraph::vertex_t vertex;
             memcpy(&vertex, ptr, sizeof(UndirectedGraph::vertex_t));
             ptr+=sizeof(UndirectedGraph::vertex_t);
 
-            TreeletTable::treelet_count_t number_of_occurrences;
-            memcpy(&number_of_occurrences, ptr, sizeof(TreeletTable::treelet_count_t));
-            ptr += sizeof(TreeletTable::treelet_count_t);
+            uint64_t number_of_occurrences;
+            memcpy(&number_of_occurrences, ptr, sizeof(uint64_t));
+            ptr += sizeof(uint64_t);
 
             assert(vertex<num_vertices);
             if(seen_vertices[vertex])
