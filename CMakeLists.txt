@@ -211,7 +211,7 @@ INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/loe_to_graph.py DESTINATION share/moti
 
 enable_testing()
 add_test(NAME build-graph COMMAND motivo-graph --input ../graphs/test-graph.txt --output test-graph)
-add_test(NAME motivo-tests COMMAND motivo-tests -tce=leftmost_bit_tie)
+add_test(NAME motivo-tests COMMAND motivo-tests "-tce=leftmost_bit_tie,CompressedRecordFile Multiblock")
 set_tests_properties(motivo-tests PROPERTIES DEPENDS build-graph)
 
 SET(CPACK_GENERATOR "DEB")

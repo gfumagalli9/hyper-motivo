@@ -83,13 +83,14 @@ void TreeletTableBuilder::do_build_1_st()
     {
         report_progress(u);
 
-        if(store_0_only && coloring->color_of(u) == 0)
+        if(store_0_only && coloring->color_of(u) != 1) //color 0 is represented as 1<<0 = 1
             continue;
 
         *vertex=u;
         tcp->treelet = Treelet::singleton(coloring->color_of(u));
         output->write(buffer, buf_size);
     }
+
 }
 
 void TreeletTableBuilder::do_build_st()
@@ -98,7 +99,7 @@ void TreeletTableBuilder::do_build_st()
     {
         report_progress(u);
 
-        if(store_0_only && lower->get_table(1)->begin(u).treelet().get_colors()!=1)
+        if(store_0_only && lower->get_table(1)->begin(u).treelet().get_colors()!=1) //color 0 is represented as 1<<0 = 1
             continue;
 
         table_t table;
@@ -128,7 +129,7 @@ void TreeletTableBuilder::do_build_mt(std::atomic<UndirectedGraph::vertex_t> *at
         {
             report_progress(u);
 
-            if(store_0_only && lower->get_table(1)->begin(u).treelet().get_colors()!=1)
+            if(store_0_only && lower->get_table(1)->begin(u).treelet().get_colors()!=1) //color 0 is represented as 1<<0 = 1
             {
                 batch[u-start] = std::make_pair(nullptr, 0);
                 continue;

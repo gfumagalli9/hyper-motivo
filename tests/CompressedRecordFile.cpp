@@ -55,37 +55,13 @@ void test(const uint64_t data_size, const unsigned int nrecords, const bool rand
     std::remove("compressedfile.test");
 }
 
-TEST_CASE("CompressedFile")
+TEST_CASE("CompressedRecordFile")
 {
     test(10 * 1024L * 1024, 1000, true); //10MB, 1000 records
-    test(4*1024L*1024*1024+1, 1, false); //4GB+1byte, 1 record
 }
 
-/*
-TEST_CASE("LZ4")
+TEST_CASE("CompressedRecordFile Multiblock")
 {
-    char* input = new char[LZ4_MAX_INPUT_SIZE];
-    for(unsigned int i=0; i<LZ4_MAX_INPUT_SIZE; i++)
-        input[i]= static_cast<char>(i%256);
-
-    int compress_ub = LZ4_COMPRESSBOUND(LZ4_MAX_INPUT_SIZE);
-    char* compressed = new char[compress_ub];
-
-    LZ4_stream_t encoder;
-    LZ4_resetStream(&encoder);
-    LZ4_loadDict(&encoder, nullptr, 0);
-    int compressed_size = LZ4_compress_fast_continue(&encoder, input, compressed, LZ4_MAX_INPUT_SIZE, compress_ub, 1);
-    CHECK(compressed_size>0);
-
-    char* output = new char[LZ4_MAX_INPUT_SIZE];
-    LZ4_streamDecode_t decoder;
-    int decompressed_size = LZ4_decompress_safe_continue(&decoder, compressed, output, compressed_size, LZ4_MAX_INPUT_SIZE);
-
-    CHECK(decompressed_size==LZ4_MAX_INPUT_SIZE);
-    CHECK(memcmp(input, output, static_cast<size_t>(decompressed_size))==0);
-
-    delete[] input;
-    delete[] output;
+    test(4 * 1024L * 1024 * 1024 + 1, 1, false); //4GB+1byte, 1 record
 }
-*/
 

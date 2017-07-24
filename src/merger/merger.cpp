@@ -104,13 +104,13 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
             memcpy(&vertex, ptr, sizeof(UndirectedGraph::vertex_t));
             ptr+=sizeof(UndirectedGraph::vertex_t);
 
-            uint64_t number_of_occurrences;
+            TreeletTable::treelet_count_t number_of_occurrences;
             memcpy(&number_of_occurrences, ptr, sizeof(TreeletTable::treelet_count_t));
             ptr += sizeof(TreeletTable::treelet_count_t);
 
             assert(vertex<num_vertices);
             if(seen_vertices[vertex])
-                throw std::runtime_error("Error while processing " + filename + ": duplicate vertex");
+                throw std::runtime_error("Error while processing " + filename + ": duplicate vertex " + std::to_string(vertex));
 
             seen_vertices[vertex]=true;
 
@@ -143,7 +143,7 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
 
 void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, vertex_info* info, double compression_threshold)
 {
-    uint64_t num_records_total=0;
+    uint64_t num_treelet_count_pairs=0;
     TreeletTable::treelet_count_t num_occ_treelet = 0;
     uint128_t num_occ_total = 0;
     uint128_t num_occ_max = 0;
@@ -157,6 +157,7 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
 
     for(UndirectedGraph::vertex_t u=0; u < num_vertices; u++)
     {
+        num_treelet_count_pairs+=info[u].count;
         TreeletTable::treelet_count_pair *to_write = new TreeletTable::treelet_count_pair[info[u].count + 1];
         TreeletTable::treelet_count_pair *p = to_write;
         p->treelet = Treelet::invalid_treelet;
@@ -165,11 +166,12 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
         {
             p++;
             memcpy(p, info[u].ptr, sizeof(TreeletTable::treelet_count_pair));
-            p->count += (p-1)->count;
-            info[u].ptr += sizeof(TreeletTable::treelet_count_pair);
 
             if(num_occ_treelet < p->count)
                 num_occ_treelet = p->count;
+
+            p->count += (p-1)->count;
+            info[u].ptr += sizeof(TreeletTable::treelet_count_pair);
         }
         writer.write_record(reinterpret_cast<char*>(to_write), (info[u].count+1) * sizeof(TreeletTable::treelet_count_pair), compression_threshold);
 
@@ -194,13 +196,13 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
     alias_sampler.write(root_sampler_filename);
     std::cout << "done" << std::endl;
 
-    std::cout << "Processed " << num_vertices << " vertices (wrote " << num_records_total << " records)" << std::endl;
+    std::cout << "Processed " << num_vertices << " vertices (wrote " << num_treelet_count_pairs << " counts)" << std::endl;
     std::cout << "Total number of treelet occurrences: ";
     if(num_occ_total_overflow)
         std::cout <<"Overflow!" << std::endl;
     else
         std::cout << to_string(num_occ_total) << " (" << bits_needed(num_occ_total) << " bits)" << std::endl;
-    std::cout << "Maximum number of treelet occurrences rooted in a single vertex: " << to_string(num_occ_max) << " ("<< bits_needed(num_occ_max) << " bits)" << std::endl;
+    std::cout << "Maximum number of occurrences rooted in a single vertex: " << to_string(num_occ_max) << " ("<< bits_needed(num_occ_max) << " bits)" << std::endl;
     std::cout << "Maximum number of occurrences of a single rooted treelet: " << to_string(num_occ_treelet) << " ("<< bits_needed(num_occ_treelet) << " bits)" << std::endl;
     std::cout << "Output written to files: " << output_filename << ", and " << root_sampler_filename << std::endl;
 }

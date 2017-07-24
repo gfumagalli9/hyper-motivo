@@ -48,7 +48,6 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
             TreeletTable::treelet_count_t c = table_collection->get_table(complement.number_of_vertices())->get_count(u, complement);
 
             assert(it.count()!=0);
-            //sampler.feed(std::make_pair(t2, v), c * it.count());
             assert(c*it.count() <= count);
 
 #ifndef NDEBUG
