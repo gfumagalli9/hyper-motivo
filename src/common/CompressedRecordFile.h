@@ -10,26 +10,27 @@
 #include <string>
 #include <lz4.h>
 #include <limits>
+#include <cstring>
+#include <cassert>
 
 static_assert(LZ4_COMPRESSBOUND(LZ4_MAX_INPUT_SIZE) <= std::numeric_limits<int>::max(), "LZ4_COMPRESSBOUND(LZ4_MAX_INPUT_SIZE) does not fit in a int");
 static_assert(LZ4_MAX_INPUT_SIZE <= std::numeric_limits<int>::max(), "LZ4_MAX_INPUT_SIZE does not fit in a int");
 
 constexpr uint32_t MAX_BLOCK_SIZE = (LZ4_MAX_INPUT_SIZE<=std::numeric_limits<uint32_t>::max())?LZ4_MAX_INPUT_SIZE:std::numeric_limits<uint32_t>::max();
 
-class CompressedRecord
+template<typename T> class CompressedRecord
 {
 private:
-    char* ptr;
+    T* ptr;
     uint64_t len;
-    bool needs_free;
 
 public:
-    explicit CompressedRecord(char* ptr, uint64_t len, bool needs_free) noexcept : ptr(ptr), len(len), needs_free(needs_free) {}
+    CompressedRecord(T* ptr, uint64_t len) noexcept : ptr(ptr), len(len) {}
 
-    explicit operator bool() const noexcept { return ptr == nullptr; }
-    const void* get() const noexcept { return ptr; }
     uint64_t length() const noexcept { return len; }
-    void free() { if(ptr && needs_free) delete[] ptr; ptr= nullptr; }
+    const T* begin() const noexcept { return ptr; }
+    const T* end() const noexcept { return ptr+len; }
+    void free() { if(ptr) delete[] ptr; ptr= nullptr; }
 };
 
 struct [[gnu::packed]] record_offset_t
@@ -50,7 +51,7 @@ private:
     char* fdmap;
     size_t file_length;
     uint64_t num_of_records;
-    record_offset_t* offsets;
+    char* offsets;
 
     uint64_t dictionary_size;
     char* dictionary;
@@ -60,9 +61,64 @@ public:
     ~CompressedRecordFileReader();
 
     uint64_t number_of_records() const { return num_of_records; }
-    CompressedRecord get_record(const uint64_t record_no);
     void close();
 
+
+template<typename T> CompressedRecord<T> get_record(const uint64_t record_no)
+    {
+        record_offset_t offset,next_offset;
+        memcpy(&offset, offsets + record_no*sizeof(record_offset_t), sizeof(record_offset_t));
+        memcpy(&next_offset, offsets + (record_no+1)*sizeof(record_offset_t), sizeof(record_offset_t));
+        const uint64_t record_length = next_offset.file_offset - offset.file_offset;
+
+        if (record_length == 0)
+            return CompressedRecord<T>(nullptr, 0);
+
+        if (!offset.compressed)
+        {
+            assert(record_length%sizeof(T)==0);
+            T* buffer = new T[record_length/sizeof(T)];
+            memcpy(buffer, fdmap+offset.file_offset, sizeof(record_length));
+            return CompressedRecord<T>(buffer, record_length/sizeof(T));
+        }
+
+        unsigned int mul = 1u << offset.exp;
+        uint64_t uncompressed_size_ub = static_cast<uint64_t>(offset.mantissa) * mul + (mul - 1);
+        uncompressed_size_ub -= uncompressed_size_ub%sizeof(T);
+        assert(uncompressed_size_ub>0);
+
+        T* buffer = new T[uncompressed_size_ub/sizeof(T)];
+        LZ4_streamDecode_t decoder;
+        LZ4_setStreamDecode(&decoder, dictionary, static_cast<int>(dictionary_size));
+
+        uint64_t decompressed_bytes = 0;
+        if (offset.multi_block)
+        {
+            uint64_t position = offset.file_offset;
+            while(position-offset.file_offset<record_length)
+            {
+                uint32_t next_compressed_block_length;
+                memcpy(&next_compressed_block_length, fdmap + position, sizeof(uint32_t));
+                position += sizeof(uint32_t);
+
+                const int next_uncompressed_block_length_ub = (uncompressed_size_ub-decompressed_bytes<=MAX_BLOCK_SIZE)?static_cast<int>(uncompressed_size_ub-decompressed_bytes):static_cast<int>(MAX_BLOCK_SIZE);
+                int r = LZ4_decompress_safe_continue(&decoder, fdmap + position, reinterpret_cast<char*>(buffer)+decompressed_bytes, static_cast<int>(next_compressed_block_length), next_uncompressed_block_length_ub);
+                assert(r>0);
+                decompressed_bytes += static_cast<unsigned int>(r);
+                position += next_compressed_block_length;
+            }
+        }
+        else
+        {
+            assert(record_length<=MAX_BLOCK_SIZE);
+            int r = LZ4_decompress_safe_continue(&decoder, fdmap + offset.file_offset, reinterpret_cast<char*>(buffer), static_cast<int>(record_length), static_cast<int>(uncompressed_size_ub));
+            assert(r>0);
+            decompressed_bytes = static_cast<unsigned int>(r);
+        }
+
+        assert(decompressed_bytes%sizeof(T)==0);
+        return CompressedRecord<T>(buffer, decompressed_bytes/sizeof(T));
+    }
 
 };
 

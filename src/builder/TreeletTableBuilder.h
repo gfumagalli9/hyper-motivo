@@ -50,7 +50,7 @@ private:
     const unsigned int number_of_threads;
 
 #ifdef MOTIVO_MULTITHREAD
-    ConcurrentFIFO< std::pair<char*, std::streamsize>* > write_queue;
+    ConcurrentFIFO< std::pair<char*, std::size_t>* > write_queue;
     constexpr static const unsigned int thread_batch_size = 1000;
     std::mutex write_mutex;
 
@@ -70,7 +70,7 @@ private:
     /// Combines the treelets of vertex @param u with the treelets of vertex @param v
     inline void combine [[gnu::hot]] (const UndirectedGraph::vertex_t u, const UndirectedGraph::vertex_t v, table_t& counts);
 
-    inline std::pair<char*, std::streamsize> to_normalized_sorted_byte_array [[gnu::hot]](const UndirectedGraph::vertex_t u, const table_t &table);
+    inline std::pair<char*, std::size_t > to_normalized_sorted_byte_array [[gnu::hot]](const UndirectedGraph::vertex_t u, const table_t &table);
 
     inline void report_progress(UndirectedGraph::vertex_t next_vertex)
     {

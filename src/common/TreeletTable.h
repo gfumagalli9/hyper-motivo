@@ -33,11 +33,10 @@ public:
 
     private:
         bool owner = true; //who owns the record?
-        CompressedRecord record;
+        CompressedRecord<treelet_count_pair> record;
         const treelet_count_pair* position;
-        const treelet_count_pair* end;
-        const_iterator(CompressedRecord record, const treelet_count_pair* position, const treelet_count_pair* end)
-                : record(record), position(position), end(end) {};
+        const_iterator(CompressedRecord<treelet_count_pair> record) : record(record), position(record.begin()+1) {};
+        const_iterator(CompressedRecord<treelet_count_pair> record, const treelet_count_pair* position) : record(record), position(position) {};
 
     public:
         const_iterator(const_iterator&) = delete; //copy constructor
@@ -49,7 +48,7 @@ public:
         const_iterator& operator++() { position++; return *this; };
         const Treelet& treelet() const { return position->treelet; };
         treelet_count_t count() const { return position->count - (position-1)->count; }
-        bool is_over() const { return position>=end; }
+        bool is_over() const { return position>=record.end(); }
     };
 
 private:
@@ -80,8 +79,8 @@ public:
     inline const_iterator begin(const UndirectedGraph::vertex_t u)
     {
         assert(u<num_vertices);
-        CompressedRecord record = reader.get_record(u);
-        return TreeletTable::const_iterator(record, reinterpret_cast<const treelet_count_pair*>(record.get())+1, reinterpret_cast<const treelet_count_pair*>(record.get()) + record.length()/sizeof(treelet_count_pair) );
+        CompressedRecord<treelet_count_pair> record = reader.get_record<treelet_count_pair>(u);
+        return TreeletTable::const_iterator(record);
     }
 
     const_iterator begin(const UndirectedGraph::vertex_t u, const Treelet treelet);

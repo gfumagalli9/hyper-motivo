@@ -31,10 +31,10 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
     Treelet child_treelet = Treelet::invalid_treelet;
     UndirectedGraph::vertex_t child_vertex=0;
 
-    const UndirectedGraph::vertex_t *neighbors = graph->neighbors(u);
-    for(UndirectedGraph::vertex_t d = 0; d < graph->degree(u); ++d)
+    const UndirectedGraph::vertex_t degree = graph->degree(u);
+    for (UndirectedGraph::vertex_t d = 0; d < degree; d++)
     {
-        const UndirectedGraph::vertex_t v = neighbors[d];
+        const UndirectedGraph::vertex_t v = graph->neighbor(u, d);
         for(TreeletTable::const_iterator it = split_table->begin(v, split); !it.is_over(); ++it)
         {
             const Treelet& t2 = it.treelet();

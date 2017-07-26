@@ -76,14 +76,11 @@ static const TreeletTable::treelet_count_pair* count_upper_bound(const TreeletTa
 TreeletTable::treelet_count_t TreeletTable::get_count(const UndirectedGraph::vertex_t u, const Treelet treelet)
 {
     assert(u<num_vertices);
-    CompressedRecord record = reader.get_record(u);
-    const treelet_count_pair* begin = reinterpret_cast<const treelet_count_pair*>(record.get());
-    const treelet_count_pair* end = begin + record.length()/sizeof(treelet_count_pair);
+    CompressedRecord<treelet_count_pair> record = reader.get_record<treelet_count_pair>(u);
 
-
-    const treelet_count_pair *tcp = treelet_upper_bound(begin+1, end, treelet);
+    const treelet_count_pair *tcp = treelet_upper_bound(record.begin()+1, record.end(), treelet);
     TreeletTable::treelet_count_t count = 0;
-    if(tcp!= end && tcp->treelet==treelet)
+    if(tcp!= record.end() && tcp->treelet==treelet)
         count = tcp->count - (tcp-1)->count;
 
     record.free();
@@ -101,31 +98,27 @@ UndirectedGraph::vertex_t TreeletTable::get_random_root(Random *rng) const
 TreeletTable::const_iterator TreeletTable::begin(const UndirectedGraph::vertex_t u, Treelet treelet)
 {
     assert(u<num_vertices);
-    CompressedRecord record = reader.get_record(u);
-    const treelet_count_pair* begin = reinterpret_cast<const treelet_count_pair*>(record.get());
-    const treelet_count_pair* end = begin + record.length()/sizeof(treelet_count_pair);
+    CompressedRecord<treelet_count_pair> record = reader.get_record<treelet_count_pair>(u);
 
-    return TreeletTable::const_iterator( record, treelet_upper_bound(begin+1, end, treelet), end );
+    return TreeletTable::const_iterator( record, treelet_upper_bound(record.begin()+1, record.end(), treelet));
 }
 
 const Treelet TreeletTable::get_random_treelet(UndirectedGraph::vertex_t root, Random* rng)
 {
     assert(root<num_vertices);
-    CompressedRecord record = reader.get_record(root);
-    const treelet_count_pair* begin = reinterpret_cast<const treelet_count_pair*>(record.get());
-    const treelet_count_pair* end = begin + record.length()/sizeof(treelet_count_pair);
+    CompressedRecord<treelet_count_pair> record = reader.get_record<treelet_count_pair>(root);
 
-    if(begin==end)
+    if(record.length()==0)
     {
         record.free();
         return Treelet::invalid_treelet;
     }
 
-    assert((end-1)->count!=0);
+    assert((record.end()-1)->count!=0);
 
-    treelet_count_t r =  rng->random_uint<treelet_count_t>(1, (end-1)->count);
-    const treelet_count_pair *tcp = count_upper_bound(begin+1, end, r);
-    assert(tcp!=end);
+    treelet_count_t r =  rng->random_uint<treelet_count_t>(1, (record.end()-1)->count);
+    const treelet_count_pair *tcp = count_upper_bound(record.begin()+1, record.end(), r);
+    assert(tcp!=record.end());
     assert(tcp->treelet.is_valid());
     record.free();
     return tcp->treelet;

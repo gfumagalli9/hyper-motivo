@@ -28,7 +28,7 @@ CompressedRecordFileReader::CompressedRecordFileReader(const std::string &filena
 
     dictionary = new char[dictionary_size];
     memcpy(dictionary, fdmap + 2*sizeof(uint64_t), dictionary_size);
-    offsets = reinterpret_cast<record_offset_t*>(fdmap +  2*sizeof(uint64_t) + dictionary_size);
+    offsets = fdmap +  2*sizeof(uint64_t) + dictionary_size;
 }
 
 CompressedRecordFileReader::~CompressedRecordFileReader()
@@ -36,54 +36,6 @@ CompressedRecordFileReader::~CompressedRecordFileReader()
     if(fd != nullptr)
         close();
 }
-
-CompressedRecord CompressedRecordFileReader::get_record(const uint64_t record_no)
-{
-    const uint64_t record_length = offsets[record_no + 1].file_offset - offsets[record_no].file_offset;
-
-    if (record_length == 0)
-        return CompressedRecord(nullptr, 0, false);
-
-    if (!offsets[record_no].compressed)
-        return CompressedRecord(fdmap + offsets[record_no].file_offset, record_length, false);
-
-    unsigned int mul = 1u << offsets[record_no].exp;
-    uint64_t uncompressed_size_ub = static_cast<uint64_t>(offsets[record_no].mantissa) * mul + (mul - 1);
-
-    char *buffer = new char[uncompressed_size_ub];
-    LZ4_streamDecode_t decoder;
-    LZ4_setStreamDecode(&decoder, dictionary, static_cast<int>(dictionary_size));
-
-    uint64_t decompressed_bytes = 0;
-    if (offsets[record_no].multi_block)
-    {
-        uint64_t position = offsets[record_no].file_offset;
-        while(position-offsets[record_no].file_offset<record_length)
-        {
-            uint32_t next_compressed_block_length;
-            memcpy(&next_compressed_block_length, fdmap + position, sizeof(uint32_t));
-            position += sizeof(uint32_t);
-
-            const int next_uncompressed_block_length_ub = (uncompressed_size_ub-decompressed_bytes<=MAX_BLOCK_SIZE)?static_cast<int>(uncompressed_size_ub-decompressed_bytes):static_cast<int>(MAX_BLOCK_SIZE);
-            //std::cout << "Will read block of compressed size: " << next_compressed_block_length << " Uncompressed UB: " << next_uncompressed_block_length_ub << std::endl;
-
-            int r = LZ4_decompress_safe_continue(&decoder, fdmap + position, buffer+decompressed_bytes, static_cast<int>(next_compressed_block_length), next_uncompressed_block_length_ub);
-            assert(r>0);
-            decompressed_bytes += static_cast<unsigned int>(r);
-            position += next_compressed_block_length;
-        }
-    }
-    else
-    {
-        assert(record_length<=MAX_BLOCK_SIZE);
-        int r = LZ4_decompress_safe_continue(&decoder, fdmap + offsets[record_no].file_offset, buffer, static_cast<int>(record_length), static_cast<int>(uncompressed_size_ub));
-        assert(r>0);
-        decompressed_bytes += static_cast<unsigned int>(r);
-    }
-
-    return CompressedRecord(buffer, decompressed_bytes, true);
-}
-
 
 void CompressedRecordFileReader::close()
 {
