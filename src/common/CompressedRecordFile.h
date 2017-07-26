@@ -30,7 +30,7 @@ public:
     uint64_t length() const noexcept { return len; }
     const T* begin() const noexcept { return ptr; }
     const T* end() const noexcept { return ptr+len; }
-    void free() { if(ptr) delete[] ptr; ptr= nullptr; }
+    void free() { if(ptr) delete[] ptr; ptr=nullptr; }
 };
 
 struct [[gnu::packed]] record_offset_t
@@ -78,7 +78,7 @@ template<typename T> CompressedRecord<T> get_record(const uint64_t record_no)
         {
             assert(record_length%sizeof(T)==0);
             T* buffer = new T[record_length/sizeof(T)];
-            memcpy(buffer, fdmap+offset.file_offset, sizeof(record_length));
+            memcpy(buffer, fdmap+offset.file_offset, record_length);
             return CompressedRecord<T>(buffer, record_length/sizeof(T));
         }
 

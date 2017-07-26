@@ -79,8 +79,7 @@ public:
     inline const_iterator begin(const UndirectedGraph::vertex_t u)
     {
         assert(u<num_vertices);
-        CompressedRecord<treelet_count_pair> record = reader.get_record<treelet_count_pair>(u);
-        return TreeletTable::const_iterator(record);
+        return TreeletTable::const_iterator(reader.get_record<treelet_count_pair>(u));
     }
 
     const_iterator begin(const UndirectedGraph::vertex_t u, const Treelet treelet);
