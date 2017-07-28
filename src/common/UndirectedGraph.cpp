@@ -51,7 +51,7 @@ static bool binary_search(const char *begin, const char *end, const UndirectedGr
         if(t==to_find)
             return true;
 
-        if(t<to_find)
+        if(to_find<t)
             end=mid;
         else
             begin=mid+sizeof(UndirectedGraph::vertex_t);
