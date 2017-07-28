@@ -33,8 +33,8 @@ TreeletTable::~TreeletTable()
 
 ///@returns a pointer to the first treelet_count_pair in the range [begin, end) whose treelet is greater than or equal to "treelet"
 ///If no such treelet_count_pair exists, returns @param end
-static const TreeletTable::treelet_count_pair* treelet_upper_bound(const TreeletTable::treelet_count_pair *begin,
-       const TreeletTable::treelet_count_pair *end, const Treelet &treelet)
+const TreeletTable::treelet_count_pair_maybe_alias* TreeletTable::treelet_upper_bound(const TreeletTable::treelet_count_pair_maybe_alias *begin,
+       const TreeletTable::treelet_count_pair_maybe_alias *end, const Treelet &treelet)
 {
     //x=first element >= treelet (no duplicate elements) if it exists, otherwise x=end
     //If end-begin>=1.
@@ -46,7 +46,7 @@ static const TreeletTable::treelet_count_pair* treelet_upper_bound(const Treelet
 
     while(begin<end)
     {
-        const TreeletTable::treelet_count_pair *mid = begin + (end - begin) / 2;
+        const TreeletTable::treelet_count_pair_maybe_alias *mid = begin + (end - begin) / 2;
         if(mid->treelet < treelet)
             begin=mid+1;
         else
@@ -59,12 +59,12 @@ static const TreeletTable::treelet_count_pair* treelet_upper_bound(const Treelet
 
 ///@returns a pointer to the first treelet_count_pair in the range [begin, end) whose count is greater than or equal to "count"
 ///If no such treelet_count_pair exists, returns @param end
-static const TreeletTable::treelet_count_pair* count_upper_bound(const TreeletTable::treelet_count_pair *begin,
-        const TreeletTable::treelet_count_pair *end, TreeletTable::treelet_count_t count)
+const TreeletTable::treelet_count_pair_maybe_alias* TreeletTable::count_upper_bound(const TreeletTable::treelet_count_pair_maybe_alias *begin,
+        const TreeletTable::treelet_count_pair_maybe_alias *end, TreeletTable::treelet_count_t count)
 {
     while(begin<end)
     {
-        const TreeletTable::treelet_count_pair *mid = begin + (end - begin) / 2;
+        const TreeletTable::treelet_count_pair_maybe_alias *mid = begin + (end - begin) / 2;
         if(mid->count < count)
             begin=mid+1;
         else
@@ -76,9 +76,9 @@ static const TreeletTable::treelet_count_pair* count_upper_bound(const TreeletTa
 TreeletTable::treelet_count_t TreeletTable::get_count(const UndirectedGraph::vertex_t u, const Treelet treelet)
 {
     assert(u<num_vertices);
-    CompressedRecord<treelet_count_pair> record = reader.get_record<treelet_count_pair>(u);
+    CompressedRecord<treelet_count_pair_maybe_alias> record = reader.get_record<treelet_count_pair_maybe_alias>(u);
 
-    const treelet_count_pair *tcp = treelet_upper_bound(record.begin()+1, record.end(), treelet);
+    const treelet_count_pair_maybe_alias *tcp = treelet_upper_bound(record.begin()+1, record.end(), treelet);
     TreeletTable::treelet_count_t count = 0;
     if(tcp!= record.end() && tcp->treelet==treelet)
         count = tcp->count - (tcp-1)->count;
@@ -98,7 +98,7 @@ UndirectedGraph::vertex_t TreeletTable::get_random_root(Random *rng) const
 TreeletTable::const_iterator TreeletTable::begin(const UndirectedGraph::vertex_t u, Treelet treelet)
 {
     assert(u<num_vertices);
-    CompressedRecord<treelet_count_pair> record = reader.get_record<treelet_count_pair>(u);
+    CompressedRecord<treelet_count_pair_maybe_alias> record = reader.get_record<treelet_count_pair_maybe_alias>(u);
 
     return TreeletTable::const_iterator( record, treelet_upper_bound(record.begin()+1, record.end(), treelet));
 }
@@ -106,7 +106,7 @@ TreeletTable::const_iterator TreeletTable::begin(const UndirectedGraph::vertex_t
 const Treelet TreeletTable::get_random_treelet(UndirectedGraph::vertex_t root, Random* rng)
 {
     assert(root<num_vertices);
-    CompressedRecord<treelet_count_pair> record = reader.get_record<treelet_count_pair>(root);
+    CompressedRecord<treelet_count_pair_maybe_alias> record = reader.get_record<treelet_count_pair_maybe_alias>(root);
 
     if(record.length()==0)
     {
@@ -117,7 +117,7 @@ const Treelet TreeletTable::get_random_treelet(UndirectedGraph::vertex_t root, R
     assert((record.end()-1)->count!=0);
 
     treelet_count_t r =  rng->random_uint<treelet_count_t>(1, (record.end()-1)->count);
-    const treelet_count_pair *tcp = count_upper_bound(record.begin()+1, record.end(), r);
+    const treelet_count_pair_maybe_alias *tcp = count_upper_bound(record.begin()+1, record.end(), r);
     assert(tcp!=record.end());
     assert(tcp->treelet.is_valid());
     record.free();

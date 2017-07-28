@@ -22,15 +22,16 @@ template<typename T> class CompressedRecord
 {
 private:
     T* ptr;
-    uint64_t len;
+    const uint64_t len;
+    const bool needs_free;
 
 public:
-    CompressedRecord(T* ptr, uint64_t len) noexcept : ptr(ptr), len(len) {}
+    CompressedRecord(T* ptr, uint64_t len, bool needs_free=true) noexcept : ptr(ptr), len(len), needs_free(needs_free) {}
 
     uint64_t length() const noexcept { return len; }
     const T* begin() const noexcept { return ptr; }
     const T* end() const noexcept { return ptr+len; }
-    void free() { if(ptr) delete[] ptr; ptr=nullptr; }
+    void free() { if(needs_free && ptr) delete[] ptr; ptr=nullptr; }
 };
 
 struct [[gnu::packed]] record_offset_t
@@ -77,9 +78,14 @@ template<typename T> CompressedRecord<T> get_record(const uint64_t record_no)
         if (!offset.compressed)
         {
             assert(record_length%sizeof(T)==0);
+
+#ifdef MOTIVO_MAY_ALIAS
+            return CompressedRecord<T>(reinterpret_cast<T*>(fdmap+offset.file_offset), record_length/sizeof(T), false);
+#else
             T* buffer = new T[record_length/sizeof(T)];
             memcpy(buffer, fdmap+offset.file_offset, record_length);
             return CompressedRecord<T>(buffer, record_length/sizeof(T));
+#endif
         }
 
         unsigned int mul = 1u << offset.exp;

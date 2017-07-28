@@ -4,7 +4,10 @@
 
 #include "GraphColoring.h"
 
-GraphColoring::GraphColoring(const UndirectedGraph::vertex_t from, const UndirectedGraph::vertex_t to, unsigned int number_of_colors, Random* rng) : from(from), to(to)
+GraphColoring::GraphColoring(const UndirectedGraph::vertex_t from, const UndirectedGraph::vertex_t to, unsigned int number_of_colors, Random* rng) : from(from)
+#ifndef NDEBUG
+,to(to)
+#endif
 {
     assert(to>=from);
     UndirectedGraph::vertex_t size = to-from+1;

@@ -193,16 +193,19 @@ void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const Undir
 
         for(TreeletTable::const_iterator u_it = u_table->begin(u); !u_it.is_over(); ++u_it)
         {
+            const Treelet t1 = u_it.treelet();
+            assert(t1.is_valid());
+            assert(u_it.count() == 1);
+
             for(TreeletTable::const_iterator v_it = v_table->begin(v); !v_it.is_over(); ++v_it)
             {
-                const Treelet& t1 = u_it.treelet();
-                const Treelet& t2 = v_it.treelet();
+                const Treelet t2 = v_it.treelet();
+                assert(t2.is_valid());
+                assert(v_it.count() == 1);
 
                 Treelet merged = t1.merge(t2);
                 if(merged.is_valid())
                 {
-                    assert(u_it.count() > 0);
-                    assert(v_it.count() > 0);
                     //(*counts[u])[merged] += u_it.count() * v_it.count();
 
                     TreeletTable::treelet_count_t &count = counts[merged];

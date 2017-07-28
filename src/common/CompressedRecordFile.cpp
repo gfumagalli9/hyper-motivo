@@ -97,6 +97,7 @@ void CompressedRecordFileWriter::close()
     delete[] offsets;
 }
 
+//FIXME: Write aligned uncompressed data
 void CompressedRecordFileWriter::write_record(char *record, uint64_t length, double compress_threshold)
 {
     assert(position <= 0xFFFFFFFF);
@@ -135,7 +136,7 @@ void CompressedRecordFileWriter::write_record(char *record, uint64_t length, dou
         {
             offsets[written_records].multi_block = false;
             int size_ub = static_cast<int>(LZ4_COMPRESSBOUND(length));
-            buffer = new char[size_ub];
+            buffer = new char[static_cast<unsigned int>(size_ub)];
             int r = LZ4_compress_fast_continue(&encoder, record, buffer, static_cast<int>(length), size_ub, 1);
             assert(r>0);
             compressed_size = static_cast<uint64_t>(r);
@@ -203,7 +204,7 @@ uint64_t CompressedRecordFileWriter::create_dictionary(char *data, uint64_t leng
 
         LZ4_resetStream(&encoder);
         int size_ub = static_cast<int>(LZ4_COMPRESSBOUND(length));
-        char *buffer = new char[size_ub];
+        char *buffer = new char[static_cast<unsigned int>(size_ub)];
 
         LZ4_compress_fast_continue(&encoder, data, buffer, static_cast<int>(length), size_ub, 1);
         dictionary_size = static_cast<uint64_t>(LZ4_saveDict(&encoder, dictionary, WANTED_DICTIONARY_SIZE));

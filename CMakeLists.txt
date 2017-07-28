@@ -22,6 +22,7 @@ option(ENABLE_ASSERTS "Enable asserts (slower)" OFF)
 option(OPTIMIZE_MORE "Optimize for current hardware" OFF)
 option(MOTIVO_OVERFLOW_SAFE "Check for overflows during computation" ON)
 option(MOTIVO_MULTITHREAD "Enable multithread support" ON)
+option(MOTIVO_MAY_ALIAS "Turn off if compiler does not support the may_alias attribute" ON)
 option(USE_TCMALLOC "Use tcmalloc allocator library" OFF)
 
 if(MOTIVO_MULTITHREAD)
@@ -41,6 +42,10 @@ if(OPTIMIZE_MORE)
     message(STATUS "Setting additional optimization flags. Binaries might not work on other machines")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -funroll-loops -march=native -flto")
     set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -funroll-loops -march=native -flto")
+endif()
+
+if(NOT MOTIVO_MAY_ALIAS)
+    message(STATUS "Assuming compiler does not support the may_alias attribute")
 endif()
 
 INCLUDE(CheckCXXSourceCompiles)

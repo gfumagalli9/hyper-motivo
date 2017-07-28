@@ -27,16 +27,31 @@ public:
 
     static_assert( sizeof(treelet_count_pair) ==  sizeof(Treelet) + sizeof(treelet_count_t), "treelet_count_pair is not packed" );
 
+private:
+    struct [[gnu::packed]]
+#ifdef MOTIVO_MAY_ALIAS
+            [[gnu::may_alias]]
+#endif
+    treelet_count_pair_maybe_alias
+    {
+        Treelet treelet;
+        treelet_count_t count;
+    };
+
+    static_assert( sizeof(treelet_count_pair_maybe_alias) ==  sizeof(Treelet) + sizeof(treelet_count_t), "treelet_count_pair_maybe_alias is not packed" );
+
+public:
+
     class const_iterator
     {
     friend class TreeletTable;
 
     private:
         bool owner = true; //who owns the record?
-        CompressedRecord<treelet_count_pair> record;
-        const treelet_count_pair* position;
-        const_iterator(CompressedRecord<treelet_count_pair> record) : record(record), position(record.begin()+1) {};
-        const_iterator(CompressedRecord<treelet_count_pair> record, const treelet_count_pair* position) : record(record), position(position) {};
+        CompressedRecord<treelet_count_pair_maybe_alias> record;
+        const treelet_count_pair_maybe_alias* position;
+        const_iterator(CompressedRecord<treelet_count_pair_maybe_alias> record) : const_iterator(record, record.begin()) {};
+        const_iterator(CompressedRecord<treelet_count_pair_maybe_alias> record, const treelet_count_pair_maybe_alias* position) : record(record), position(position?(position+1): nullptr) {};
 
     public:
         const_iterator(const_iterator&) = delete; //copy constructor
@@ -46,7 +61,7 @@ public:
 
         ~const_iterator() { if(owner) record.free(); }
         const_iterator& operator++() { position++; return *this; };
-        const Treelet& treelet() const { return position->treelet; };
+        const Treelet treelet() const { return position->treelet; };
         treelet_count_t count() const { return position->count - (position-1)->count; }
         bool is_over() const { return position>=record.end(); }
     };
@@ -55,6 +70,9 @@ private:
     UndirectedGraph::vertex_t num_vertices;
     CompressedRecordFileReader reader;
     AliasMethodSampler<UndirectedGraph::vertex_t, treelet_count_t>* root_sampler;
+
+    static const TreeletTable::treelet_count_pair_maybe_alias* treelet_upper_bound(const TreeletTable::treelet_count_pair_maybe_alias *begin, const TreeletTable::treelet_count_pair_maybe_alias *end, const Treelet &treelet);
+    static const TreeletTable::treelet_count_pair_maybe_alias* count_upper_bound(const TreeletTable::treelet_count_pair_maybe_alias *begin, const TreeletTable::treelet_count_pair_maybe_alias *end, TreeletTable::treelet_count_t count);
 
     TreeletTable(const TreeletTable&) = delete;
     void operator=(const TreeletTable&) = delete;
@@ -79,7 +97,7 @@ public:
     inline const_iterator begin(const UndirectedGraph::vertex_t u)
     {
         assert(u<num_vertices);
-        return TreeletTable::const_iterator(reader.get_record<treelet_count_pair>(u));
+        return TreeletTable::const_iterator(reader.get_record<treelet_count_pair_maybe_alias>(u));
     }
 
     const_iterator begin(const UndirectedGraph::vertex_t u, const Treelet treelet);
