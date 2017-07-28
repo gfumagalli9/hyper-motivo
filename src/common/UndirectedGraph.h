@@ -7,6 +7,7 @@
 
 #include <string>
 #include <cassert>
+#include <cstring>
 
 ///Represents an immutable undirected unweighted graph
 ///Vertices are numbered with consecutive integers, starting from 0
@@ -20,11 +21,19 @@ private:
     uint32_t num_edges;
     FILE* offsets_fd;
     FILE* edges_fd;
-    uint32_t* offsets;
-    vertex_t* edges;
+    char* offsets;
+    char* edges;
 
     UndirectedGraph(const UndirectedGraph&) = delete;
     void operator=(const UndirectedGraph&) = delete;
+
+private:
+    char* offset_of(const vertex_t v, vertex_t i=0) const
+    {
+        uint32_t offset;
+        memcpy(&offset, offsets+sizeof(uint32_t)*v, sizeof(uint32_t));
+        return edges + static_cast<uint64_t>(offset+i)*sizeof(vertex_t);
+    }
 
 public:
     UndirectedGraph(const std::string& filename);
@@ -37,10 +46,21 @@ public:
     uint32_t number_of_edges() const { return num_edges; };
 
     ///@returns the degree of vertex @param v
-    vertex_t degree(const vertex_t v) const { assert(v<num_verts); return offsets[v+1] - offsets[v]; };
+    vertex_t degree(const vertex_t v) const
+    {
+        assert(v<num_verts);
+        return static_cast<vertex_t>(static_cast<uintptr_t>(offset_of(v+1) - offset_of(v))/sizeof(vertex_t));
+    }
 
-    ///@returns an array of degree[v] elements containing the neighbors of vertex @param v. The array must not be freed.
-    const vertex_t* neighbors(const vertex_t v) const { assert(v<num_verts); return edges + offsets[v]; }
+    ///@returns the @param i-th (0 based) neighbor of @param u
+    vertex_t neighbor(const vertex_t u, const vertex_t i) const
+    {
+        assert(u<num_verts);
+        assert(i<degree(u));
+        vertex_t v;
+        memcpy(&v, offset_of(u,i), sizeof(vertex_t));
+        return v;
+    }
 
     ///@returns true iff there is an edge between vertex @param u and vertex @param v
     bool has_edge(const vertex_t u, const vertex_t v) const;

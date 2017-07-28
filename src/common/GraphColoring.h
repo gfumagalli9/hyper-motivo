@@ -17,7 +17,9 @@ class GraphColoring
 private:
     color_t* colors;
     const UndirectedGraph::vertex_t from;
+#ifndef NDEBUG
     const UndirectedGraph::vertex_t to;
+#endif
 
     GraphColoring(const GraphColoring&) = delete;
     void operator=(const GraphColoring&) = delete;

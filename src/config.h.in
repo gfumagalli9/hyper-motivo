@@ -27,4 +27,6 @@
 
 #cmakedefine MOTIVO_MULTITHREAD 1
 
+#cmakedefine MOTIVO_MAY_ALIAS
+
 #endif //MOTIVO_CONFIG_H

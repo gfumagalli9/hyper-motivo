@@ -27,7 +27,7 @@ public:
     ~TreeletTableCollection();
 
     void add(TreeletTable* table);
-    const TreeletTable* get_table(const unsigned int i) const { return tables[i-1]; };
+    TreeletTable* get_table(const unsigned int i) const { return tables[i-1]; };
 };
 
 

@@ -22,6 +22,7 @@ option(ENABLE_ASSERTS "Enable asserts (slower)" OFF)
 option(OPTIMIZE_MORE "Optimize for current hardware" OFF)
 option(MOTIVO_OVERFLOW_SAFE "Check for overflows during computation" ON)
 option(MOTIVO_MULTITHREAD "Enable multithread support" ON)
+option(MOTIVO_MAY_ALIAS "Turn off if compiler does not support the may_alias attribute" ON)
 option(USE_TCMALLOC "Use tcmalloc allocator library" OFF)
 
 if(MOTIVO_MULTITHREAD)
@@ -41,6 +42,10 @@ if(OPTIMIZE_MORE)
     message(STATUS "Setting additional optimization flags. Binaries might not work on other machines")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -funroll-loops -march=native -flto")
     set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -funroll-loops -march=native -flto")
+endif()
+
+if(NOT MOTIVO_MAY_ALIAS)
+    message(STATUS "Assuming compiler does not support the may_alias attribute")
 endif()
 
 INCLUDE(CheckCXXSourceCompiles)
@@ -90,13 +95,13 @@ endif()
 configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 include_directories(${CMAKE_BINARY_DIR})
 
-set(COMMON_SOURCE_FILES src/common/UndirectedGraph.cpp src/common/UndirectedGraph.h src/common/Treelet.h src/common/GraphColoring.cpp src/common/GraphColoring.h src/common/Random.h src/common/Treelet.cpp src/common/TreeletTableCollection.cpp src/common/TreeletTableCollection.h src/common/TreeletTable.cpp src/common/TreeletTable.h src/platform/platform.h src/platform/platform.cpp src/common/AliasMethodSampler.h src/common/OptionsParser.cpp src/common/OptionsParser.h src/common/Random.cpp)
+set(COMMON_SOURCE_FILES src/common/UndirectedGraph.cpp src/common/UndirectedGraph.h src/common/Treelet.h src/common/GraphColoring.cpp src/common/GraphColoring.h src/common/Random.h src/common/Treelet.cpp src/common/TreeletTableCollection.cpp src/common/TreeletTableCollection.h src/common/TreeletTable.cpp src/common/TreeletTable.h src/platform/platform.h src/platform/platform.cpp src/common/AliasMethodSampler.h src/common/OptionsParser.cpp src/common/OptionsParser.h src/common/Random.cpp src/common/CompressedRecordFile.cpp src/common/CompressedRecordFile.h)
 set(MERGER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/merger/merger.cpp)
 set(BUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/builder/TreeletTableBuilder.cpp src/builder/TreeletTableBuilder.h src/builder/ConcurrentFIFO.h src/builder/builder.cpp src/builder/SpookyHash.h src/builder/SpookyHash.cpp)
 set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp src/sampler/TreeletSampler.h src/sampler/sampler.cpp src/sampler/include_nauty.h src/sampler/Occurrence.cpp src/sampler/Occurrence.h)
 set(GRAPH_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/graph.cpp)
 
-set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp tests/Treelet.cpp tests/Occurrence.cpp src/sampler/Occurrence.cpp src/sampler/Occurrence.h tests/leftmost_bit_tie.cpp)
+set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp tests/Treelet.cpp tests/Occurrence.cpp src/sampler/Occurrence.cpp src/sampler/Occurrence.h tests/leftmost_bit_tie.cpp tests/CompressedRecordFile.cpp)
 
 string(REPLACE ":" ";" LIBRARY_PATH_STR "$ENV{LIBRARY_PATH}")
 set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} ${LIBRARY_PATH_STR})
@@ -110,6 +115,13 @@ set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} ${INCLUDE_PATH_STR})
 
 
 set(COMMON_LIBRARIES "m")
+
+find_library(LZ4 NAMES lz4)
+if(NOT LZ4)
+    message(FATAL_ERROR "Could not find lz4 library")
+endif()
+set(COMMON_LIBRARIES "${COMMON_LIBRARIES} ${LZ4}")
+
 
 if(USE_TCMALLOC)
     message(STATUS "Building with tcmalloc allocator")
@@ -177,6 +189,7 @@ endif()
 set(SAMPLER_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
 set(BUILDER_LIBRARIES ${COMMON_LIBRARIES})
 set(MERGER_LIBRARIES ${COMMON_LIBRARIES})
+set(GRAPH_LIBRARIES ${COMMON_LIBRARIES})
 set(TEST_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
 
 add_executable(motivo-build ${BUILDER_SOURCE_FILES})
@@ -188,6 +201,7 @@ add_executable(motivo-tests ${TEST_SOURCE_FILES})
 target_link_libraries(motivo-build ${BUILDER_LIBRARIES})
 target_link_libraries(motivo-merge ${MERGER_LIBRARIES})
 target_link_libraries(motivo-sample ${SAMPLER_LIBRARIES})
+target_link_libraries(motivo-graph ${GRAPH_LIBRARIES})
 target_link_libraries(motivo-tests ${TEST_LIBRARIES})
 
 file(COPY scripts/build-many.sh DESTINATION .)
@@ -202,7 +216,7 @@ INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/loe_to_graph.py DESTINATION share/moti
 
 enable_testing()
 add_test(NAME build-graph COMMAND motivo-graph --input ../graphs/test-graph.txt --output test-graph)
-add_test(NAME motivo-tests COMMAND motivo-tests -tce=leftmost_bit_tie)
+add_test(NAME motivo-tests COMMAND motivo-tests "-tce=leftmost_bit_tie,CompressedRecordFile Multiblock")
 set_tests_properties(motivo-tests PROPERTIES DEPENDS build-graph)
 
 SET(CPACK_GENERATOR "DEB")

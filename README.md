@@ -12,7 +12,8 @@ Motivo depends on the following libraries:
 - [Google's sparsehash library](https://github.com/sparsehash/sparsehash),
 - [OpenBLAS](http://www.openblas.net/) (or any other BLAS library),
 - [LAPACKE](http://www.netlib.org/lapack/lapacke.html) if not already provided by your blas library,
-- [Nauty](http://pallini.di.uniroma1.it/).
+- [Nauty](http://pallini.di.uniroma1.it/),
+- [LZ4](https://github.com/lz4/lz4).
 
 Your Linux distribution might have premade packages, i.e., on Debian you can run:
 ~~~~
@@ -89,7 +90,7 @@ This will generate a package named "Motivo-<version>-Linux.deb", to install it r
 
 ###Additional options
 
-You can pass the option -DOPTIMIZE_MORE=YES to cmake to enable additional optimization flags including -march=native. The resulting binaries might not work on other machines.
+In addition to -DCMAKE_BUILD_TYPE=... you can pass the option -DOPTIMIZE_MORE=YES to cmake to enable additional optimization flags including -march=native. The resulting binaries might not work on other machines.
 
 The option -DENABLE_ASSERTS=YES enables asserts even when the code is compiled in release mode (the default setting). These perform additional sanity checks during the computation but result in slower code.
 
@@ -100,7 +101,7 @@ The option -DMOTIVO_MULTITHREAD=NO disables multithreading support.
 Example:
 
 ~~~
-$ cmake -DOPTIMIZE_MORE=YES -DMOTIVO_OVERFLOW_SAFE=NO ..
+$ cmake -DCMAKE_BUILD_TYPE=Release -DOPTIMIZE_MORE=YES -DMOTIVO_OVERFLOW_SAFE=NO ..
 ~~~
 
 ##Usage

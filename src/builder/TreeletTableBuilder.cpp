@@ -71,25 +71,28 @@ void TreeletTableBuilder::build()
 
 void TreeletTableBuilder::do_build_1_st()
 {
-    constexpr const std::streamsize buf_size = sizeof(UndirectedGraph::vertex_t) + sizeof(TreeletTable::treelet_count_t) + sizeof(TreeletTable::treelet_count_pair);
-
+    constexpr std::streamsize buf_size = sizeof(UndirectedGraph::vertex_t) + sizeof(uint64_t) + sizeof(TreeletTable::treelet_count_pair);
     char buffer[buf_size];
-    UndirectedGraph::vertex_t* vertex = reinterpret_cast<UndirectedGraph::vertex_t*>(buffer);
-    *(reinterpret_cast<TreeletTable::treelet_count_t*>(buffer + sizeof(UndirectedGraph::vertex_t))) = 1;
-    TreeletTable::treelet_count_pair* tcp = reinterpret_cast<TreeletTable::treelet_count_pair*>(buffer + sizeof(UndirectedGraph::vertex_t) + sizeof(TreeletTable::treelet_count_t) );
-    tcp->count = 1;
+
+    constexpr uint64_t one=1;
+    memcpy(buffer+sizeof(UndirectedGraph::vertex_t), &one, sizeof(uint64_t));
+
+    TreeletTable::treelet_count_pair tcp;
+    tcp.count=1;
 
     for(UndirectedGraph::vertex_t u=from; u<=to; u++)
     {
         report_progress(u);
 
-        if(store_0_only && coloring->color_of(u) == 0)
+        if(store_0_only && coloring->color_of(u) != 1) //color 0 is represented as 1<<0 = 1
             continue;
 
-        *vertex=u;
-        tcp->treelet = Treelet::singleton(coloring->color_of(u));
+        memcpy(buffer, &u, sizeof(UndirectedGraph::vertex_t));
+        tcp.treelet = Treelet::singleton(coloring->color_of(u));
+        memcpy(buffer + sizeof(UndirectedGraph::vertex_t) + sizeof(uint64_t), &tcp, sizeof(TreeletTable::treelet_count_pair));
         output->write(buffer, buf_size);
     }
+
 }
 
 void TreeletTableBuilder::do_build_st()
@@ -98,17 +101,17 @@ void TreeletTableBuilder::do_build_st()
     {
         report_progress(u);
 
-        if(store_0_only && lower->get_table(1)->begin(u).treelet().get_colors()!=1)
+        if(store_0_only && lower->get_table(1)->begin(u).treelet().get_colors()!=1) //color 0 is represented as 1<<0 = 1
             continue;
 
         table_t table;
-        const UndirectedGraph::vertex_t *neighbors = graph->neighbors(u);
-        for (UndirectedGraph::vertex_t d = 0; d < graph->degree(u); d++)
-            combine(u, neighbors[d], table);
+        const UndirectedGraph::vertex_t degree = graph->degree(u);
+        for (UndirectedGraph::vertex_t d = 0; d < degree; d++)
+            combine(u, graph->neighbor(u,d), table);
 
-        std::pair<char*, std::streamsize> to_write = to_normalized_sorted_byte_array(u, table);
-        output->write(to_write.first, to_write.second);
-        delete[] to_write.first;
+        std::pair<void*, std::streamsize> to_write = to_normalized_sorted_byte_array(u, table);
+        output->write(static_cast<char*>(to_write.first), to_write.second);
+        ::operator delete(to_write.first);
     }
 }
 
@@ -122,22 +125,22 @@ void TreeletTableBuilder::do_build_mt(std::atomic<UndirectedGraph::vertex_t> *at
             break;
 
         UndirectedGraph::vertex_t end = (start+thread_batch_size-1<=to)?(start+thread_batch_size-1):to;
-        std::pair<char*, std::streamsize>* batch = new std::pair<char*, std::streamsize>[end-start+2];
-        batch[end-start+1].second = -1;
+        std::pair<char*, std::size_t >* batch = new std::pair<char*, std::size_t>[end-start+2];
+        batch[end-start+1].first = nullptr;
         for(UndirectedGraph::vertex_t u=start; u<=end; u++)
         {
             report_progress(u);
 
-            if(store_0_only && lower->get_table(1)->begin(u).treelet().get_colors()!=1)
+            if(store_0_only && lower->get_table(1)->begin(u).treelet().get_colors()!=1) //color 0 is represented as 1<<0 = 1
             {
                 batch[u-start] = std::make_pair(nullptr, 0);
                 continue;
             }
 
             table_t table;
-            const UndirectedGraph::vertex_t *neighbors = graph->neighbors(u);
-            for (UndirectedGraph::vertex_t d = 0; d < graph->degree(u); d++)
-                combine(u, neighbors[d], table);
+            const UndirectedGraph::vertex_t degree = graph->degree(u);
+            for (UndirectedGraph::vertex_t d = 0; d < degree; d++)
+                combine(u, graph->neighbor(u,d), table);
 
             batch[u-start] = to_normalized_sorted_byte_array(u, table);
         }
@@ -148,26 +151,27 @@ void TreeletTableBuilder::do_build_mt(std::atomic<UndirectedGraph::vertex_t> *at
 #endif
 
 
-std::pair<char*, std::streamsize> TreeletTableBuilder::to_normalized_sorted_byte_array(const UndirectedGraph::vertex_t u, const table_t &table)
+std::pair<char*, std::size_t > TreeletTableBuilder::to_normalized_sorted_byte_array(const UndirectedGraph::vertex_t u, const table_t &table)
 {
-    std::pair<char*, std::streamsize> result;
-    result.second = static_cast<std::streamsize>(sizeof(UndirectedGraph::vertex_t) + sizeof(TreeletTable::treelet_count_t) + table.size() * sizeof(TreeletTable::treelet_count_pair));
-    result.first = new char[result.second];
-    char* p = result.first;
+    std::pair<char*, std::size_t > result;
+    result.second = sizeof(UndirectedGraph::vertex_t) + sizeof(uint64_t) + table.size() * sizeof(TreeletTable::treelet_count_pair);
+    result.first = static_cast<char*>(::operator new(result.second));
 
-    *(reinterpret_cast<UndirectedGraph::vertex_t*>(p)) = u;
-    p += sizeof(UndirectedGraph::vertex_t);
+    //Prevent alignment issues (size might get copied to unaligned memory)
+    memcpy(result.first, &u, sizeof(UndirectedGraph::vertex_t));
+    uint64_t size = table.size();
+    memcpy(result.first + sizeof(UndirectedGraph::vertex_t), &size, sizeof(uint64_t));
 
-    *(reinterpret_cast<TreeletTable::treelet_count_t*>(p)) = table.size();
-    p += sizeof(TreeletTable::treelet_count_t);
-
-    TreeletTable::treelet_count_pair *counts = reinterpret_cast<TreeletTable::treelet_count_pair*>(p);
+    //Make sure array is properly aligned
+    static_assert( (sizeof(UndirectedGraph::vertex_t) + sizeof(uint64_t)) % alignof(TreeletTable::treelet_count_pair) == 0, "treelet_count_pair not aligned in buffer" );
+    TreeletTable::treelet_count_pair *counts = new(result.first+sizeof(UndirectedGraph::vertex_t)+sizeof(uint64_t)) TreeletTable::treelet_count_pair[size];
     TreeletTable::treelet_count_t i=0;
     table_t::const_iterator u_it = table.begin();
     while(u_it != table.end())
     {
         assert(u_it->second > 0);
         assert(u_it->second % u_it->first.normalization_factor() == 0);
+
         counts[i].treelet = u_it->first;
         counts[i].count = u_it->second / counts[i].treelet.normalization_factor();
 
@@ -184,22 +188,24 @@ void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const Undir
 {
     for(unsigned int size1=1; size1<size; size1++)
     {
-        const TreeletTable* u_table = lower->get_table(size1);
-        const TreeletTable* v_table = lower->get_table(size-size1);
+        TreeletTable* u_table = lower->get_table(size1);
+        TreeletTable* v_table = lower->get_table(size-size1);
 
-        for(TreeletTable::const_iterator u_it = u_table->begin(u); u_it != u_table->end(u); u_it++)
+        for(TreeletTable::const_iterator u_it = u_table->begin(u); !u_it.is_over(); ++u_it)
         {
-            for(TreeletTable::const_iterator v_it = v_table->begin(v); v_it != v_table->end(v); v_it++)
+            const Treelet t1 = u_it.treelet();
+            assert(t1.is_valid());
+            assert(u_it.count() == 1);
+
+            for(TreeletTable::const_iterator v_it = v_table->begin(v); !v_it.is_over(); ++v_it)
             {
-                const Treelet& t1 = u_it.treelet();
-                const Treelet& t2 = v_it.treelet();
+                const Treelet t2 = v_it.treelet();
+                assert(t2.is_valid());
+                assert(v_it.count() == 1);
 
                 Treelet merged = t1.merge(t2);
-
                 if(merged.is_valid())
                 {
-                    assert(u_it.count() > 0);
-                    assert(v_it.count() > 0);
                     //(*counts[u])[merged] += u_it.count() * v_it.count();
 
                     TreeletTable::treelet_count_t &count = counts[merged];
@@ -219,15 +225,15 @@ void TreeletTableBuilder::writer_loop()
     UndirectedGraph::vertex_t written=from;
     while(written<=to)
     {
-        std::pair<char*, std::streamsize>* to_write = write_queue.pop();
-        std::pair<char*, std::streamsize>* p = to_write;
+        std::pair<char*, std::size_t>* to_write = write_queue.pop();
+        std::pair<char*, std::size_t>* p = to_write;
 
-        while(p->second!=-1)
+        while(p->first!=nullptr)
         {
             if(p->first)
             {
-                output->write(p->first, p->second);
-                delete[] p->first;
+                output->write(p->first, static_cast<std::streamsize>(p->second));
+                ::operator delete(p->first);
             }
 
             p++;

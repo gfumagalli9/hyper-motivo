@@ -23,7 +23,7 @@ void graph2bin(const std::string &graph_filename, const std::string &output_base
 
     stream >> num_verts >> num_edges;
     offsets.write(reinterpret_cast<const char*>(&num_verts), sizeof(UndirectedGraph::vertex_t));
-    offsets.write(reinterpret_cast<const char*>(&num_edges), sizeof(uint32_t));
+    offsets.write(reinterpret_cast<const char*>(&num_edges), sizeof(UndirectedGraph::vertex_t));
 
     UndirectedGraph::vertex_t processed_edges = 0;
     for(UndirectedGraph::vertex_t u=0; u < num_verts; u++)
@@ -64,11 +64,11 @@ void bin2graph(const std::string &graph_basename, const std::string &output)
         UndirectedGraph::vertex_t degree = G.degree(u);
         out << degree;
 
-        const UndirectedGraph::vertex_t *neighbors = G.neighbors(u);
         for(UndirectedGraph::vertex_t d=0; d<degree; d++)
         {
-            assert(neighbors[d] < G.number_of_vertices());
-            out << " " << neighbors[d];
+            const UndirectedGraph::vertex_t v = G.neighbor(u, d);
+            assert(v < G.number_of_vertices());
+            out << " " << v;
         }
         out << std::endl;
     }
