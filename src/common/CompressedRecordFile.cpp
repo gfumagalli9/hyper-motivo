@@ -97,7 +97,6 @@ void CompressedRecordFileWriter::close()
     delete[] offsets;
 }
 
-//FIXME: Write aligned uncompressed data
 void CompressedRecordFileWriter::write_record(char *record, uint64_t length, double compress_threshold)
 {
     assert(position <= 0xFFFFFFFF);
