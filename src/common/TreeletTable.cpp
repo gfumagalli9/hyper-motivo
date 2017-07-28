@@ -76,7 +76,7 @@ const TreeletTable::treelet_count_pair_maybe_alias* TreeletTable::count_upper_bo
 TreeletTable::treelet_count_t TreeletTable::get_count(const UndirectedGraph::vertex_t u, const Treelet treelet)
 {
     assert(u<num_vertices);
-    CompressedRecord<treelet_count_pair_maybe_alias> record = reader.get_record<treelet_count_pair_maybe_alias>(u);
+    CompressedRecord<treelet_count_pair_maybe_alias> record = reader.get_record<treelet_count_pair_maybe_alias, true>(u);
 
     const treelet_count_pair_maybe_alias *tcp = treelet_upper_bound(record.begin()+1, record.end(), treelet);
     TreeletTable::treelet_count_t count = 0;
@@ -98,7 +98,7 @@ UndirectedGraph::vertex_t TreeletTable::get_random_root(Random *rng) const
 TreeletTable::const_iterator TreeletTable::begin(const UndirectedGraph::vertex_t u, Treelet treelet)
 {
     assert(u<num_vertices);
-    CompressedRecord<treelet_count_pair_maybe_alias> record = reader.get_record<treelet_count_pair_maybe_alias>(u);
+    CompressedRecord<treelet_count_pair_maybe_alias> record = reader.get_record<treelet_count_pair_maybe_alias, true>(u);
 
     return TreeletTable::const_iterator( record, treelet_upper_bound(record.begin()+1, record.end(), treelet));
 }
@@ -106,7 +106,7 @@ TreeletTable::const_iterator TreeletTable::begin(const UndirectedGraph::vertex_t
 const Treelet TreeletTable::get_random_treelet(UndirectedGraph::vertex_t root, Random* rng)
 {
     assert(root<num_vertices);
-    CompressedRecord<treelet_count_pair_maybe_alias> record = reader.get_record<treelet_count_pair_maybe_alias>(root);
+    CompressedRecord<treelet_count_pair_maybe_alias> record = reader.get_record<treelet_count_pair_maybe_alias,true>(root);
 
     if(record.length()==0)
     {

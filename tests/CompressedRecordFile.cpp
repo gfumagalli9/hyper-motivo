@@ -35,7 +35,7 @@ void test(const uint64_t data_size, const unsigned int nrecords, const bool rand
     tstart = std::chrono::steady_clock::now();
     for(uint64_t i=1; i<=nrecords; i++)
     {
-        CompressedRecord<char> result = reader.get_record<char>(nrecords-i);
+        CompressedRecord<char> result = reader.get_record<char, true>(nrecords-i);
         result.free();
     }
     delta_t = std::chrono::steady_clock::now() - tstart;
@@ -44,7 +44,7 @@ void test(const uint64_t data_size, const unsigned int nrecords, const bool rand
 
     for(uint64_t i=0; i<nrecords; i++)
     {
-        CompressedRecord<char> result = reader.get_record<char>(i);
+        CompressedRecord<char> result = reader.get_record<char,true>(i);
         CHECK( result.length() == data_size/nrecords );
         CHECK( memcmp( result.begin(), data+i*(data_size/nrecords), data_size/nrecords ) == 0 );
         result.free();

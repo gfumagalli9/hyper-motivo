@@ -65,7 +65,7 @@ public:
     void close();
 
 
-template<typename T> CompressedRecord<T> get_record(const uint64_t record_no)
+    template<typename T, bool RAW> CompressedRecord<T> get_record(const uint64_t record_no)
     {
         record_offset_t offset,next_offset;
         memcpy(&offset, offsets + record_no*sizeof(record_offset_t), sizeof(record_offset_t));
@@ -79,13 +79,13 @@ template<typename T> CompressedRecord<T> get_record(const uint64_t record_no)
         {
             assert(record_length%sizeof(T)==0);
 
-#ifdef MOTIVO_MAY_ALIAS
-            return CompressedRecord<T>(reinterpret_cast<T*>(fdmap+offset.file_offset), record_length/sizeof(T), false);
-#else
+            static_assert(!RAW || alignof(T)==1, "Raw read allowed but type is not 1-byte aligned");
+            if(RAW)
+                return CompressedRecord<T>(reinterpret_cast<T*>(fdmap+offset.file_offset), record_length/sizeof(T), false);
+
             T* buffer = new T[record_length/sizeof(T)];
             memcpy(buffer, fdmap+offset.file_offset, record_length);
             return CompressedRecord<T>(buffer, record_length/sizeof(T));
-#endif
         }
 
         unsigned int mul = 1u << offset.exp;

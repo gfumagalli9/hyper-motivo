@@ -38,6 +38,7 @@ private:
         treelet_count_t count;
     };
 
+    static_assert( alignof(treelet_count_pair_maybe_alias) == 1, "treelet_count_pair_maybe_alias is not 1-byte aligned" );
     static_assert( sizeof(treelet_count_pair_maybe_alias) ==  sizeof(Treelet) + sizeof(treelet_count_t), "treelet_count_pair_maybe_alias is not packed" );
 
 public:
@@ -97,7 +98,7 @@ public:
     inline const_iterator begin(const UndirectedGraph::vertex_t u)
     {
         assert(u<num_vertices);
-        return TreeletTable::const_iterator(reader.get_record<treelet_count_pair_maybe_alias>(u));
+        return TreeletTable::const_iterator(reader.get_record<treelet_count_pair_maybe_alias, true>(u));
     }
 
     const_iterator begin(const UndirectedGraph::vertex_t u, const Treelet treelet);
