@@ -31,7 +31,7 @@ private:
     char* offset_of(const vertex_t v, vertex_t i=0) const
     {
         uint32_t offset;
-        memcpy(&offset, offsets+sizeof(uint32_t)*v, sizeof(uint32_t));
+        memcpy(&offset, offsets+sizeof(uint32_t)*static_cast<uint64_t>(v), sizeof(uint32_t));
         return edges + static_cast<uint64_t>(offset+i)*sizeof(vertex_t);
     }
 

@@ -23,11 +23,13 @@ private:
 
 public:
     TreeletTableCollection(const unsigned int capacity=default_capacity);
-    TreeletTableCollection(const std::string& basename, const unsigned int size, const bool load_root_sampler=true, const unsigned int capacity=default_capacity);
+    TreeletTableCollection(const std::string& basename, const unsigned int size, const unsigned int capacity=default_capacity);
     ~TreeletTableCollection();
 
     void add(TreeletTable* table);
     TreeletTable* get_table(const unsigned int i) const { return tables[i-1]; };
+
+    void load_root_sampler_for(const std::string &basename, const unsigned int i);
 };
 
 

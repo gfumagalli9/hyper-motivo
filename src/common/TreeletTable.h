@@ -51,8 +51,14 @@ public:
         bool owner = true; //who owns the record?
         CompressedRecord<treelet_count_pair_maybe_alias> record;
         const treelet_count_pair_maybe_alias* position;
-        const_iterator(CompressedRecord<treelet_count_pair_maybe_alias> record) : const_iterator(record, record.begin()) {};
-        const_iterator(CompressedRecord<treelet_count_pair_maybe_alias> record, const treelet_count_pair_maybe_alias* position) : record(record), position(position?(position+1): nullptr) {};
+        const_iterator(CompressedRecord<treelet_count_pair_maybe_alias> record) : record(record)
+        {
+            position=record.begin();
+            if(position)
+                position++;
+        }
+
+        const_iterator(CompressedRecord<treelet_count_pair_maybe_alias> record, const treelet_count_pair_maybe_alias* position) : record(record), position(position) {};
 
     public:
         const_iterator(const_iterator&) = delete; //copy constructor
@@ -80,11 +86,15 @@ private:
 
 public:
     ///Loads a table stored with the given @param basename.
-    ///If @param load_root_sampler is true, it loads the associated root sampler, if available.
-    TreeletTable(const std::string& basename, const bool load_root_sampler=true);
+    TreeletTable(const std::string& filename);
+
     ~TreeletTable();
 
-    ///@returns a root r chosen at random with probability proportional to the number of treelets  rooted in r
+    ///Loads the associated root sampler
+    void load_root_sampler(const std::string& filename);
+
+    ///@returns a root r chosen at random with probability proportional to the number of treelets rooted in r
+    ///the associated root sampler must be loaded
     UndirectedGraph::vertex_t get_random_root(Random* rng) const;
 
     ///@returns a Treelet  chosen uniformly at random from all the treelts roote in @param root
@@ -102,7 +112,6 @@ public:
     }
 
     const_iterator begin(const UndirectedGraph::vertex_t u, const Treelet treelet);
-
 };
 
 

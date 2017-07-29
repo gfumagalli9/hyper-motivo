@@ -5,24 +5,17 @@
 #include "TreeletTable.h"
 #include "../platform/platform.h"
 
-TreeletTable::TreeletTable(const std::string& basename, const bool load_root_sampler) : reader(basename + ".dtz")
+TreeletTable::TreeletTable(const std::string& filename) : reader(filename)
 {
     num_vertices = static_cast<UndirectedGraph::vertex_t>(reader.number_of_records());
     assert(num_vertices < std::numeric_limits<UndirectedGraph::vertex_t>::max()-1);
+    root_sampler = nullptr;
+}
 
-    if(load_root_sampler)
-    {
-        try
-        {
-            root_sampler = new AliasMethodSampler<UndirectedGraph::vertex_t, treelet_count_t>(basename+".rts");
-        }
-        catch(...)
-        {
-            root_sampler = nullptr;
-        }
-    }
-    else
-        root_sampler = nullptr;
+void TreeletTable::load_root_sampler(const std::string& filename)
+{
+    if(!root_sampler)
+        root_sampler = new AliasMethodSampler<UndirectedGraph::vertex_t, treelet_count_t>(filename);
 }
 
 TreeletTable::~TreeletTable()

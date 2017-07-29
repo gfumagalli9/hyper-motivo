@@ -155,6 +155,7 @@ int main(const int argc, const char** argv)
         std::ofstream outfile(output_opt->get_value(), std::ofstream::binary | std::ofstream::trunc);
         UndirectedGraph G(graph_opt->get_value());
         TreeletTableCollection ttc(input_opt->get_value(), static_cast<unsigned int>(size));
+        ttc.load_root_sampler_for(input_opt->get_value(), static_cast<unsigned int>(size));
 
         Random rng(seed_opt->get_value());
 
