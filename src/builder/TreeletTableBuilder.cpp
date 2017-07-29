@@ -195,13 +195,13 @@ void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const Undir
         {
             const Treelet t1 = u_it.treelet();
             assert(t1.is_valid());
-            assert(u_it.count() == 1);
+            assert(u_it.count() != 0);
 
             for(TreeletTable::const_iterator v_it = v_table->begin(v); !v_it.is_over(); ++v_it)
             {
                 const Treelet t2 = v_it.treelet();
                 assert(t2.is_valid());
-                assert(v_it.count() == 1);
+                assert(v_it.count() != 0);
 
                 Treelet merged = t1.merge(t2);
                 if(merged.is_valid())

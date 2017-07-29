@@ -55,8 +55,8 @@
 #endif
 
 #ifdef MOTIVO_OVERFLOW_SAFE
-    #define safe_add(a, b, res)  do { if( add_overflow( (a), (b), (res) ) ) FAIL_OVERFLOW; } while(false)
-    #define safe_mul(a, b, res)  do { if( mul_overflow( (a), (b), (res) ) ) FAIL_OVERFLOW; } while(false)
+    #define safe_add(a, b, res)  do { if( add_overflow( (a), (b), (res) ) ) { FAIL_OVERFLOW; } } while(false)
+    #define safe_mul(a, b, res)  do { if( mul_overflow( (a), (b), (res) ) ) { FAIL_OVERFLOW; } } while(false)
 #else
     #define safe_add(a, b, res) do { (*res) = ( (a) + (b) ); } while(false)
     #define safe_mul(a, b, res) do { (*res) = ( (a) * (b) ); } while(false)
