@@ -126,25 +126,23 @@ void TreeletTableBuilder::do_build_mt(std::atomic<UndirectedGraph::vertex_t> *at
 
         UndirectedGraph::vertex_t end = (start+thread_batch_size-1<=to)?(start+thread_batch_size-1):to;
         std::pair<char*, std::size_t >* batch = new std::pair<char*, std::size_t>[end-start+2];
-        batch[end-start+1].first = nullptr;
+        UndirectedGraph::vertex_t written=0;
         for(UndirectedGraph::vertex_t u=start; u<=end; u++)
         {
             report_progress(u);
 
             if(store_0_only && lower->get_table(1)->begin(u).treelet().get_colors()!=1) //color 0 is represented as 1<<0 = 1
-            {
-                batch[u-start] = std::make_pair(nullptr, 0);
                 continue;
-            }
 
             table_t table;
             const UndirectedGraph::vertex_t degree = graph->degree(u);
             for (UndirectedGraph::vertex_t d = 0; d < degree; d++)
                 combine(u, graph->neighbor(u,d), table);
 
-            batch[u-start] = to_normalized_sorted_byte_array(u, table);
+            batch[written++] = to_normalized_sorted_byte_array(u, table);
         }
 
+        batch[written] = std::make_pair(nullptr, 0); //Signal the end
         write_queue.push( batch );
     }
 }
@@ -230,11 +228,9 @@ void TreeletTableBuilder::writer_loop()
 
         while(p->first!=nullptr)
         {
-            if(p->first)
-            {
-                output->write(p->first, static_cast<std::streamsize>(p->second));
-                ::operator delete(p->first);
-            }
+            assert(p->second>0);
+            output->write(p->first, static_cast<std::streamsize>(p->second));
+            ::operator delete(p->first);
 
             p++;
             written++;
