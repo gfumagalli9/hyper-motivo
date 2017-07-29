@@ -99,8 +99,8 @@ void CompressedRecordFileWriter::close()
 
 void CompressedRecordFileWriter::write_record(char *record, uint64_t length, double compress_threshold)
 {
-    assert(position <= 0xFFFFFFFF);
-    offsets[written_records].file_offset=position & 0xFFFFFFFF;
+    assert(position <= 0xFFFFFFFFFF);
+    offsets[written_records].file_offset=position & 0xFFFFFFFFFF;
 
     //FIXME: We can do this faster
     static constexpr uint64_t mask = ~static_cast<uint64_t>(std::numeric_limits<uint16_t>::max());
