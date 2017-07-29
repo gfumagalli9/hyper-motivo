@@ -83,8 +83,8 @@ void CompressedRecordFileWriter::close()
     if(written_records!=number_of_records)
         throw std::runtime_error("Not all records have been written");
 
-    assert(position <= 0xFFFFFFFF);
-    offsets[number_of_records].file_offset=position & 0xFFFFFFFF;
+    assert(position <= 0xFFFFFFFFFF);
+    offsets[number_of_records].file_offset=position & 0xFFFFFFFFFF;
     offsets[number_of_records].mantissa=0;
     offsets[number_of_records].exp=0;
 
