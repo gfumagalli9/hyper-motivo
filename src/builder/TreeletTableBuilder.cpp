@@ -142,7 +142,7 @@ void TreeletTableBuilder::do_build_mt(std::atomic<UndirectedGraph::vertex_t> *at
             batch[written++] = to_normalized_sorted_byte_array(u, table);
         }
 
-        batch[written] = std::make_pair(nullptr, 0); //Signal the end
+        batch[written] = std::make_pair(nullptr, written); //Signal the end
         write_queue.push( batch );
     }
 }
@@ -233,8 +233,9 @@ void TreeletTableBuilder::writer_loop()
             ::operator delete(p->first);
 
             p++;
-            written++;
         }
+
+        written+= static_cast<UndirectedGraph::vertex_t>(p->second);
 
         delete[] to_write;
     }
