@@ -12,6 +12,7 @@
 #include <limits>
 #include <cstring>
 #include <cassert>
+#include <stdexcept>
 
 static_assert(LZ4_COMPRESSBOUND(LZ4_MAX_INPUT_SIZE) <= std::numeric_limits<int>::max(), "LZ4_COMPRESSBOUND(LZ4_MAX_INPUT_SIZE) does not fit in a int");
 static_assert(LZ4_MAX_INPUT_SIZE <= std::numeric_limits<int>::max(), "LZ4_MAX_INPUT_SIZE does not fit in a int");
@@ -36,18 +37,21 @@ public:
 
 struct [[gnu::packed]] record_offset_t
 {
-    uint64_t file_offset : 40; //Max 1 TB
-    uint16_t mantissa; //mantissa * 2^exp + (2^exp-1) is an upper-bound to the uncompressed size
+    static constexpr uint64_t file_offset_mask = 0x0000FFFFFFFFFFFF;
+    static constexpr uint64_t mantissa_mask    = 0x00000000000000FF;
+    uint64_t file_offset : 48; //Max 256 TB
+    uint8_t mantissa; //mantissa * 2^exp + (2^exp-1) is an upper-bound to the uncompressed size
     uint8_t exp : 6;
     bool compressed : 1;
     bool multi_block : 1;
 };
 
+static_assert( sizeof(record_offset_t) == 8, "Structure record_offset_t is not packed." );
+
+
 class CompressedRecordFileReader
 {
 private:
-    static_assert( sizeof(record_offset_t) == 8, "Structure record_offset_t is not packed." );
-
     FILE* fd;
     char* fdmap;
     size_t file_length;
