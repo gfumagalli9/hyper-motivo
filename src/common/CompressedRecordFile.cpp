@@ -83,7 +83,7 @@ void CompressedRecordFileWriter::close()
     if(written_records!=number_of_records)
         throw std::runtime_error("Not all records have been written");
 
-    assert( (position & record_offset_t::file_offset_mask) == 0);
+    assert( (position & ~record_offset_t::file_offset_mask) == 0);
     offsets[number_of_records].file_offset=position & record_offset_t::file_offset_mask;
     offsets[number_of_records].mantissa=0;
     offsets[number_of_records].exp=0;
@@ -99,19 +99,19 @@ void CompressedRecordFileWriter::close()
 
 void CompressedRecordFileWriter::write_record(char *record, uint64_t length, double compress_threshold)
 {
-    assert( (position & record_offset_t::file_offset_mask) == 0);
+    assert( (position & ~record_offset_t::file_offset_mask) == 0);
     offsets[written_records].file_offset=position & record_offset_t::file_offset_mask;
 
     //FIXME: We can do this faster
     offsets[written_records].exp = 0;
     uint64_t mantissa = length;
-    while( mantissa & record_offset_t::mantissa_mask )
+    while( mantissa & ~record_offset_t::mantissa_mask )
     {
         offsets[written_records].exp++;
         mantissa >>= 1;
     }
 
-    assert(mantissa <= std::numeric_limits<uint16_t>::max() );
+    assert(mantissa <= std::numeric_limits<uint8_t>::max() );
     offsets[written_records].mantissa=static_cast<uint8_t>(mantissa);
 
     if(length==0)
