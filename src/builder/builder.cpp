@@ -27,6 +27,8 @@ int main(const int argc, const char** argv)
     OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
     OptionsParser::Option *progress_opt = op.add_option(false, true, "progress", 'P', "0", "Number of processed vertices between progress reports or 0 for no progress reports (default: 0)");
     OptionsParser::Option *store0_opt  = op.add_option(false, false, "store-on-0-colored-vertices-only", '0', "", "Store treelet counts only for the vertices with color 0 (default: false)");
+    OptionsParser::Option *batchsize_opt  = op.add_option(false, true, "thread-batch-size", '\0', "", "Number of vertices processed by each thread at a time (default: auto computed)");
+
 
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
@@ -95,6 +97,20 @@ int main(const int argc, const char** argv)
         if(from_vertex>to_vertex)
             throw std::runtime_error("'from-fertex' and 'to-vertex' options specify an empty range");
 
+        UndirectedGraph::vertex_t batch_size = (to_vertex-from_vertex+1)/(nthreads*100); //Each thread should get ~100 slices
+        if(batch_size<=0)
+            batch_size=1;
+        if(batch_size>1000)
+            batch_size=1000;
+        if(batchsize_opt->is_found())
+        {
+            long bs = std::stol(size_opt->get_value());
+            if(bs<=0 || bs > std::numeric_limits<UndirectedGraph::vertex_t>::max())
+                throw std::runtime_error("Invalid value of option 'thread-batch-size'");
+        }
+        std::cout << "Using a thread batch size of " << batch_size << std::endl;
+
+
         std::unique_ptr<GraphColoring> coloring;
         if(size == 1)
         {
@@ -118,7 +134,7 @@ int main(const int argc, const char** argv)
         std::cout << "Computing counts of treelets of size " << size << " for vertices " << from_vertex << "--"
                   << to_vertex << " using " << nthreads << " worker thread(s)" << std::endl;
 
-        TreeletTableBuilder builder(&G, coloring.get(), static_cast<unsigned  int>(size), ttc.get(), from_vertex, to_vertex, &out, store0_opt->is_found(), nthreads);
+        TreeletTableBuilder builder(&G, coloring.get(), static_cast<unsigned  int>(size), ttc.get(), from_vertex, to_vertex, &out, store0_opt->is_found(), nthreads, batch_size);
 
         int64_t progress = std::stoll(progress_opt->get_value());
         if(progress > 0)

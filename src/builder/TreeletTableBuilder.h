@@ -50,8 +50,8 @@ private:
     const unsigned int number_of_threads;
 
 #ifdef MOTIVO_MULTITHREAD
+    const unsigned int thread_batch_size;
     ConcurrentFIFO< std::pair<char*, std::size_t>* > write_queue;
-    constexpr static const unsigned int thread_batch_size = 1000;
     std::mutex write_mutex;
 
     /// Fills a table for sizes > 1
@@ -81,7 +81,7 @@ private:
 public:
     TreeletTableBuilder(const UndirectedGraph* graph, const GraphColoring* coloring, const unsigned int size,
                         const TreeletTableCollection* lower,  const UndirectedGraph::vertex_t from,
-                        const UndirectedGraph::vertex_t to, std::ostream* output, const bool store_0_only=false, const unsigned int num_threads=1);
+                        const UndirectedGraph::vertex_t to, std::ostream* output, const bool store_0_only=false, const unsigned int num_threads=1, const UndirectedGraph::vertex_t thread_batch_size=1000);
 
     void set_progress_callback(progress_callback_t pc, UndirectedGraph::vertex_t pi)
     {

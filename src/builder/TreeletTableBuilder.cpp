@@ -19,9 +19,10 @@
 
 TreeletTableBuilder::TreeletTableBuilder(const UndirectedGraph* graph, const GraphColoring* coloring, const unsigned int size,
                     const TreeletTableCollection* lower,  const UndirectedGraph::vertex_t from,
-                    const UndirectedGraph::vertex_t to, std::ostream* output, const bool store_0_only, const unsigned int num_threads)
+                    const UndirectedGraph::vertex_t to, std::ostream* output, const bool store_0_only, const unsigned int num_threads,
+                    const UndirectedGraph::vertex_t thread_batch_size)
         :  graph(graph), coloring(coloring), size(size), lower(lower), from(from), to(to), output(output),
-           progress_callback(nullptr), store_0_only(store_0_only), number_of_threads(num_threads)
+           progress_callback(nullptr), store_0_only(store_0_only), number_of_threads(num_threads), thread_batch_size(thread_batch_size)
 #ifdef MOTIVO_MULTITHREAD
         , write_queue(2*num_threads)
 #endif
@@ -32,9 +33,16 @@ TreeletTableBuilder::TreeletTableBuilder(const UndirectedGraph* graph, const Gra
 #ifndef MOTIVO_MULTITHREAD
     if(num_threads!=1)
         throw std::runtime_error("Multithread support is not enabled");
+
+    if(num_threads>1 && thread_batch_size<=0)
+        throw std::runtime_error("Invalid batch size");
 #endif
 
-    //TODO: Check size, and from -- to
+    if(size==0)
+        throw std::runtime_error("Invalid size");
+
+    if(from>to)
+        throw std::runtime_error("Empty range");
 }
 
 void TreeletTableBuilder::build()

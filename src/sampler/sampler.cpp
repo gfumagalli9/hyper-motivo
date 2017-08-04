@@ -4,6 +4,7 @@
 
 #include <new>
 #include <fstream>
+#include <chrono>
 #include "../common/UndirectedGraph.h"
 #include "TreeletSampler.h"
 #include "Occurrence.h"
@@ -17,6 +18,8 @@ void sample [[gnu::hot]] (const UndirectedGraph &G, const TreeletTableCollection
     UndirectedGraph::vertex_t sampled_vertices[16] = {0};
 
     //FIXME: Cache spanning trees count and/or footprints?
+
+    std::chrono::time_point<std::chrono::steady_clock>  tstart = std::chrono::steady_clock::now();
 
     uint64_t sampled=0;
     uint64_t accepted=0;
@@ -87,8 +90,12 @@ void sample [[gnu::hot]] (const UndirectedGraph &G, const TreeletTableCollection
         accepted++;
     }
 
-    std::cerr << "Sampled treelets: " << sampled << std::endl;
-    std::cerr << "Accepted treelets/graphlets: "<< accepted << std::endl;
+
+    std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
+
+    std::cerr << "Sampling time: " << delta_t.count() << "\n";
+    std::cerr << "Sampled treelets: " << sampled << " (" << static_cast<double>(sampled)/delta_t.count() << " occ/s)" << "\n";
+    std::cerr << "Accepted treelets/graphlets: " << accepted<< " (" << static_cast<double>(accepted)/delta_t.count() << " occ/s)" << "\n";
     std::cerr << "Rejected treelets/graphlets: " << sampled - accepted << std::endl;
 }
 
@@ -154,10 +161,14 @@ int main(const int argc, const char** argv)
 
         std::ofstream outfile(output_opt->get_value(), std::ofstream::binary | std::ofstream::trunc);
         UndirectedGraph G(graph_opt->get_value());
+        std::cerr << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
+        std::cerr << "Loading tables and root sampler" << std::endl;
         TreeletTableCollection ttc(input_opt->get_value(), static_cast<unsigned int>(size));
         ttc.load_root_sampler_for(input_opt->get_value(), static_cast<unsigned int>(size));
 
         Random rng(seed_opt->get_value());
+
+        std::cerr << "Sampling..." << std::endl;
 
         sample(G, ttc, static_cast<unsigned int>(size), num_samples, num_accepted, outfile, text_opt->is_found(),
                canonicize_opt->is_found(), graphlets_opt->is_found(), norejection_opt->is_found(), footprints_opt->is_found(),
