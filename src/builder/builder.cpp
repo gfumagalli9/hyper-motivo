@@ -108,7 +108,7 @@ int main(const int argc, const char** argv)
             if(bs<=0 || bs > std::numeric_limits<UndirectedGraph::vertex_t>::max())
                 throw std::runtime_error("Invalid value of option 'thread-batch-size'");
 
-            batch_size=bs;
+            batch_size= static_cast<UndirectedGraph::vertex_t>(bs);
         }
         std::cout << "Using a thread batch size of " << batch_size << std::endl;
 
