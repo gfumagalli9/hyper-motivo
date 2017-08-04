@@ -13,11 +13,17 @@ Motivo depends on the following libraries:
 - [OpenBLAS](http://www.openblas.net/) (or any other BLAS library),
 - [LAPACKE](http://www.netlib.org/lapack/lapacke.html) if not already provided by your blas library,
 - [Nauty](http://pallini.di.uniroma1.it/),
-- [LZ4](https://github.com/lz4/lz4).
+- [LZ4](https://github.com/lz4/lz4),
+- Optional: libtcmalloc from [gperftools](https://github.com/gperftools/gperftools).
 
 Your Linux distribution might have premade packages, i.e., on Debian you can run:
 ~~~~
 # apt-get install lib{sparsehash,openblas,lapacke,nauty2}-dev
+~~~~
+
+And, if you want to use the tcmalloc allocator:
+~~~~
+# apt-get install libgoogle-perftools-dev
 ~~~~
 
 A C++14 aware compiler is required along with support for [u]int{8,16,32,64} types.
@@ -32,6 +38,11 @@ $ mkdir build
 $ cd build
 $ cmake ..
 $ make
+~~~~
+
+If you want to use tcmalloc add the option -DUSE_TCMALLOC=yes to the cmake command line, i.e.:
+~~~~
+cmake -DUSE_TCMALLOC=yes
 ~~~~
 
 If you prefer to build with Clang/LLVM (and your default compiler is different) use:

@@ -97,7 +97,7 @@ int main(const int argc, const char** argv)
         if(from_vertex>to_vertex)
             throw std::runtime_error("'from-fertex' and 'to-vertex' options specify an empty range");
 
-        UndirectedGraph::vertex_t batch_size = (to_vertex-from_vertex+1)/(nthreads*100); //Each thread should get ~100 slices
+        UndirectedGraph::vertex_t batch_size = (to_vertex-from_vertex+1)/(nthreads*1000); //Each thread should get ~1000 slices
         if(batch_size<=0)
             batch_size=1;
         if(batch_size>1000)
