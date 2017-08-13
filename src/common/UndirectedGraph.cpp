@@ -23,11 +23,11 @@ UndirectedGraph::UndirectedGraph(const std::string &basename)
 
     fread(&num_verts, sizeof(vertex_t), 1, offsets_fd);
     fread(&num_edges, sizeof(vertex_t), 1, offsets_fd); //FIXME: use own type?
-    offsets = static_cast<char*>(motivo_mmap((num_verts+2)*sizeof(vertex_t), PROT_READ, fileno(offsets_fd)));
+    offsets = static_cast<char*>(motivo_mmap_populate((num_verts + 2) * sizeof(vertex_t), PROT_READ, fileno(offsets_fd)));
     assert(offsets!=MAP_FAILED);
     offsets += 2*sizeof(vertex_t);
 
-    edges = static_cast<char*>(motivo_mmap(2*num_edges*sizeof(vertex_t), PROT_READ, fileno(edges_fd)));
+    edges = static_cast<char*>(motivo_mmap_populate(2 * num_edges * sizeof(vertex_t), PROT_READ, fileno(edges_fd)));
     assert(edges!=MAP_FAILED);
 }
 

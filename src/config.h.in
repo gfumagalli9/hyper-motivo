@@ -29,4 +29,6 @@
 
 #cmakedefine MOTIVO_MAY_ALIAS
 
+#define MOTIVO_ARG_MAX 4096
+
 #endif //MOTIVO_CONFIG_H

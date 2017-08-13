@@ -27,7 +27,6 @@ public:
 
     static_assert( sizeof(treelet_count_pair) ==  sizeof(Treelet) + sizeof(treelet_count_t), "treelet_count_pair is not packed" );
 
-private:
     struct [[gnu::packed]]
 #ifdef MOTIVO_MAY_ALIAS
             [[gnu::may_alias]]
@@ -41,7 +40,11 @@ private:
     static_assert( alignof(treelet_count_pair_maybe_alias) == 1, "treelet_count_pair_maybe_alias is not 1-byte aligned" );
     static_assert( sizeof(treelet_count_pair_maybe_alias) ==  sizeof(Treelet) + sizeof(treelet_count_t), "treelet_count_pair_maybe_alias is not packed" );
 
-public:
+#ifdef MOTIVO_MAY_ALIAS
+    static constexpr const bool may_alias = true;
+#else
+    static constexpr const bool may_alias = false;
+#endif
 
     class const_iterator
     {
@@ -49,16 +52,16 @@ public:
 
     private:
         bool owner = true; //who owns the record?
-        CompressedRecord<treelet_count_pair_maybe_alias> record;
+        Record<const treelet_count_pair_maybe_alias> record;
         const treelet_count_pair_maybe_alias* position;
-        const_iterator(CompressedRecord<treelet_count_pair_maybe_alias> record) : record(record)
+        const_iterator(Record<const treelet_count_pair_maybe_alias> record) : record(record)
         {
             position=record.begin();
             if(position)
                 position++;
         }
 
-        const_iterator(CompressedRecord<treelet_count_pair_maybe_alias> record, const treelet_count_pair_maybe_alias* position) : record(record), position(position) {};
+        const_iterator(Record<const treelet_count_pair_maybe_alias> record, const treelet_count_pair_maybe_alias* position) : record(record), position(position) {};
 
     public:
         const_iterator(const_iterator&) = delete; //copy constructor
@@ -75,7 +78,7 @@ public:
 
 private:
     UndirectedGraph::vertex_t num_vertices;
-    CompressedRecordFileReader reader;
+    BaseRecordSource<const treelet_count_pair_maybe_alias>* reader;
     AliasMethodSampler<UndirectedGraph::vertex_t, treelet_count_t>* root_sampler;
 
     static const TreeletTable::treelet_count_pair_maybe_alias* treelet_upper_bound(const TreeletTable::treelet_count_pair_maybe_alias *begin, const TreeletTable::treelet_count_pair_maybe_alias *end, const Treelet &treelet);
@@ -86,12 +89,15 @@ private:
 
 public:
     ///Loads a table stored with the given @param basename.
-    TreeletTable(const std::string& filename);
+    TreeletTable(BaseRecordSource<const treelet_count_pair_maybe_alias>* record_sorce);
 
     ~TreeletTable();
 
     ///Loads the associated root sampler
     void load_root_sampler(const std::string& filename);
+
+    ///@returns the number of vertices written in the table
+    UndirectedGraph::vertex_t number_of_vertices() { return num_vertices; };
 
     ///@returns a root r chosen at random with probability proportional to the number of treelets rooted in r
     ///the associated root sampler must be loaded
@@ -101,14 +107,14 @@ public:
     const Treelet get_random_treelet(UndirectedGraph::vertex_t root, Random *rng);
 
     ///@returns the number of occurrences of @param treelet rooted in @param u, as stored in the table.
-    treelet_count_t get_count(const UndirectedGraph::vertex_t u, const Treelet treelet);
+    treelet_count_t get_count(const UndirectedGraph::vertex_t u, const Treelet treelet) const;
 
     ///@returns a costant iterator that iterates through all the stored treelets for vertex @param u.
     ///The iterator initially points to the first treelet of @param u.
     inline const_iterator begin(const UndirectedGraph::vertex_t u)
     {
         assert(u<num_vertices);
-        return TreeletTable::const_iterator(reader.get_record<treelet_count_pair_maybe_alias, true>(u));
+        return TreeletTable::const_iterator(reader->get_record(u));
     }
 
     const_iterator begin(const UndirectedGraph::vertex_t u, const Treelet treelet);

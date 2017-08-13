@@ -8,128 +8,102 @@
 #include <utility>
 #include <cstdint>
 #include <string>
-#include <lz4.h>
 #include <limits>
 #include <cstring>
 #include <cassert>
 #include <stdexcept>
+#include "RecordCompressor.h"
+#include "BaseRecordSource.h"
+#include "../platform/platform.h"
 
-static_assert(LZ4_COMPRESSBOUND(LZ4_MAX_INPUT_SIZE) <= std::numeric_limits<int>::max(), "LZ4_COMPRESSBOUND(LZ4_MAX_INPUT_SIZE) does not fit in a int");
-static_assert(LZ4_MAX_INPUT_SIZE <= std::numeric_limits<int>::max(), "LZ4_MAX_INPUT_SIZE does not fit in a int");
-
-constexpr uint32_t MAX_BLOCK_SIZE = (LZ4_MAX_INPUT_SIZE<=std::numeric_limits<uint32_t>::max())?LZ4_MAX_INPUT_SIZE:std::numeric_limits<uint32_t>::max();
-
-template<typename T> class CompressedRecord
+template<typename T, bool RAW> class CompressedRecordFileReader : public BaseRecordSource<T>
 {
 private:
-    T* ptr;
-    const uint64_t len;
-    const bool needs_free;
-
-public:
-    CompressedRecord(T* ptr, uint64_t len, bool needs_free=true) noexcept : ptr(ptr), len(len), needs_free(needs_free) {}
-
-    uint64_t length() const noexcept { return len; }
-    const T* begin() const noexcept { return ptr; }
-    const T* end() const noexcept { return ptr+len; }
-    void free() { if(needs_free && ptr) delete[] ptr; ptr=nullptr; }
-};
-
-struct [[gnu::packed]] record_offset_t
-{
-    static constexpr uint64_t file_offset_mask = 0x0000FFFFFFFFFFFF;
-    static constexpr uint64_t mantissa_mask    = 0x00000000000000FF;
-    uint64_t file_offset : 48; //Max 256 TB
-    uint8_t mantissa; //mantissa * 2^exp + (2^exp-1) is an upper-bound to the uncompressed size
-    uint8_t exp : 6;
-    bool compressed : 1;
-    bool multi_block : 1;
-};
-
-static_assert( sizeof(record_offset_t) == 8, "Structure record_offset_t is not packed." );
-
-
-class CompressedRecordFileReader
-{
-private:
-    FILE* fd;
+    FILE* fd = nullptr;
     char* fdmap;
     size_t file_length;
     uint64_t num_of_records;
     char* offsets;
 
-    uint64_t dictionary_size;
-    char* dictionary;
-
 public:
-    CompressedRecordFileReader(const std::string& filename);
-    ~CompressedRecordFileReader();
+    CompressedRecordFileReader() = default;
+    CompressedRecordFileReader(const std::string& filename)
+    {
+        open(filename);
+    }
 
-    uint64_t number_of_records() const { return num_of_records; }
-    void close();
+    ~CompressedRecordFileReader()
+    {
+        if(fd != nullptr)
+            close();
+    }
+
+    void open(const std::string &filename)
+    {
+        //Open file
+        if(fd != nullptr)
+            throw std::runtime_error("A file is already open");
+
+        fd = fopen(filename.c_str(), "rb" );
+        if(fd == NULL)
+        {
+            fd = nullptr;
+            throw std::runtime_error("Could not open file " + filename);
+        }
+
+        //Map file
+        fseek(fd, 0, SEEK_END);
+        file_length = static_cast<size_t>(ftello(fd)); //FIXME: Check for errors
+        fdmap = static_cast<char*>(motivo_mmap(file_length, PROT_READ, fileno(fd)));
+        assert(fdmap!=MAP_FAILED);
 
 
-    template<typename T, bool RAW> CompressedRecord<T> get_record(const uint64_t record_no)
+        //Read number of records and set up offsets pointer
+        memcpy(&num_of_records, this->fdmap, sizeof(uint64_t));
+        offsets = fdmap + sizeof(uint64_t);
+        motivo_prefault(0, sizeof(uint64_t)*(num_of_records + 1), fileno(fd));
+    }
+
+    uint64_t number_of_records() { return num_of_records; }
+
+    void prefault(const uint64_t from, const uint64_t to)
+    {
+        record_offset_t from_offset,to_offset;
+        memcpy(&from_offset, offsets + from*sizeof(record_offset_t), sizeof(record_offset_t));
+        memcpy(&to_offset, offsets + (to+1)*sizeof(record_offset_t), sizeof(record_offset_t));
+
+        motivo_prefault(from_offset.file_offset, to_offset.file_offset-from_offset.file_offset, fileno(fd));
+    }
+
+    void close()
+    {
+        motivo_munmap(fdmap, file_length);
+        fclose(fd);
+        fd = nullptr;
+    }
+
+
+    Record<const char> get_raw(const uint64_t record_no)
     {
         record_offset_t offset,next_offset;
         memcpy(&offset, offsets + record_no*sizeof(record_offset_t), sizeof(record_offset_t));
         memcpy(&next_offset, offsets + (record_no+1)*sizeof(record_offset_t), sizeof(record_offset_t));
-        const uint64_t record_length = next_offset.file_offset - offset.file_offset;
 
-        if (record_length == 0)
-            return CompressedRecord<T>(nullptr, 0);
-
-        if (!offset.compressed)
-        {
-            assert(record_length%sizeof(T)==0);
-
-            static_assert(!RAW || alignof(T)==1, "Raw read allowed but type is not 1-byte aligned");
-            if(RAW)
-                return CompressedRecord<T>(reinterpret_cast<T*>(fdmap+offset.file_offset), record_length/sizeof(T), false);
-
-            T* buffer = new T[record_length/sizeof(T)];
-            memcpy(buffer, fdmap+offset.file_offset, record_length);
-            return CompressedRecord<T>(buffer, record_length/sizeof(T));
-        }
-
-        unsigned int mul = 1u << offset.exp;
-        uint64_t uncompressed_size_ub = static_cast<uint64_t>(offset.mantissa) * mul + (mul - 1);
-        uncompressed_size_ub -= uncompressed_size_ub%sizeof(T);
-        assert(uncompressed_size_ub>0);
-
-        T* buffer = new T[uncompressed_size_ub/sizeof(T)];
-        LZ4_streamDecode_t decoder;
-        LZ4_setStreamDecode(&decoder, dictionary, static_cast<int>(dictionary_size));
-
-        uint64_t decompressed_bytes = 0;
-        if (offset.multi_block)
-        {
-            uint64_t position = offset.file_offset;
-            while(position-offset.file_offset<record_length)
-            {
-                uint32_t next_compressed_block_length;
-                memcpy(&next_compressed_block_length, fdmap + position, sizeof(uint32_t));
-                position += sizeof(uint32_t);
-
-                const int next_uncompressed_block_length_ub = (uncompressed_size_ub-decompressed_bytes<=MAX_BLOCK_SIZE)?static_cast<int>(uncompressed_size_ub-decompressed_bytes):static_cast<int>(MAX_BLOCK_SIZE);
-                int r = LZ4_decompress_safe_continue(&decoder, fdmap + position, reinterpret_cast<char*>(buffer)+decompressed_bytes, static_cast<int>(next_compressed_block_length), next_uncompressed_block_length_ub);
-                assert(r>0);
-                decompressed_bytes += static_cast<unsigned int>(r);
-                position += next_compressed_block_length;
-            }
-        }
-        else
-        {
-            assert(record_length<=MAX_BLOCK_SIZE);
-            int r = LZ4_decompress_safe_continue(&decoder, fdmap + offset.file_offset, reinterpret_cast<char*>(buffer), static_cast<int>(record_length), static_cast<int>(uncompressed_size_ub));
-            assert(r>0);
-            decompressed_bytes = static_cast<unsigned int>(r);
-        }
-
-        assert(decompressed_bytes%sizeof(T)==0);
-        return CompressedRecord<T>(buffer, decompressed_bytes/sizeof(T));
+        return Record<const char>(fdmap+offset.file_offset, next_offset.file_offset - offset.file_offset, nullptr);
     }
 
+    Record<T> get_record(const uint64_t record_no) const
+    {
+        record_offset_t offset,next_offset;
+        memcpy(&offset, offsets + record_no*sizeof(record_offset_t), sizeof(record_offset_t));
+        memcpy(&next_offset, offsets + (record_no+1)*sizeof(record_offset_t), sizeof(record_offset_t));
+
+        RecordCompressor::decompress_result_t<T> result = RecordCompressor::decompress<T, RAW>(fdmap+offset.file_offset, next_offset.file_offset - offset.file_offset);
+        if(result.allocated)
+            return Record<T>(result.ptr, result.len, reinterpret_cast<const char*>(result.ptr));
+        else
+            return Record<T>(result.ptr, result.len, nullptr);
+    }
 };
 
 
@@ -145,12 +119,6 @@ private:
     uint64_t bytes_compressed;
     uint64_t bytes_uncompressed;
 
-    LZ4_stream_t encoder;
-
-    static constexpr int WANTED_DICTIONARY_SIZE = (65536<=std::numeric_limits<int>::max())?65536:std::numeric_limits<int>::max(); //64K
-    uint64_t dictionary_size;
-    char* dictionary;
-
 public:
     CompressedRecordFileWriter(const std::string &filename, const uint64_t num_records);
     ~CompressedRecordFileWriter();
@@ -158,7 +126,6 @@ public:
     uint64_t get_compressed_size() const { return bytes_compressed; }
     uint64_t get_uncompressed_size() const { return bytes_uncompressed; }
 
-    uint64_t create_dictionary(char* data, uint64_t length);
     void write_record(char* record, uint64_t length, double compress_threshold=1);
     void close();
 };

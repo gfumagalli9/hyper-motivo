@@ -91,7 +91,7 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
         assert(size>=0);
         assert(static_cast<std::make_unsigned<off_t>::type>(size) <= std::numeric_limits<size_t>::max());
         cnt_map[i].second =  static_cast<size_t>(size);
-        cnt_map[i].first = static_cast<char*>(motivo_mmap(cnt_map[i].second, PROT_READ, fileno(count_files[i])));
+        cnt_map[i].first = static_cast<char*>(motivo_mmap_populate(cnt_map[i].second, PROT_READ, fileno(count_files[i])));
 
         if(cnt_map[i].first == MAP_FAILED)
             throw std::runtime_error("Error while processing " + filename + ": cannot mmap file");
@@ -151,7 +151,6 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
 
     std::string output_filename = output_basename + ".dtz";
     CompressedRecordFileWriter writer(output_filename, num_vertices);
-    writer.create_dictionary(nullptr, 0);
 
     AliasMethodSampler<UndirectedGraph::vertex_t, TreeletTable::treelet_count_t> alias_sampler(num_vertices);
 

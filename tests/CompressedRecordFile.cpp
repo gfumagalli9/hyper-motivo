@@ -8,7 +8,6 @@
 #include "doctest.h"
 #include "../src/common/CompressedRecordFile.h"
 #include "../src/common/Random.h"
-#include <lz4.h>
 
 void test(const uint64_t data_size, const unsigned int nrecords, const bool random)
 {
@@ -19,7 +18,6 @@ void test(const uint64_t data_size, const unsigned int nrecords, const bool rand
         data[i] = random?static_cast<char>(r.random_uint<short>(0, 255)):static_cast<char>(i%256);
 
     CompressedRecordFileWriter writer("compressedfile.test", nrecords);
-    std::cout << "Dictionary size: " << writer.create_dictionary(data, (data_size>1024*1024)?(1024*1024):data_size) << std::endl;
 
     std::chrono::time_point<std::chrono::steady_clock>  tstart = std::chrono::steady_clock::now();
     for (uint64_t i = 0; i < nrecords; i++)
@@ -31,11 +29,11 @@ void test(const uint64_t data_size, const unsigned int nrecords, const bool rand
               << static_cast<double>(writer.get_compressed_size())/static_cast<double>(writer.get_uncompressed_size()) << "\n"
               << "Compress speed: " << static_cast<double>(data_size)/(1024*1024*delta_t.count()) << "MiB/s" << std::endl;
 
-    CompressedRecordFileReader reader("compressedfile.test");
+    CompressedRecordFileReader<const char, true> reader("compressedfile.test");
     tstart = std::chrono::steady_clock::now();
     for(uint64_t i=1; i<=nrecords; i++)
     {
-        CompressedRecord<char> result = reader.get_record<char, true>(nrecords-i);
+        Record<const char> result = reader.get_record(nrecords-i);
         result.free();
     }
     delta_t = std::chrono::steady_clock::now() - tstart;
@@ -44,7 +42,7 @@ void test(const uint64_t data_size, const unsigned int nrecords, const bool rand
 
     for(uint64_t i=0; i<nrecords; i++)
     {
-        CompressedRecord<char> result = reader.get_record<char,true>(i);
+        Record<const char> result = reader.get_record(i);
         CHECK( result.length() == data_size/nrecords );
         CHECK( memcmp( result.begin(), data+i*(data_size/nrecords), data_size/nrecords ) == 0 );
         result.free();
@@ -54,6 +52,12 @@ void test(const uint64_t data_size, const unsigned int nrecords, const bool rand
     delete[] data;
     std::remove("compressedfile.test");
 }
+
+TEST_CASE("CompressedRecordFile One")
+{
+    test(1024L * 1024, 1, false); //1MB, 1 record
+}
+
 
 TEST_CASE("CompressedRecordFile")
 {

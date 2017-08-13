@@ -116,7 +116,9 @@ inline int leftmost_bit_tie0 [[gnu::pure, gnu::flatten]] (uint32_t x) { return l
 inline int leftmost_bit_tie [[gnu::pure, gnu::flatten]] (uint32_t x) { return leftmost_bit_tie1((x>>31)?x:~x); }
 
 ///wraps mmap
+void* motivo_mmap_populate(size_t length, int prot, int fd);
 void* motivo_mmap(size_t length, int prot, int fd);
+void motivo_prefault(off_t off, size_t length, int fd);
 
 //wraps munmap
 int motivo_munmap(void* addr, size_t length);
