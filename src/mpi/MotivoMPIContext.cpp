@@ -17,25 +17,29 @@ MotivoMPIContext::MotivoMPIContext()
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    masters = new int[size];
     tableservers = new int[size];
-    builders = new int[size];
+    master_builders = new int[size];
+    slave_builders = new int[size];
+    master_samplers = new int[size];
+    slave_samplers = new int[size];
     unknown = new int[size];
 }
 
 MotivoMPIContext::~MotivoMPIContext()
 {
-    delete[] masters;
     delete[] tableservers;
-    delete[] builders;
+    delete[] master_builders;
+    delete[] slave_builders;
+    delete[] master_samplers;
+    delete[] slave_samplers;
     delete[] unknown;
 }
 
 int MotivoMPIContext::hello(int type)
 {
-    nmasters=0;
+    nmasterbulders=0;
     ntableservers=0;
-    nbuilders=0;
+    nslavebuilders=0;
     nunknown=0;
 
     int* participants = new int[size];
@@ -47,12 +51,16 @@ int MotivoMPIContext::hello(int type)
         if(participants[i]==type && i<=rank)
             type_rank++;
 
-        if(participants[i]==protocol::PARTICIPANT_BUILDER_MASTER)
-            masters[nmasters++]=i;
-        else if(participants[i]==protocol::PARTICIPANT_TABLESERVER)
+        if(participants[i]==protocol::PARTICIPANT_TABLESERVER)
             tableservers[ntableservers++]=i;
-        else if(participants[i]==protocol::PARTICIPANT_BUILDER_SLAVE)
-            builders[nbuilders++]=i;
+        else if(participants[i]==protocol::PARTICIPANT_MASTER_BUILDER)
+            master_builders[nmasterbulders++]=i;
+        else if(participants[i]==protocol::PARTICIPANT_SLAVE_BUILDER)
+            slave_builders[nslavebuilders++]=i;
+        else if(participants[i]==protocol::PARTICIPANT_MASTER_SAMPLER)
+            master_samplers[nmastersamplers++]=i;
+        else if(participants[i]==protocol::PARTICIPANT_SLAVE_SAMPLER)
+            slave_samplers[nslavesamplers++]=i;
         else
             unknown[nunknown++]=i;
     }

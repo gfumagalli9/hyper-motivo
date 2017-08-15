@@ -13,14 +13,18 @@ private:
     int rank;
     int size;
 
-    unsigned int nmasters = 0;
     unsigned int ntableservers = 0;
-    unsigned int nbuilders = 0;
+    unsigned int nmasterbulders = 0;
+    unsigned int nslavebuilders = 0;
+    unsigned int nmastersamplers = 0;
+    unsigned int nslavesamplers = 0;
     unsigned int nunknown = 0;
 
-    int *masters;
     int *tableservers;
-    int *builders;
+    int *master_builders;
+    int *slave_builders;
+    int *master_samplers;
+    int *slave_samplers;
     int *unknown;
 
     std::mutex mutex;
@@ -36,14 +40,18 @@ public:
     int world_rank() const { return rank; }
     int world_size() const { return size; }
 
-    unsigned int number_of_masters() const { return nmasters; }
     unsigned int number_of_tableservers() const { return ntableservers; }
-    unsigned int number_of_builders() const { return nbuilders; }
+    unsigned int number_of_master_builders() const { return nmasterbulders; }
+    unsigned int number_of_slave_builders() const { return nslavebuilders; }
+    unsigned int number_of_master_samplers() const { return nmastersamplers; }
+    unsigned int number_of_slave_samplers() const { return nslavesamplers; }
     unsigned int number_of_unknown() const { return nunknown; }
 
-    const int* master_ranks() const { return masters; }
-    const int* tableserver_ranks() const { return tableservers; }
-    const int* builder_ranks() const { return builders; }
+    const int* tableservers_ranks() const { return tableservers; }
+    const int* master_bulders_ranks() const { return master_builders; }
+    const int* slave_builders_ranks() const { return slave_builders; }
+    const int* master_samplers_ranks() const { return master_samplers; }
+    const int* slave_samplers_ranks() const { return slave_samplers; }
     const int* unknown_ranks() const { return unknown; }
 
     MotivoMPIContext();

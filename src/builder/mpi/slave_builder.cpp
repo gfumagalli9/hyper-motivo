@@ -4,14 +4,12 @@
 
 #include <iostream>
 #include <mpi.h>
-#include "../builder_opts.h"
+#include "../builder.h"
 #include "../../mpi/protocol.h"
 #include "../../mpi/MotivoMPIContext.h"
 #include "../../common/TreeletTableCollection.h"
 #include "../../mpi/MPISequencer.h"
 #include "../TreeletTableBuilder.h"
-
-builder_opts opts;
 
 int main(const int argc, const char** argv)
 {
@@ -24,21 +22,23 @@ int main(const int argc, const char** argv)
         MPI_Abort(MPI_COMM_WORLD, 255);
 
     MotivoMPIContext context;
-    int builder_rank = context.hello(protocol::PARTICIPANT_BUILDER_SLAVE);
-    unsigned int builder_size = context.number_of_builders();
+    int builder_rank = context.hello(protocol::PARTICIPANT_SLAVE_BUILDER);
+    unsigned int builder_size = context.number_of_slave_builders();
     std::cout << "I am builder with rank " << builder_rank << " out of " << builder_size << " builders" << "\n";
     std::cout << "I am process with rank " << context.world_rank() << " out of " << context.world_size() << " processes" << std::endl;
 
-    if(context.number_of_masters()!=1)
+    if(context.number_of_master_builders()!=1)
         MPI_Abort(MPI_COMM_WORLD, 2);
 
-    int master_rank = context.master_ranks()[0];
+    int master_rank = context.master_bulders_ranks()[0];
     MPI_Status status;
+    builder_opts opts;
     MPI_Recv(&opts, sizeof(builder_opts), MPI_BYTE, master_rank, protocol::MSG_BUILDER_ARGS, MPI_COMM_WORLD, &status);
 
     try
     {
         UndirectedGraph G(opts.graph);
+        G.prefault();
         std::cout << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
 
         std::cout << "Using a thread batch size of " << opts.batch_size << std::endl;

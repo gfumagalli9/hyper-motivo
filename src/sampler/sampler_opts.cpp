@@ -5,8 +5,14 @@
 #include <iostream>
 #include <limits>
 #include <cstring>
+#include <chrono>
+#include <new>
 #include "sampler_opts.h"
 #include "../common/OptionsParser.h"
+#include "../common/UndirectedGraph.h"
+#include "../common/TreeletTableCollection.h"
+#include "TreeletSampler.h"
+#include "Occurrence.h"
 
 bool parse_sampler_args(const int argc, const char **argv, const std::string &name, sampler_opts *opts)
 {
@@ -78,7 +84,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
 
     if(output_opt->get_value().size()>=MOTIVO_ARG_MAX)
         throw std::runtime_error("'output' option is too long");
-    strcpy(opts->output,output_opt->get_value().c_str());
+    strcpy(opts->output_basename,output_opt->get_value().c_str());
 
     if(seed_opt->get_value().length()>=MOTIVO_ARG_MAX)
         throw std::runtime_error("'seed' option is too long");

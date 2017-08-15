@@ -19,25 +19,29 @@ public:
 private:
     vertex_t num_verts;
     uint32_t num_edges;
-    FILE* offsets_fd;
-    FILE* edges_fd;
-    char* offsets;
-    char* edges;
+    FILE *offsets_fd;
+    FILE *edges_fd;
+    char *offsets;
+    char *edges;
 
-    UndirectedGraph(const UndirectedGraph&) = delete;
-    void operator=(const UndirectedGraph&) = delete;
+    UndirectedGraph(const UndirectedGraph &) = delete;
+
+    void operator=(const UndirectedGraph &) = delete;
 
 private:
-    char* offset_of(const vertex_t v, vertex_t i=0) const
+    char *offset_of(const vertex_t v, vertex_t i = 0) const
     {
         uint32_t offset;
-        memcpy(&offset, offsets+sizeof(uint32_t)*static_cast<uint64_t>(v), sizeof(uint32_t));
-        return edges + static_cast<uint64_t>(offset+i)*sizeof(vertex_t);
+        memcpy(&offset, offsets + sizeof(uint32_t) * static_cast<uint64_t>(v), sizeof(uint32_t));
+        return edges + static_cast<uint64_t>(offset + i) * sizeof(vertex_t);
     }
 
 public:
-    UndirectedGraph(const std::string& filename);
+    UndirectedGraph(const std::string &filename);
+
     ~UndirectedGraph();
+
+    void prefault();
 
     ///@returns the number of vertices of the graph
     vertex_t number_of_vertices() const { return num_verts; };

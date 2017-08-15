@@ -41,6 +41,8 @@ void loop(CompressedRecordFileReader<const char, true>* const readers)
 
 int main(int argc, char* argv[])
 {
+    std::cout << "This is motivo-tableserver. Version: " << MOTIVO_VERSION_STRING << std::endl;
+
     MPI_Init(&argc, &argv);
 
     MotivoMPIContext context;
@@ -48,14 +50,17 @@ int main(int argc, char* argv[])
     assert(server_rank>=0);
     unsigned int server_size = context.number_of_tableservers();
     assert(server_size>=1);
-    std::cout << "I am server with rank " << server_rank << " out of " << server_size << " servers" << "\n";
+    std::cout << "I am table server with rank " << server_rank << " out of " << server_size << " table servers" << "\n";
     std::cout << "I am process with rank " << context.world_rank() << " out of " << context.world_size() << " processes" << std::endl;
 
+    if( context.number_of_master_builders() + context.number_of_master_samplers() != 1 )
+        MPI_Abort(MPI_COMM_WORLD, 2);
 
     protocol::tableserver_args_t tableserver_args;
-    int master_rank = context.master_ranks()[0];
+    int master_rank = (context.number_of_master_builders()!=0)?context.master_bulders_ranks()[0]:context.master_samplers_ranks()[0];
+
     MPI_Status status;
-    MPI_Recv(&tableserver_args, sizeof(protocol::tableserver_args_t), MPI_BYTE, master_rank,protocol::MSG_TABLESERVER_ARGS, MPI_COMM_WORLD, &status);
+    MPI_Recv(&tableserver_args, sizeof(protocol::tableserver_args_t), MPI_BYTE, master_rank, protocol::MSG_TABLESERVER_ARGS, MPI_COMM_WORLD, &status);
 
     CompressedRecordFileReader<const char, true>* readers = new CompressedRecordFileReader<const char, true>[tableserver_args.size];
     for(unsigned int i=0; i<tableserver_args.size; i++)

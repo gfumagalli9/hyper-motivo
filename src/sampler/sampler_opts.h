@@ -8,6 +8,9 @@
 #include <config.h>
 #include <cstdint>
 #include <string>
+#include "../common/Random.h"
+#include "../common/UndirectedGraph.h"
+#include "../common/TreeletTableCollection.h"
 
 struct sampler_opts
 {
@@ -16,7 +19,7 @@ struct sampler_opts
     uint64_t number_of_samples;
     uint64_t number_of_accepted_samples;
     char tables_basename[MOTIVO_ARG_MAX];
-    char output[MOTIVO_ARG_MAX];
+    char output_basename[MOTIVO_ARG_MAX];
     bool text;
     bool canonicize;
     bool graphlets;
@@ -24,7 +27,7 @@ struct sampler_opts
     bool footprints;
     bool spanning_trees;
     bool vertices;
-    char seed[];
+    char seed[MOTIVO_ARG_MAX];
 };
 
 bool parse_sampler_args(const int argc, const char **argv, const std::string &name, sampler_opts *opts);

@@ -27,7 +27,7 @@ private:
 private:
     int get_server_rank(const uint64_t record_no) const
     {
-        return context->tableserver_ranks()[record_no/records_per_server];
+        return context->tableservers_ranks()[record_no/records_per_server];
     }
 
 public:

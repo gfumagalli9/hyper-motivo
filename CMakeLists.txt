@@ -97,8 +97,8 @@ include_directories(${CMAKE_BINARY_DIR})
 
 set(COMMON_SOURCE_FILES src/common/UndirectedGraph.cpp src/common/UndirectedGraph.h src/common/Treelet.h src/common/GraphColoring.cpp src/common/GraphColoring.h src/common/Random.h src/common/Treelet.cpp src/common/TreeletTableCollection.cpp src/common/TreeletTableCollection.h src/common/TreeletTable.cpp src/common/TreeletTable.h src/platform/platform.h src/platform/platform.cpp src/common/AliasMethodSampler.h src/common/OptionsParser.cpp src/common/OptionsParser.h src/common/Random.cpp src/common/CompressedRecordFile.cpp src/common/CompressedRecordFile.h src/common/RecordCompressor.cpp src/common/RecordCompressor.h  src/common/BaseRecordSource.h)
 set(MERGER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/merger/merger.cpp)
-set(BUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/builder/TreeletTableBuilder.cpp src/builder/TreeletTableBuilder.h src/builder/ConcurrentFIFO.h src/builder/builder.cpp src/builder/SpookyHash.h src/builder/SpookyHash.cpp src/builder/BaseSequencer.h src/builder/StaticSequencer.h src/builder/builder_opts.cpp src/builder/builder_opts.h)
-set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp src/sampler/TreeletSampler.h src/sampler/sampler.cpp src/sampler/include_nauty.h src/sampler/Occurrence.cpp src/sampler/Occurrence.h src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp)
+set(BUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/builder/TreeletTableBuilder.cpp src/builder/TreeletTableBuilder.h src/builder/ConcurrentFIFO.h src/builder/builder_main.cpp src/builder/SpookyHash.h src/builder/SpookyHash.cpp src/builder/BaseSequencer.h src/builder/StaticSequencer.h src/builder/builder.cpp src/builder/builder.h)
+set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp src/sampler/TreeletSampler.h src/sampler/sampler_main.cpp src/sampler/include_nauty.h src/sampler/Occurrence.cpp src/sampler/Occurrence.h src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp src/sampler/sampler_impl.cpp src/sampler/sampler_impl.h)
 set(GRAPH_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/graph.cpp)
 set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp tests/Treelet.cpp tests/Occurrence.cpp src/sampler/Occurrence.cpp src/sampler/Occurrence.h tests/leftmost_bit_tie.cpp tests/CompressedRecordFile.cpp)
 
@@ -207,33 +207,43 @@ target_link_libraries(motivo-tests ${TEST_LIBRARIES})
 
 
 
-find_package(MPI REQUIRED)
+find_package(MPI)
 
-set(COMMON_MPI_SOURCE_FILES src/mpi/protocol.h src/mpi/MotivoMPIContext.h src/mpi/MotivoMPIContext.cpp src/mpi/MPISequencer.h src/mpi/MPIRemoteCompressedRecordFile.h src/mpi/MPIRemoteCompressedRecordFile.cpp)
+if(MPI_FOUND)
+    set(COMMON_MPI_SOURCE_FILES src/mpi/protocol.h src/mpi/MotivoMPIContext.h src/mpi/MotivoMPIContext.cpp src/mpi/MPISequencer.h src/mpi/MPIRemoteCompressedRecordFile.h src/mpi/MPIRemoteCompressedRecordFile.cpp)
 
-set(TABLESERVER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/mpi/tableserver.cpp )
-set(MASTERBUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/builder/mpi/master_builder.cpp src/builder/builder_opts.h src/builder/builder_opts.cpp src/builder/BaseSequencer.h src/builder/StaticSequencer.h)
-set(SLAVEBUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/builder/mpi/slave_builder.cpp src/builder/builder_opts.h src/builder/builder_opts.cpp src/builder/BaseSequencer.h src/builder/TreeletTableBuilder.h src/builder/TreeletTableBuilder.cpp src/builder/SpookyHash.h src/builder/SpookyHash.cpp)
-
-set(TABLESERVER_LIBRARIES ${COMMON_LIBRARIES} ${MPI_LIBRARIES})
-set(MASTERBUILDER_LIBRARIES  ${COMMON_LIBRARIES} ${MPI_LIBRARIES})
-set(SLAVEBUILDER_LIBRARIES  ${COMMON_LIBRARIES} ${MPI_LIBRARIES})
-
-add_executable(motivo-tableserver ${TABLESERVER_SOURCE_FILES})
-add_executable(motivo-build-master ${MASTERBUILDER_SOURCE_FILES})
-add_executable(motivo-build-slave ${SLAVEBUILDER_SOURCE_FILES})
-
-target_link_libraries(motivo-tableserver ${TABLESERVER_LIBRARIES})
-target_link_libraries(motivo-build-master ${MASTERBUILDER_LIBRARIES})
-target_link_libraries(motivo-build-slave ${SLAVEBUILDER_LIBRARIES})
-
-include_directories(SYSTEM ${MPI_INCLUDE_PATH})
-set_target_properties(motivo-tableserver PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
-set_target_properties(motivo-build-master  PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
-
-set_target_properties(motivo-build-master PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
+    set(TABLESERVER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/mpi/tableserver.cpp )
+    set(MASTERBUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/builder/mpi/master_builder.cpp src/builder/builder.h src/builder/builder.cpp src/builder/BaseSequencer.h src/builder/StaticSequencer.h)
+    set(SLAVEBUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/builder/mpi/slave_builder.cpp src/builder/builder.h src/builder/builder.cpp src/builder/BaseSequencer.h src/builder/TreeletTableBuilder.h src/builder/TreeletTableBuilder.cpp src/builder/SpookyHash.h src/builder/SpookyHash.cpp)
+    set(MASTERSAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/sampler/mpi/master_sampler.cpp src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp)
+    set(SLAVESAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/sampler/mpi/slave_sampler.cpp src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp src/sampler/sampler_impl.h src/sampler/sampler_impl.cpp src/sampler/Occurrence.h src/sampler/Occurrence.cpp src/sampler/TreeletSampler.h src/sampler/TreeletSampler.cpp)
 
 
+    set(TABLESERVER_LIBRARIES ${COMMON_LIBRARIES} ${MPI_LIBRARIES})
+    set(MASTERBUILDER_LIBRARIES  ${COMMON_LIBRARIES} ${MPI_LIBRARIES})
+    set(SLAVEBUILDER_LIBRARIES  ${BUILDER_LIBRARIES} ${MPI_LIBRARIES})
+    set(MASTERSAMPLER_LIBRARIES  ${COMMON_LIBRARIES} ${MPI_LIBRARIES})
+    set(SLAVESAMPLER_LIBRARIES  ${SAMPLER_LIBRARIES} ${MPI_LIBRARIES})
+
+    add_executable(motivo-tableserver ${TABLESERVER_SOURCE_FILES})
+    add_executable(motivo-build-master ${MASTERBUILDER_SOURCE_FILES})
+    add_executable(motivo-build-slave ${SLAVEBUILDER_SOURCE_FILES})
+    add_executable(motivo-sample-master ${MASTERSAMPLER_SOURCE_FILES})
+    add_executable(motivo-sample-slave ${SLAVESAMPLER_SOURCE_FILES})
+
+    target_link_libraries(motivo-tableserver ${TABLESERVER_LIBRARIES})
+    target_link_libraries(motivo-build-master ${MASTERBUILDER_LIBRARIES})
+    target_link_libraries(motivo-build-slave ${SLAVEBUILDER_LIBRARIES})
+    target_link_libraries(motivo-sample-master ${MASTERSAMPLER_LIBRARIES})
+    target_link_libraries(motivo-sample-slave ${SLAVESAMPLER_LIBRARIES})
+
+    include_directories(SYSTEM ${MPI_INCLUDE_PATH})
+    set_target_properties(motivo-tableserver PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
+    set_target_properties(motivo-build-master  PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
+    set_target_properties(motivo-build-slave PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
+    set_target_properties(motivo-sample-master PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
+    set_target_properties(motivo-sample-slave PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
+endif()
 
 
 file(COPY scripts/build-many.sh DESTINATION .)
@@ -245,6 +255,14 @@ INSTALL(TARGETS motivo-sample DESTINATION bin)
 INSTALL(TARGETS motivo-graph DESTINATION bin)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/build-many.sh DESTINATION share/motivo)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/loe_to_graph.py DESTINATION share/motivo)
+
+if(MPI_FOUND)
+    INSTALL(TARGETS motivo-build-master DESTINATION bin)
+    INSTALL(TARGETS motivo-build-slave DESTINATION bin)
+    INSTALL(TARGETS motivo-sample-master DESTINATION bin)
+    INSTALL(TARGETS motivo-sample-slave DESTINATION bin)
+    INSTALL(TARGETS motivo-tableserver DESTINATION bin)
+endif()
 
 enable_testing()
 add_test(NAME build-graph COMMAND motivo-graph --input ../graphs/test-graph.txt --output test-graph)
