@@ -89,7 +89,7 @@ void sample (const UndirectedGraph &G, const TreeletTableCollection &ttc, const 
 
     std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
 
-    std::cerr << "Sampling time: " << delta_t.count() << "\n";
+    std::cerr << "Sampling time: " << delta_t.count() << " s\n";
     std::cerr << "Sampled treelets: " << sampled << " (" << static_cast<double>(sampled)/delta_t.count() << " occ/s)" << "\n";
     std::cerr << "Accepted treelets/graphlets: " << accepted<< " (" << static_cast<double>(accepted)/delta_t.count() << " occ/s)" << "\n";
     std::cerr << "Rejected treelets/graphlets: " << sampled - accepted << std::endl;

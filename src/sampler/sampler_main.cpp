@@ -11,6 +11,7 @@
 
 int main(const int argc, const char** argv)
 {
+    std::cerr << "This is motivo-sample. Version: " << MOTIVO_VERSION_STRING << std::endl;
 
     sampler_opts opts;
     try
@@ -47,7 +48,7 @@ int main(const int argc, const char** argv)
         std::cerr << "Sampling..." << std::endl;
 
         sample(G, ttc, opts.size, opts.number_of_samples, opts.number_of_accepted_samples, *output, opts.text,
-               opts.canonicize, opts.graphlets, opts.norejection, opts.norejection, opts.spanning_trees, opts.vertices, &rng);
+               opts.canonicize, opts.graphlets, opts.norejection, opts.footprints, opts.spanning_trees, opts.vertices, &rng);
 
         for(unsigned int i=0; i<opts.size-1; i++)
             delete tables[i];

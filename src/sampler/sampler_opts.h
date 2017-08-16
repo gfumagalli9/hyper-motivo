@@ -27,7 +27,7 @@ struct sampler_opts
     bool footprints;
     bool spanning_trees;
     bool vertices;
-    char seed[MOTIVO_ARG_MAX];
+    char seed[MOTIVO_ARG_MAX + 1 + std::numeric_limits<unsigned int>::digits/3]; //Enough space to append one character + 1 integer
 };
 
 bool parse_sampler_args(const int argc, const char **argv, const std::string &name, sampler_opts *opts);

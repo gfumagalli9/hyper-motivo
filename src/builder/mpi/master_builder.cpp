@@ -79,7 +79,11 @@ int main(const int argc, const char** argv)
 
     const int* builders = context.slave_builders_ranks();
     for(unsigned int i=0; i<context.number_of_slave_builders(); i++)
-        MPI_Send(&opts, sizeof(builder_opts), MPI_BYTE, builders[i], protocol::MSG_BUILDER_ARGS, MPI_COMM_WORLD);
+    {
+        builder_opts slave_opts = opts;
+        strcpy(slave_opts.seed,  (std::string(opts.seed) + "@" + std::to_string(i)).c_str());
+        MPI_Send(&slave_opts, sizeof(builder_opts), MPI_BYTE, builders[i], protocol::MSG_BUILDER_ARGS, MPI_COMM_WORLD);
+    }
 
     protocol::tableserver_args_t tableserver_args;
     tableserver_args.size=opts.size-1;

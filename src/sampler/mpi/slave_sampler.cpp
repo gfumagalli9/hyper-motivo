@@ -39,7 +39,7 @@ int main(const int argc, const char** argv)
     {
         std::ostream* output = &std::cout;
         if(strlen(opts.output_basename)!=0)
-            output = new std::ofstream(std::string(opts.output_basename) + "." + std::to_string(opts.size) + "." + std::to_string(sampler_rank) + ".samples", std::ofstream::binary | std::ofstream::trunc);
+            output = new std::ofstream(std::string(opts.output_basename) + "." + std::to_string(sampler_rank) + ".samples", std::ofstream::binary | std::ofstream::trunc);
 
         UndirectedGraph G(opts.graph);
         G.prefault();
@@ -62,14 +62,14 @@ int main(const int argc, const char** argv)
         }
         tables[opts.size-1]->load_root_sampler(std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".rts" );
 
-        Random rng(std::string(opts.seed)+std::to_string(sampler_rank));
+        Random rng(opts.seed);
         std::cerr << "Using seed " << rng.get_seed() << std::endl;
         std::cerr << "Sampling..." << std::endl;
 
         MPI_Barrier(MPI_COMM_WORLD);
 
         sample(G, ttc, opts.size, opts.number_of_samples, opts.number_of_accepted_samples, *output, opts.text,
-               opts.canonicize, opts.graphlets, opts.norejection, opts.norejection, opts.spanning_trees, opts.vertices, &rng);
+               opts.canonicize, opts.graphlets, opts.norejection, opts.footprints, opts.spanning_trees, opts.vertices, &rng);
 
         for(unsigned int i=0; i<opts.size-1; i++)
             delete tables[i];

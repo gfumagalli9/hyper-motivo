@@ -17,6 +17,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     # Set the possible values of build type for cmake-gui
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
+set(MOTIVO_BUILD_TYPE CMAKE_BUILD_TYPE)
 
 option(ENABLE_ASSERTS "Enable asserts (slower)" OFF)
 option(OPTIMIZE_MORE "Optimize for current hardware" OFF)
@@ -25,9 +26,14 @@ option(MOTIVO_MULTITHREAD "Enable multithread support" ON)
 option(MOTIVO_MAY_ALIAS "Turn off if compiler does not support the may_alias attribute" ON)
 option(USE_TCMALLOC "Use tcmalloc allocator library" OFF)
 
+set(MOTIVO_FLAGS "")
+
 if(MOTIVO_MULTITHREAD)
     message(STATUS "Multithreading support enabled.")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} TH")
+else()
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} th")
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wconversion -Wall -Wextra -Wpedantic -pedantic-errors -Wdisabled-optimization -Wfloat-equal -Wold-style-cast -Wsign-conversion -Winline -Wzero-as-null-pointer-constant -Wuseless-cast -Wno-zero-as-null-pointer-constant -Wno-unknown-warning-option")
@@ -36,16 +42,25 @@ if(ENABLE_ASSERTS)
     message(STATUS "Assertions enabled. Code might be slower.")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -UNDEBUG ")
     set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -UNDEBUG ")
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} EA")
+else()
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} ea")
 endif()
 
 if(OPTIMIZE_MORE)
     message(STATUS "Setting additional optimization flags. Binaries might not work on other machines")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -funroll-loops -march=native -flto")
     set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -funroll-loops -march=native -flto")
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} OM")
+else()
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} om")
 endif()
 
 if(NOT MOTIVO_MAY_ALIAS)
     message(STATUS "Assuming compiler does not support the may_alias attribute")
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} ma")
+else()
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} MA")
 endif()
 
 INCLUDE(CheckCXXSourceCompiles)
@@ -82,6 +97,9 @@ endif()
 
 if(MOTIVO_OVERFLOW_SAFE)
     message(STATUS "Building with overflow checks")
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} OS")
+else()
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} os")
 endif()
 
 if(MOTIVO_OVERFLOW_SAFE AND NOT MOTIVO_HAS_BUILTIN_ADD_OVERFLOW)
@@ -91,9 +109,6 @@ endif()
 if(MOTIVO_OVERFLOW_SAFE AND NOT MOTIVO_HAS_BUILTIN_MUL_OVERFLOW)
     message(WARNING "No builtin function for checking multiplication overflow. Will use slow implementation.")
 endif()
-
-configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
-include_directories(${CMAKE_BINARY_DIR})
 
 set(COMMON_SOURCE_FILES src/common/UndirectedGraph.cpp src/common/UndirectedGraph.h src/common/Treelet.h src/common/GraphColoring.cpp src/common/GraphColoring.h src/common/Random.h src/common/Treelet.cpp src/common/TreeletTableCollection.cpp src/common/TreeletTableCollection.h src/common/TreeletTable.cpp src/common/TreeletTable.h src/platform/platform.h src/platform/platform.cpp src/common/AliasMethodSampler.h src/common/OptionsParser.cpp src/common/OptionsParser.h src/common/Random.cpp src/common/CompressedRecordFile.cpp src/common/CompressedRecordFile.h src/common/RecordCompressor.cpp src/common/RecordCompressor.h  src/common/BaseRecordSource.h)
 set(MERGER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/merger/merger.cpp)
@@ -132,6 +147,9 @@ if(USE_TCMALLOC)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free")
     set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free")
     set(COMMON_LIBRARIES "${COMMON_LIBRARIES} ${TCMALLOC}")
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} AL")
+else()
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} al")
 endif()
 
 find_library(OPENBLAS NAMES openblas)
@@ -203,10 +221,6 @@ target_link_libraries(motivo-sample ${SAMPLER_LIBRARIES})
 target_link_libraries(motivo-graph ${GRAPH_LIBRARIES})
 target_link_libraries(motivo-tests ${TEST_LIBRARIES})
 
-
-
-
-
 find_package(MPI)
 
 if(MPI_FOUND)
@@ -263,6 +277,10 @@ if(MPI_FOUND)
     INSTALL(TARGETS motivo-sample-slave DESTINATION bin)
     INSTALL(TARGETS motivo-tableserver DESTINATION bin)
 endif()
+
+string(STRIP "${MOTIVO_FLAGS}" MOTIVO_FLAGS)
+configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
+include_directories(${CMAKE_BINARY_DIR})
 
 enable_testing()
 add_test(NAME build-graph COMMAND motivo-graph --input ../graphs/test-graph.txt --output test-graph)

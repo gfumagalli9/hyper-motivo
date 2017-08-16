@@ -56,7 +56,11 @@ int main(const int argc, const char** argv)
 
     const int* samplers = context.slave_samplers_ranks();
     for(unsigned int i=0; i<context.number_of_slave_samplers(); i++)
-        MPI_Send(&opts, sizeof(sampler_opts), MPI_BYTE, samplers[i], protocol::MSG_SAMPLER_ARGS, MPI_COMM_WORLD);
+    {
+        sampler_opts slave_opts = opts;
+        strcpy(slave_opts.seed,  (std::string(opts.seed) + "@" + std::to_string(i)).c_str());
+        MPI_Send(&slave_opts, sizeof(sampler_opts), MPI_BYTE, samplers[i], protocol::MSG_SAMPLER_ARGS, MPI_COMM_WORLD);
+    }
 
     protocol::tableserver_args_t tableserver_args;
     tableserver_args.size=opts.size;
