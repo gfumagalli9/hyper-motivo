@@ -16,6 +16,7 @@
 #include "../common/TreeletTableCollection.h"
 #include "ConcurrentFIFO.h"
 #include "SpookyHash.h"
+#include "BaseSequencer.h"
 
 #ifdef MOTIVO_MULTITHREAD
     #include <mutex>
@@ -23,9 +24,6 @@
 
 class TreeletTableBuilder
 {
-public:
-    typedef void (*progress_callback_t)(UndirectedGraph::vertex_t);
-
 private:
     struct TreeletHash
     {
@@ -41,21 +39,16 @@ private:
     const GraphColoring* coloring;
     const unsigned int size;
     const TreeletTableCollection* lower;
-    const UndirectedGraph::vertex_t from;
-    const UndirectedGraph::vertex_t to;
     std::ostream* output;
-    progress_callback_t progress_callback;
-    UndirectedGraph::vertex_t progress_interval;
+    BaseSequencer* const sequencer;
     const bool store_0_only;
     const unsigned int number_of_threads;
 
 #ifdef MOTIVO_MULTITHREAD
-    const unsigned int thread_batch_size;
     ConcurrentFIFO< std::pair<char*, std::size_t>* > write_queue;
-    std::mutex write_mutex;
 
     /// Fills a table for sizes > 1
-    void do_build_mt [[gnu::hot,gnu::flatten]](std::atomic<UndirectedGraph::vertex_t> *atomic_cnt);
+    void do_build_mt [[gnu::hot,gnu::flatten]]();
 
     ///Writing thread entry point
     void writer_loop();
@@ -72,22 +65,10 @@ private:
 
     inline std::pair<char*, std::size_t > to_normalized_sorted_byte_array [[gnu::hot]](const UndirectedGraph::vertex_t u, const table_t &table);
 
-    inline void report_progress(UndirectedGraph::vertex_t next_vertex)
-    {
-        if(progress_callback!= nullptr && (next_vertex%progress_interval)==0)
-            (*progress_callback)(next_vertex);
-    }
-
 public:
     TreeletTableBuilder(const UndirectedGraph* graph, const GraphColoring* coloring, const unsigned int size,
-                        const TreeletTableCollection* lower,  const UndirectedGraph::vertex_t from,
-                        const UndirectedGraph::vertex_t to, std::ostream* output, const bool store_0_only=false, const unsigned int num_threads=1, const UndirectedGraph::vertex_t thread_batch_size=1000);
-
-    void set_progress_callback(progress_callback_t pc, UndirectedGraph::vertex_t pi)
-    {
-        progress_callback = pc;
-        progress_interval = pi;
-    }
+                        const TreeletTableCollection* lower, std::ostream* output, BaseSequencer* const sequencer,
+                        const bool store_0_only=false, const unsigned int num_threads=1);
 
     /// Fills the treelet table computing the number of treelets of each kind rooted at each vertex
     void build();

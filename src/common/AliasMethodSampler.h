@@ -47,7 +47,8 @@ public:
         num_elements = e.K;
         total_weight = e.U;
 
-        elements = static_cast<entry*>(motivo_mmap((num_elements+1)*sizeof(entry), PROT_READ, fileno(elements_fd)));
+        elements = static_cast<entry*>(motivo_mmap_populate((num_elements + 1) * sizeof(entry), PROT_READ,
+                                                            fileno(elements_fd)));
         assert(elements!=MAP_FAILED);
         elements += 1;
 
