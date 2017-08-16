@@ -17,7 +17,7 @@ struct builder_opts
     char tables_basename[MOTIVO_ARG_MAX];
     UndirectedGraph::vertex_t from_vertex;
     UndirectedGraph::vertex_t to_vertex;
-    char seed[MOTIVO_ARG_MAX + 1 + std::numeric_limits<unsigned int>::digits/3]; //Enough space to append one character + 1 integer
+    char seed[MOTIVO_ARG_MAX + 2 + std::numeric_limits<unsigned int>::digits/3]; //Enough space to append one character + 1 integer
     unsigned int threads;
     char output_basename[MOTIVO_ARG_MAX];
     UndirectedGraph::vertex_t progress;
