@@ -42,7 +42,7 @@ public:
     };
 
     static_assert( sizeof(header_t) == 2, "Structure record_offset_t is not packed." );
-    static constexpr const header_t uncompressed_header = {0, 0, true, false};
+    static constexpr const header_t uncompressed_header = {0, 0, false, false};
 
     static char* compress(const char *record, const uint64_t length, uint64_t *compressed_size);
 

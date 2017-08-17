@@ -78,7 +78,7 @@ void CompressedRecordFileWriter::write_record(char *record, uint64_t length, dou
     {
         fwrite(&RecordCompressor::uncompressed_header, sizeof(RecordCompressor::uncompressed_header), 1, fd);
         fwrite(record, length, 1, fd);
-        position += length;
+        position += length + sizeof(RecordCompressor::header_t);
         bytes_compressed += length;
     }
 
