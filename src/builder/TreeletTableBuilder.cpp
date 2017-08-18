@@ -136,7 +136,7 @@ void TreeletTableBuilder::do_build_mt()
         if(batch.from>batch.to)
         {
             std::pair<char*, std::size_t >* outout_rows = new std::pair<char*, std::size_t>[1];
-            outout_rows[0] = std::make_pair(nullptr, 0); //Signal the end of the thread
+            outout_rows[0] = std::make_pair(nullptr, 1); //Signal the end of the thread
             write_queue.push( outout_rows );
             break;
         }
@@ -240,18 +240,16 @@ void TreeletTableBuilder::writer_loop()
         std::pair<char*, std::size_t>* to_write = write_queue.pop();
         std::pair<char*, std::size_t>* p = to_write;
 
-        if(p->first== nullptr)
+        if(p->first == nullptr && p->second!=0)
             threads_over++;
-        else
-        {
-            while(p->first!=nullptr)
-            {
-                assert(p->second>0);
-                output->write(p->first, static_cast<std::streamsize>(p->second));
-                ::operator delete(p->first);
 
-                p++;
-            }
+        while(p->first!=nullptr)
+        {
+            assert(p->second>0);
+            output->write(p->first, static_cast<std::streamsize>(p->second));
+            ::operator delete(p->first);
+
+            p++;
         }
 
         delete[] to_write;
