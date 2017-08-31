@@ -9,7 +9,10 @@
 #include "MotivoMPIContext.h"
 
 
-void loop(MotivoMPIContext *context, const int server_rank, CompressedRecordFileReader<const char, true>* const readers)
+MotivoMPIContext context;
+int server_rank;
+
+void loop(CompressedRecordFileReader<const char, true>* const readers)
 {
     while(true)
     {
@@ -23,7 +26,7 @@ void loop(MotivoMPIContext *context, const int server_rank, CompressedRecordFile
         MPI_Recv(&request, sizeof(protocol::record_request_t), MPI_BYTE, MPI_ANY_SOURCE, protocol::MSG_ROW_REQUEST, MPI_COMM_WORLD, &recv_status);
 
 #ifndef NDEBUG
-        uint64_t chunk = 1 + readers[request.size-1].number_of_records()/context->number_of_tableservers();
+        uint64_t chunk = 1 + readers[request.size-1].number_of_records()/context.number_of_tableservers();
         uint64_t from = chunk * static_cast<unsigned int>(server_rank);
         uint64_t to = chunk*static_cast<unsigned int>(server_rank+1) - 1;
 
@@ -58,8 +61,7 @@ int main(int argc, char* argv[])
 
     MPI_Init(&argc, &argv);
 
-    MotivoMPIContext context;
-    int server_rank = context.hello(protocol::PARTICIPANT_TABLESERVER);
+    context.hello(protocol::PARTICIPANT_TABLESERVER);
     assert(server_rank>=0);
     assert(context.number_of_tableservers()>=1);
     std::cout << "I am table server with rank " << server_rank << " out of " << context.number_of_tableservers() << " table servers" << "\n";
@@ -92,7 +94,7 @@ int main(int argc, char* argv[])
     MPI_Barrier(MPI_COMM_WORLD);
 
 
-    loop(&context, server_rank, readers);
+    loop(readers);
 
     MPI_Finalize();
 
