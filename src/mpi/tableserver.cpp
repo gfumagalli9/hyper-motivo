@@ -9,7 +9,7 @@
 #include "MotivoMPIContext.h"
 
 
-MotivoMPIContext context;
+MotivoMPIContext* context;
 int server_rank;
 
 void loop(CompressedRecordFileReader<const char, true>* const readers)
@@ -26,7 +26,7 @@ void loop(CompressedRecordFileReader<const char, true>* const readers)
         MPI_Recv(&request, sizeof(protocol::record_request_t), MPI_BYTE, MPI_ANY_SOURCE, protocol::MSG_ROW_REQUEST, MPI_COMM_WORLD, &recv_status);
 
 #ifndef NDEBUG
-        uint64_t chunk = 1 + readers[request.size-1].number_of_records()/context.number_of_tableservers();
+        uint64_t chunk = 1 + readers[request.size-1].number_of_records()/context->number_of_tableservers();
         uint64_t from = chunk * static_cast<unsigned int>(server_rank);
         uint64_t to = chunk*static_cast<unsigned int>(server_rank+1) - 1;
 
@@ -61,17 +61,18 @@ int main(int argc, char* argv[])
 
     MPI_Init(&argc, &argv);
 
-    context.hello(protocol::PARTICIPANT_TABLESERVER);
+    context = new MotivoMPIContext();
+    server_rank = context->hello(protocol::PARTICIPANT_TABLESERVER);
     assert(server_rank>=0);
-    assert(context.number_of_tableservers()>=1);
-    std::cout << "I am table server with rank " << server_rank << " out of " << context.number_of_tableservers() << " table servers" << "\n";
-    std::cout << "I am process with rank " << context.world_rank() << " out of " << context.world_size() << " processes" << std::endl;
+    assert(context->number_of_tableservers()>=1);
+    std::cout << "I am table server with rank " << server_rank << " out of " << context->number_of_tableservers() << " table servers" << "\n";
+    std::cout << "I am process with rank " << context->world_rank() << " out of " << context->world_size() << " processes" << std::endl;
 
-    if( context.number_of_master_builders() + context.number_of_master_samplers() != 1 )
+    if( context->number_of_master_builders() + context->number_of_master_samplers() != 1 )
         MPI_Abort(MPI_COMM_WORLD, 2);
 
     protocol::tableserver_args_t tableserver_args;
-    int master_rank = (context.number_of_master_builders()!=0)?context.master_bulders_ranks()[0]:context.master_samplers_ranks()[0];
+    int master_rank = (context->number_of_master_builders()!=0)?context->master_bulders_ranks()[0]:context->master_samplers_ranks()[0];
 
     MPI_Status status;
     MPI_Recv(&tableserver_args, sizeof(protocol::tableserver_args_t), MPI_BYTE, master_rank, protocol::MSG_TABLESERVER_ARGS, MPI_COMM_WORLD, &status);
@@ -80,9 +81,9 @@ int main(int argc, char* argv[])
     for(unsigned int i=0; i<tableserver_args.size; i++)
     {
         readers[i].open(std::string(tableserver_args.tables_basename)+"."+std::to_string(i+1)+".dtz");
-        uint64_t chunk = 1 + readers[i].number_of_records()/context.number_of_tableservers();
+        uint64_t chunk = 1 + readers[i].number_of_records()/context->number_of_tableservers();
 
-        uint64_t from = chunk * static_cast<unsigned int>(server_rank);
+        uint64_t from = chunk*static_cast<unsigned int>(server_rank);
         uint64_t to = chunk*static_cast<unsigned int>(server_rank+1) - 1;
         to = (to < readers[i].number_of_records())?to:(readers[i].number_of_records()-1);
 
@@ -99,6 +100,7 @@ int main(int argc, char* argv[])
     MPI_Finalize();
 
     delete[] readers;
+    delete context;
 
     return EXIT_SUCCESS;
 }
