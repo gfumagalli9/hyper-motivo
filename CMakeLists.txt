@@ -224,7 +224,7 @@ target_link_libraries(motivo-tests ${TEST_LIBRARIES})
 find_package(MPI)
 
 if(MPI_FOUND)
-    set(COMMON_MPI_SOURCE_FILES src/mpi/protocol.h src/mpi/MotivoMPIContext.h src/mpi/MotivoMPIContext.cpp src/mpi/MPISequencer.h src/mpi/MPIRemoteCompressedRecordFile.h src/mpi/MPIRemoteCompressedRecordFile.cpp)
+    set(COMMON_MPI_SOURCE_FILES src/mpi/protocol.h src/mpi/MotivoMPIContext.h src/mpi/MotivoMPIContext.cpp src/mpi/MPISequencer.h src/mpi/MPIRemoteCompressedRecordFile.h)
 
     set(TABLESERVER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/mpi/tableserver.cpp )
     set(MASTERBUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/builder/mpi/master_builder.cpp src/builder/builder.h src/builder/builder.cpp src/builder/BaseSequencer.h src/builder/StaticSequencer.h)

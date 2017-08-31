@@ -6,6 +6,7 @@
 #define MOTIVO_COMPRESSEDRECORDFILEREADER_H
 
 #include <utility>
+#include <cstdio>
 #include <cstdint>
 #include <string>
 #include <limits>

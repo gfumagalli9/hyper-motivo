@@ -136,7 +136,7 @@ void TreeletTableBuilder::do_build_mt()
         if(batch.from>batch.to)
         {
             std::pair<char*, std::size_t >* outout_rows = new std::pair<char*, std::size_t>[1];
-            outout_rows[0] = std::make_pair(nullptr, 1); //Signal the end of the thread
+            outout_rows[0] = std::make_pair(nullptr, 0); //Signal the end of the thread
             write_queue.push( outout_rows );
             break;
         }
@@ -156,8 +156,13 @@ void TreeletTableBuilder::do_build_mt()
             outout_rows[written++] = to_normalized_sorted_byte_array(u, table);
         }
 
-        outout_rows[written] = std::make_pair(nullptr, 0); //Signal the of current batch
-        write_queue.push( outout_rows );
+        if(written>0)
+        {
+            outout_rows[written] = std::make_pair(nullptr, 0); //Signal the of current batch
+            write_queue.push( outout_rows );
+        }
+        else
+            delete[] outout_rows;
     }
 }
 #endif
@@ -240,16 +245,18 @@ void TreeletTableBuilder::writer_loop()
         std::pair<char*, std::size_t>* to_write = write_queue.pop();
         std::pair<char*, std::size_t>* p = to_write;
 
-        if(p->first == nullptr && p->second!=0)
+        if(p->first == nullptr)
             threads_over++;
-
-        while(p->first!=nullptr)
+        else
         {
-            assert(p->second>0);
-            output->write(p->first, static_cast<std::streamsize>(p->second));
-            ::operator delete(p->first);
+            while (p->first != nullptr)
+            {
+                assert(p->second > 0);
+                output->write(p->first, static_cast<std::streamsize>(p->second));
+                ::operator delete(p->first);
 
-            p++;
+                p++;
+            }
         }
 
         delete[] to_write;

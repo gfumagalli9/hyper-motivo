@@ -25,14 +25,14 @@ private:
 
 
 private:
-    int get_server_rank(const uint64_t record_no) const
+    int get_tableserver_rank(const uint64_t record_no) const
     {
         return context->tableservers_ranks()[record_no/records_per_server];
     }
 
 public:
     MPIRemoteCompressedRecordFile(const MPI_Comm comm, const uint64_t number_of_records, const unsigned int size, MotivoMPIContext* ctx)
-            : commuicator(comm), records_per_server(number_of_records/context->number_of_tableservers()), size(size), context(ctx)
+            : commuicator(comm), records_per_server(1 + number_of_records/context->number_of_tableservers()), size(size), context(ctx)
     {}
 
     Record<T> get_record(const uint64_t record_no)
@@ -43,7 +43,7 @@ public:
 
         ompi_status_public_t recv_status;
 
-        int server = get_server_rank(record_no);
+        int server = get_tableserver_rank(record_no);
         uint64_t length;
         char* buffer = nullptr;
 

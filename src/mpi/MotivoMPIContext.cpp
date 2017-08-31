@@ -67,5 +67,5 @@ int MotivoMPIContext::hello(int type)
 
     delete[] participants;
 
-    return type_rank;
+    return type_rank-1;
 }

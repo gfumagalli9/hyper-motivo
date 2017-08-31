@@ -9,7 +9,7 @@
 #include "MotivoMPIContext.h"
 
 
-void loop(CompressedRecordFileReader<const char, true>* const readers)
+void loop(MotivoMPIContext *context, const int server_rank, CompressedRecordFileReader<const char, true>* const readers)
 {
     while(true)
     {
@@ -21,6 +21,19 @@ void loop(CompressedRecordFileReader<const char, true>* const readers)
 
         protocol::record_request_t request;
         MPI_Recv(&request, sizeof(protocol::record_request_t), MPI_BYTE, MPI_ANY_SOURCE, protocol::MSG_ROW_REQUEST, MPI_COMM_WORLD, &recv_status);
+
+#ifndef NDEBUG
+        uint64_t chunk = 1 + readers[request.size-1].number_of_records()/context->number_of_tableservers();
+        uint64_t from = chunk * static_cast<unsigned int>(server_rank);
+        uint64_t to = chunk*static_cast<unsigned int>(server_rank+1) - 1;
+
+        if(request.record_no < from || request.record_no>=to)
+        {
+            std::cerr << "Warning: request for record " << request.record_no << " for table of size " << request.size
+                      << " from rank " << recv_status.MPI_SOURCE
+                      << " that does not belong to this tableserver" << std::endl;
+        }
+#endif
 
         Record<const char> record = readers[request.size-1].get_raw(request.record_no);
         uint64_t left = record.length();
@@ -48,9 +61,8 @@ int main(int argc, char* argv[])
     MotivoMPIContext context;
     int server_rank = context.hello(protocol::PARTICIPANT_TABLESERVER);
     assert(server_rank>=0);
-    unsigned int server_size = context.number_of_tableservers();
-    assert(server_size>=1);
-    std::cout << "I am table server with rank " << server_rank << " out of " << server_size << " table servers" << "\n";
+    assert(context.number_of_tableservers()>=1);
+    std::cout << "I am table server with rank " << server_rank << " out of " << context.number_of_tableservers() << " table servers" << "\n";
     std::cout << "I am process with rank " << context.world_rank() << " out of " << context.world_size() << " processes" << std::endl;
 
     if( context.number_of_master_builders() + context.number_of_master_samplers() != 1 )
@@ -66,11 +78,13 @@ int main(int argc, char* argv[])
     for(unsigned int i=0; i<tableserver_args.size; i++)
     {
         readers[i].open(std::string(tableserver_args.tables_basename)+"."+std::to_string(i+1)+".dtz");
-        uint64_t chunk = readers[i].number_of_records()/server_size;
+        uint64_t chunk = 1 + readers[i].number_of_records()/context.number_of_tableservers();
 
         uint64_t from = chunk * static_cast<unsigned int>(server_rank);
-        uint64_t to = ( static_cast<unsigned int>(server_rank) == server_size-1)?(readers[i].number_of_records()-1):((chunk+1)*static_cast<unsigned int>(server_rank) - 1);
+        uint64_t to = chunk*static_cast<unsigned int>(server_rank+1) - 1;
+        to = (to < readers[i].number_of_records())?to:(readers[i].number_of_records()-1);
 
+        std::cout << "Prefaulting nodes " << from << " -- " << to << " for tables of size " << (i+1) << std::endl;
         readers[i].prefault(from, to);
     }
 
@@ -78,7 +92,7 @@ int main(int argc, char* argv[])
     MPI_Barrier(MPI_COMM_WORLD);
 
 
-    loop(readers);
+    loop(&context, server_rank, readers);
 
     MPI_Finalize();
 
