@@ -30,7 +30,7 @@ void loop(CompressedRecordFileReader<const char, true>* const readers)
         uint64_t from = chunk * static_cast<unsigned int>(server_rank);
         uint64_t to = chunk*static_cast<unsigned int>(server_rank+1) - 1;
 
-        if(request.record_no < from || request.record_no>=to)
+        if(request.record_no<from || request.record_no>to)
         {
             std::cerr << "Warning: request for record " << request.record_no << " for table of size " << request.size
                       << " from rank " << recv_status.MPI_SOURCE
@@ -65,8 +65,8 @@ int main(int argc, char* argv[])
     server_rank = context->hello(protocol::PARTICIPANT_TABLESERVER);
     assert(server_rank>=0);
     assert(context->number_of_tableservers()>=1);
-    std::cout << "I am table server with rank " << server_rank << " out of " << context->number_of_tableservers() << " table servers" << "\n";
-    std::cout << "I am process with rank " << context->world_rank() << " out of " << context->world_size() << " processes" << std::endl;
+    std::cout << "I am table server with rank " << server_rank << " out of " << context->number_of_tableservers()
+              << " table servers (process with rank " << context->world_rank() << " out of " << context->world_size() << " processes)" << std::endl;
 
     if( context->number_of_master_builders() + context->number_of_master_samplers() != 1 )
         MPI_Abort(MPI_COMM_WORLD, 2);
@@ -87,8 +87,14 @@ int main(int argc, char* argv[])
         uint64_t to = chunk*static_cast<unsigned int>(server_rank+1) - 1;
         to = (to < readers[i].number_of_records())?to:(readers[i].number_of_records()-1);
 
-        std::cout << "Prefaulting nodes " << from << " -- " << to << " for tables of size " << (i+1) << std::endl;
-        readers[i].prefault(from, to);
+        if(from<=to)
+        {
+            std::cout << "Prefaulting nodes " << from << " -- " << to << " for tables of size " << (i + 1) << std::endl;
+            readers[i].prefault(from, to);
+        }
+        else
+            std::cout << "Warning: no nodes to prefault for tables of size " << (i + 1) << std::endl;
+
     }
 
 

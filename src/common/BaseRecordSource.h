@@ -9,6 +9,8 @@
 
 template<typename T> class Record
 {
+    static_assert(std::is_trivially_destructible<T>::value, "Template argument is not trivially destructable");
+
 private:
     const T* ptr;
     const uint64_t len;
@@ -35,8 +37,8 @@ template<typename T> class BaseRecordSource
 {
 public:
     virtual Record<T> get_record(const uint64_t record_no) const = 0;
-    virtual void prefault(const uint64_t from, const uint64_t to) = 0;
-    virtual uint64_t number_of_records() = 0;
+    virtual uint64_t number_of_records() const = 0;
+    virtual ~BaseRecordSource() {};
 };
 
 #endif //MOTIVO_BASERECORDSOURCE_H

@@ -65,7 +65,7 @@ public:
         motivo_prefault(0, sizeof(uint64_t)*(num_of_records + 1), fileno(fd));
     }
 
-    uint64_t number_of_records() { return num_of_records; }
+    uint64_t number_of_records() const { return num_of_records; }
 
     void prefault(const uint64_t from, const uint64_t to)
     {
@@ -100,10 +100,7 @@ public:
         memcpy(&next_offset, offsets + (record_no+1)*sizeof(record_offset_t), sizeof(record_offset_t));
 
         RecordCompressor::decompress_result_t<T> result = RecordCompressor::decompress<T, RAW>(fdmap+offset.file_offset, next_offset.file_offset - offset.file_offset);
-        if(result.allocated)
-            return Record<T>(result.ptr, result.len, reinterpret_cast<const char*>(result.ptr));
-        else
-            return Record<T>(result.ptr, result.len, nullptr);
+        return Record<T>(result.ptr, result.len, result.allocated_ptr);
     }
 };
 

@@ -10,6 +10,7 @@
 #include "../../common/TreeletTableCollection.h"
 #include "../../mpi/MPISequencer.h"
 #include "../TreeletTableBuilder.h"
+#include "../../mpi/MPIRemoteCompressedRecordFile.h"
 
 int main(const int argc, const char** argv)
 {
@@ -24,8 +25,8 @@ int main(const int argc, const char** argv)
     MotivoMPIContext context;
     int builder_rank = context.hello(protocol::PARTICIPANT_SLAVE_BUILDER);
     unsigned int builder_size = context.number_of_slave_builders();
-    std::cout << "I am builder with rank " << builder_rank << " out of " << builder_size << " builders" << "\n";
-    std::cout << "I am process with rank " << context.world_rank() << " out of " << context.world_size() << " processes" << std::endl;
+    std::cout << "I am builder with rank " << builder_rank << " out of " << builder_size
+              << " builders (process with rank " << context.world_rank() << " out of " << context.world_size() << " processes)" << std::endl;
 
     if(context.number_of_master_builders()!=1)
         MPI_Abort(MPI_COMM_WORLD, 2);
@@ -45,17 +46,16 @@ int main(const int argc, const char** argv)
         assert(opts.size!=1);
 
         TreeletTableCollection ttc;
-        CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>* readers = nullptr;
-        TreeletTable** tables = nullptr;
+        MPIRemoteCompressedRecordFile<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>** readers =
+            new MPIRemoteCompressedRecordFile<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>*[opts.size-1];
+        TreeletTable** tables = new TreeletTable*[opts.size-1];
+
         std::cout << "Loading tables for smaller sizes" << std::endl;
-        readers = new CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>[opts.size-1];
-        tables = new TreeletTable*[opts.size-1];
 
         for(unsigned int i=0; i<opts.size-1; i++)
         {
-            readers[i].open( std::string(opts.tables_basename) + "." + std::to_string(i+1) + ".dtz" );
-            readers[i].prefault(opts.from_vertex, opts.to_vertex);
-            tables[i] = new TreeletTable(&readers[i]);
+            readers[i] = new MPIRemoteCompressedRecordFile<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>(MPI_COMM_WORLD, G.number_of_vertices(), i+1, &context);
+            tables[i] = new TreeletTable(readers[i]);
             ttc.add(tables[i]);
         }
 
@@ -81,10 +81,13 @@ int main(const int argc, const char** argv)
         std::cout << "Output written to " << filename << std::endl;
 
         for(unsigned int i=0; i<opts.size-1; i++)
+        {
             delete tables[i];
+            delete readers[i];
+        }
 
-        delete[] readers;
         delete[] tables;
+        delete[] readers;
     }
     catch(std::exception& e)
     {

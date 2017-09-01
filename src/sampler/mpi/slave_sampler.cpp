@@ -14,6 +14,7 @@
 #include "../sampler_impl.h"
 #include "../../mpi/MotivoMPIContext.h"
 #include "../../mpi/protocol.h"
+#include "../../mpi/MPIRemoteCompressedRecordFile.h"
 
 int main(const int argc, const char** argv)
 {
@@ -45,19 +46,18 @@ int main(const int argc, const char** argv)
         G.prefault();
         std::cerr << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
 
-        std::cerr << "Loading tables and root sampler" << std::endl;
+
         TreeletTableCollection ttc;
-        CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>* readers = nullptr;
-        TreeletTable** tables = nullptr;
-        std::cout << "Loading tables for smaller sizes" << std::endl;
-        readers = new CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>[opts.size];
-        tables = new TreeletTable*[opts.size];
+        MPIRemoteCompressedRecordFile<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>** readers =
+                new MPIRemoteCompressedRecordFile<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>*[opts.size-1];
+        TreeletTable** tables = new TreeletTable*[opts.size-1];
+
+        std::cerr << "Loading tables and root sampler" << std::endl;
 
         for(unsigned int i=0; i<opts.size; i++)
         {
-            readers[i].open( std::string(opts.tables_basename) + "." + std::to_string(i+1) + ".dtz" );
-            readers[i].prefault(0, G.number_of_vertices()-1);
-            tables[i] = new TreeletTable(&readers[i]);
+            readers[i] = new MPIRemoteCompressedRecordFile<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>(MPI_COMM_WORLD, G.number_of_vertices(), i+1, &context);
+            tables[i] = new TreeletTable(readers[i]);
             ttc.add(tables[i]);
         }
         tables[opts.size-1]->load_root_sampler(std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".rts" );
@@ -71,17 +71,19 @@ int main(const int argc, const char** argv)
         sample(G, ttc, opts.size, opts.number_of_samples, opts.number_of_accepted_samples, *output, opts.text,
                opts.canonicize, opts.graphlets, opts.norejection, opts.footprints, opts.spanning_trees, opts.vertices, &rng);
 
-        for(unsigned int i=0; i<opts.size-1; i++)
-            delete tables[i];
-
-        delete[] readers;
-        delete[] tables;
+        MPI_Send(nullptr, 0, MPI_BYTE, master_rank, protocol::MSG_SAMPLER_SLAVE_DONE, MPI_COMM_WORLD);
 
         if(strlen(opts.output_basename)!=0)
             delete output;
 
+        for(unsigned int i=0; i<opts.size-1; i++)
+        {
+            delete tables[i];
+            delete readers[i];
+        }
 
-        MPI_Send(nullptr, 0, MPI_BYTE, master_rank, protocol::MSG_SAMPLER_SLAVE_DONE, MPI_COMM_WORLD);
+        delete[] tables;
+        delete[] readers;
 
     }
     catch(std::exception& e)

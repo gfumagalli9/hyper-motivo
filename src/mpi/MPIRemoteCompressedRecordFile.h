@@ -19,10 +19,10 @@ template<typename T, bool RAW> class MPIRemoteCompressedRecordFile : public Base
 {
 private:
     const MPI_Comm commuicator;
-    const uint64_t records_per_server;
+    const uint64_t num_of_records;
     const unsigned int size;
     MotivoMPIContext* const context;
-
+    const uint64_t records_per_server;
 
 private:
     int get_tableserver_rank(const uint64_t record_no) const
@@ -32,10 +32,12 @@ private:
 
 public:
     MPIRemoteCompressedRecordFile(const MPI_Comm comm, const uint64_t number_of_records, const unsigned int size, MotivoMPIContext* ctx)
-            : commuicator(comm), records_per_server(1 + number_of_records/context->number_of_tableservers()), size(size), context(ctx)
+            : commuicator(comm), num_of_records(number_of_records), size(size), context(ctx), records_per_server(1 + number_of_records/ctx->number_of_tableservers())
     {}
 
-    Record<T> get_record(const uint64_t record_no)
+    uint64_t number_of_records() const { return num_of_records; }
+
+    Record<T> get_record(const uint64_t record_no) const
     {
         protocol::record_request_t request;
         request.record_no=record_no;
@@ -70,10 +72,10 @@ public:
         context->unlock();
 
         RecordCompressor::decompress_result_t<T> result = RecordCompressor::decompress<T, RAW>(buffer, length);
-        if(result.allocated)
+        if(result.allocated_ptr != nullptr)
         {
             delete[] buffer;
-            return Record<T>(result.ptr, result.len, result.ptr);
+            return Record<T>(result.ptr, result.len, result.allocated_ptr);
         }
 
         return Record<T>(result.ptr, result.len, buffer);

@@ -26,7 +26,7 @@ public:
     {
         T* ptr;
         const uint64_t len;
-        bool allocated;
+        char* allocated_ptr;
     };
 
     struct [[gnu::packed]] header_t
@@ -49,7 +49,7 @@ public:
     template<typename T, bool RAW> static decompress_result_t<T> decompress(const char *record, const uint64_t length)
     {
         if(length<sizeof(header_t))
-            return decompress_result_t<T>{nullptr, 0, false};
+            return decompress_result_t<T>{nullptr, 0, nullptr};
 
         header_t header;
         memcpy(&header, record, sizeof(header_t));
@@ -60,19 +60,26 @@ public:
 
             static_assert(!RAW || alignof(T)==1, "Raw read allowed but type is not 1-byte aligned");
             if(RAW)
-                return decompress_result_t<T>{reinterpret_cast<T*>(record+sizeof(header_t)), (length - sizeof(header_t))/sizeof(T), false};
+                return decompress_result_t<T>{reinterpret_cast<T*>(record+sizeof(header_t)), (length - sizeof(header_t))/sizeof(T), nullptr};
 
-            typename std::remove_const<T>::type* buffer = new typename std::remove_const<T>::type[(length- sizeof(header_t))/sizeof(T)];
+            //This is properly aligned.
+            //3.7.3.1/2: The pointer returned shall be suitably aligned so that it can be converted to a pointer of any complete object type and then used to access the object or array in the storage allocated
+            char* buffer = new char[length- sizeof(header_t)];
+            typename std::remove_const<T>::type* buffer_T = new (buffer) typename std::remove_const<T>::type[(length- sizeof(header_t))/sizeof(T)];
             memcpy(buffer, record+sizeof(header_t), (length- sizeof(header_t)));
-            return decompress_result_t<T>{buffer, (length- sizeof(header_t))/sizeof(T), true};
+            return decompress_result_t<T>{buffer_T, (length- sizeof(header_t))/sizeof(T), buffer};
         }
 
         unsigned int mul = 1u << header.exp;
         uint64_t uncompressed_size_ub = static_cast<uint64_t>(header.mantissa) * mul + (mul - 1);
         uncompressed_size_ub -= uncompressed_size_ub%sizeof(T);
         assert(uncompressed_size_ub>0);
+        assert(uncompressed_size_ub%sizeof(T)==0);
 
-        typename std::remove_const<T>::type* buffer = new typename std::remove_const<T>::type[uncompressed_size_ub/sizeof(T)];
+        char* buffer = new char[uncompressed_size_ub];
+        typename std::remove_const<T>::type* buffer_T = new (buffer) typename std::remove_const<T>::type[uncompressed_size_ub/sizeof(T)];
+        assert(buffer==reinterpret_cast<char*>(buffer_T));
+
         LZ4_streamDecode_t decoder;
         LZ4_setStreamDecode(&decoder, nullptr, 0);
 
@@ -87,7 +94,7 @@ public:
                 position += sizeof(uint32_t);
 
                 const int next_uncompressed_block_length_ub = (uncompressed_size_ub-decompressed_bytes<=MAX_BLOCK_SIZE)?static_cast<int>(uncompressed_size_ub-decompressed_bytes):static_cast<int>(MAX_BLOCK_SIZE);
-                int r = LZ4_decompress_safe_continue(&decoder, record + position, reinterpret_cast<char*>(buffer)+decompressed_bytes, static_cast<int>(next_compressed_block_length), next_uncompressed_block_length_ub);
+                int r = LZ4_decompress_safe_continue(&decoder, record + position, buffer+decompressed_bytes, static_cast<int>(next_compressed_block_length), next_uncompressed_block_length_ub);
                 assert(r>0);
                 decompressed_bytes += static_cast<unsigned int>(r);
                 position += next_compressed_block_length;
@@ -96,14 +103,13 @@ public:
         else
         {
             assert(length-sizeof(header_t)<=MAX_BLOCK_SIZE);
-            int r = LZ4_decompress_safe_continue(&decoder, record + sizeof(header_t), reinterpret_cast<char*>(buffer), static_cast<int>(length-sizeof(header_t)), static_cast<int>(uncompressed_size_ub));
+            int r = LZ4_decompress_safe_continue(&decoder, record + sizeof(header_t), buffer, static_cast<int>(length-sizeof(header_t)), static_cast<int>(uncompressed_size_ub));
             assert(r>0);
             decompressed_bytes = static_cast<unsigned int>(r);
         }
 
         assert(decompressed_bytes%sizeof(T)==0);
-
-        return decompress_result_t<T>{buffer, decompressed_bytes/sizeof(T), true};
+        return decompress_result_t<T>{buffer_T, decompressed_bytes/sizeof(T), buffer};
     }
 };
 
