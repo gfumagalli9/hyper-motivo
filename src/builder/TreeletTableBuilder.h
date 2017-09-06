@@ -6,6 +6,7 @@
 #define MOTIVO_TREELETTABLEBUILDER_H
 
 #include <sparsehash/sparse_hash_map>
+#include <sparsehash/dense_hash_map>
 #include <string>
 #include <functional>
 #include "config.h"
@@ -15,7 +16,6 @@
 #include "../common/TreeletTable.h"
 #include "../common/TreeletTableCollection.h"
 #include "ConcurrentFIFO.h"
-#include "SpookyHash.h"
 #include "BaseSequencer.h"
 
 #ifdef MOTIVO_MULTITHREAD
@@ -29,11 +29,28 @@ private:
     {
         inline size_t operator() [[gnu::hot,gnu::flatten]] (const Treelet t) const
         {
-            return SpookyHash::Hash64(&t, sizeof(t), 0);
+            uint64_t key=0;
+            memcpy(&key, &t, sizeof(Treelet));
+
+            //MurmurHash3 finalizer by Austin Appleby (public domain)
+            key ^= key >> 33;
+            key *= 0xff51afd7ed558ccd;
+            key ^= key >> 33;
+            key *= 0xc4ceb9fe1a85ec53;
+            key ^= key >> 33;
+
+            return key;
         }
     };
 
+#ifdef MOTIVO_DENSE_HASHMAP
+    typedef google::dense_hash_map<Treelet, TreeletTable::treelet_count_t, TreeletHash> table_t;
+#define MOTIVO_INIT_HASHMAP(hm) do { (hm).set_empty_key(Treelet::invalid_treelet); } while(false)
+#else
     typedef google::sparse_hash_map<Treelet, TreeletTable::treelet_count_t, TreeletHash> table_t;
+#define MOTIVO_INIT_HASHMAP(hm) do {} while(false)
+#endif
+
 
     const UndirectedGraph* graph;
     const GraphColoring* coloring;

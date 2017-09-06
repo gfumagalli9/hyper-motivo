@@ -25,6 +25,7 @@ option(MOTIVO_OVERFLOW_SAFE "Check for overflows during computation" ON)
 option(MOTIVO_MULTITHREAD "Enable multithread support" ON)
 option(MOTIVO_MAY_ALIAS "Turn off if compiler does not support the may_alias attribute" ON)
 option(USE_TCMALLOC "Use tcmalloc allocator library" OFF)
+option(MOTIVO_DENSE_HASHMAP "Use dense hashmaps" OFF)
 
 set(MOTIVO_FLAGS "")
 
@@ -62,6 +63,15 @@ if(NOT MOTIVO_MAY_ALIAS)
 else()
     set(MOTIVO_FLAGS "${MOTIVO_FLAGS} MA")
 endif()
+
+if(MOTIVO_DENSE_HASHMAP)
+    message(STATUS "Using dense hashmaps")
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} DH")
+else()
+    message(STATUS "Using sparse hashmaps")
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} dh")
+endif()
+
 
 INCLUDE(CheckCXXSourceCompiles)
 check_cxx_source_compiles("int main() { __builtin_popcount(0xFFFFFFFF); return 0; } " MOTIVO_HAS_BUILTIN_POPCOUNT)

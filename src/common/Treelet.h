@@ -12,7 +12,6 @@
 
 //The following classsis already packed.
 //See: https://en.wikipedia.org/wiki/Data_structure_alignment#Typical_alignment_of_C_structs_on_x86
-//#pragma test(push,1)
 class [[gnu::packed]] Treelet
 {
     /* Each treelet is represented as a bit string of 48 bits.
@@ -85,7 +84,6 @@ public:
     inline bool operator<(const Treelet& other) const { return (structure > other.structure) || (structure == other.structure && colors < other.colors); }
     inline bool operator<=(const Treelet& other) const { return (structure > other.structure) || (structure == other.structure && colors <= other.colors); }
 };
-//#pragma test(pop)
 
 static_assert(sizeof(Treelet) == 6, "Treelet is not packed in 6 bytes");
 

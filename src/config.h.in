@@ -28,6 +28,7 @@
 #cmakedefine MOTIVO_HAS___UINT128_T 1
 
 #cmakedefine MOTIVO_MULTITHREAD 1
+#cmakedefine MOTIVO_DENSE_HASHMAP
 
 #cmakedefine MOTIVO_MAY_ALIAS
 

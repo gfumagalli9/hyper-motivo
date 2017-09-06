@@ -18,13 +18,13 @@ if [ -e /usr/bin/time ]; then
 fi
 
 echo "[$(date)] Building first table"
-$TIME ./motivo-build --graph "$GRAPH" --size 1 --colors "$COLORS" --output "$OUTPUT.1.cnt" --threads "$THREADS" --seed "$SEED" || exit 1
+$TIME ./motivo-build --graph "$GRAPH" --size 1 --colors "$COLORS" --output "$OUTPUT" --threads "$THREADS" --seed "$SEED" || exit 1
 echo "[$(date)] Merging first table"
 $TIME ./motivo-merge --output "$OUTPUT.1" "$OUTPUT.1.cnt" || exit 1
 
 for i in $(seq 2 "$SIZE"); do
     echo "[$(date)] Building table of size $i"
-    $TIME ./motivo-build --graph "$GRAPH" --size "$i" --tables-basename "$OUTPUT" --output "$OUTPUT.$i.cnt" --threads "$THREADS" || exit 1
+    $TIME ./motivo-build --graph "$GRAPH" --size "$i" --tables-basename "$OUTPUT" --output "$OUTPUT" --threads "$THREADS" || exit 1
     echo "[$(date)] Merging table of size $i"
     $TIME ./motivo-merge --output "$OUTPUT.$i" "$OUTPUT.$i.cnt" || exit 1
 done
