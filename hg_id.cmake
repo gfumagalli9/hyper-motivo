@@ -1,0 +1,8 @@
+execute_process(COMMAND hg id -i -b WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} TIMEOUT 5 RESULT_VARIABLE HG_ID_RESULT OUTPUT_VARIABLE HG_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT HG_ID_RESULT EQUAL 0)
+    set(HG_ID unknown)
+endif()
+
+message(STATUS "Detected hg id: ${HG_ID}")
+
+file(WRITE hg_id.h "#define MOTIVO_HG_ID \"${HG_ID}\"")

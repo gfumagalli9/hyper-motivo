@@ -59,7 +59,7 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     UndirectedGraph G(graph_opt->get_value());
 
     opts->from_vertex = 0;
-    if(to_opt->is_found())
+    if(from_opt->is_found())
     {
         int64_t from = std::stoll(from_opt->get_value());
         if(from < 0 || from >=G.number_of_vertices())

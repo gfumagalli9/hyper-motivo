@@ -1,14 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 project(Motivo)
 
-execute_process(COMMAND hg id -i -b WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} TIMEOUT 5 RESULT_VARIABLE HG_ID_RESULT OUTPUT_VARIABLE HG_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
-if(NOT HG_ID_RESULT EQUAL 0)
-    set(HG_ID unknown)
-endif()
-
-message(STATUS "Detected hg id: ${HG_ID}")
-
-
 # Set a default build type if none was specified
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     message(STATUS "Setting build type to 'RelWithDebInfo' as none was specified.")
@@ -231,6 +223,15 @@ target_link_libraries(motivo-sample ${SAMPLER_LIBRARIES})
 target_link_libraries(motivo-graph ${GRAPH_LIBRARIES})
 target_link_libraries(motivo-tests ${TEST_LIBRARIES})
 
+add_custom_target(hg_id COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/hg_id.cmake)
+
+add_dependencies(motivo-build hg_id)
+add_dependencies(motivo-merge hg_id)
+add_dependencies(motivo-sample hg_id)
+add_dependencies(motivo-tests hg_id)
+
+
+
 find_package(MPI)
 
 if(MPI_FOUND)
@@ -241,7 +242,6 @@ if(MPI_FOUND)
     set(SLAVEBUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/builder/mpi/slave_builder.cpp src/builder/builder.h src/builder/builder.cpp src/builder/BaseSequencer.h src/builder/TreeletTableBuilder.h src/builder/TreeletTableBuilder.cpp src/builder/SpookyHash.h src/builder/SpookyHash.cpp)
     set(MASTERSAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/sampler/mpi/master_sampler.cpp src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp)
     set(SLAVESAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/sampler/mpi/slave_sampler.cpp src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp src/sampler/sampler_impl.h src/sampler/sampler_impl.cpp src/sampler/Occurrence.h src/sampler/Occurrence.cpp src/sampler/TreeletSampler.h src/sampler/TreeletSampler.cpp)
-
 
     set(TABLESERVER_LIBRARIES ${COMMON_LIBRARIES} ${MPI_LIBRARIES})
     set(MASTERBUILDER_LIBRARIES  ${COMMON_LIBRARIES} ${MPI_LIBRARIES})
@@ -267,6 +267,12 @@ if(MPI_FOUND)
     set_target_properties(motivo-build-slave PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
     set_target_properties(motivo-sample-master PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
     set_target_properties(motivo-sample-slave PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
+
+    add_dependencies(motivo-tableserver hg_id)
+    add_dependencies(motivo-build-master hg_id)
+    add_dependencies(motivo-build-slave hg_id)
+    add_dependencies(motivo-sample-master hg_id)
+    add_dependencies(motivo-sample-slave hg_id)
 endif()
 
 
@@ -290,7 +296,7 @@ endif()
 
 string(STRIP "${MOTIVO_FLAGS}" MOTIVO_FLAGS)
 configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
-include_directories(${CMAKE_BINARY_DIR})
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 enable_testing()
 add_test(NAME build-graph COMMAND motivo-graph --input ../graphs/test-graph.txt --output test-graph)
