@@ -11,4 +11,5 @@ endif()
 
 message(STATUS "Detected hg id: ${HG_ID}")
 
-file(WRITE hg_id.h "#define MOTIVO_HG_ID \"${HG_ID}\"")
+file(WRITE hg_id.h.tmp "#define MOTIVO_HG_ID \"${HG_ID}\"")
+execute_process(COMMAND ${CMAKE_COMMAND}  -E copy_if_different  hg_id.h.tmp hg_id.h)
