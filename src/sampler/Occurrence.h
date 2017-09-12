@@ -6,8 +6,8 @@
 #define MOTIVO_OCCURRENCE_H
 
 
-#include "../common/UndirectedGraph.h"
-#include "../common/Treelet.h"
+#include "../common/graph/UndirectedGraph.h"
+#include "../common/treelets/Treelet.h"
 
 class Occurrence
 {
@@ -17,13 +17,16 @@ public:
     //i,j in {0,...,15}
     //edge (i,j) with i>j is in position sum_{k=1}^(i-1) k + j = (i-1)*i/2 + j in edges
     //last bit is the one corresponding to i=15, j=14 => at most 119 bits are need (14 bytes, 7 bits)
-    constexpr static int binary_footprint_bits = 119;
-    constexpr static int binary_footprint_bytes = (binary_footprint_bits+7)/8; //round up (to 15 bytes)
-    constexpr static int text_footprint_bytes = binary_footprint_bytes*2;
+    constexpr static unsigned int binary_footprint_bits = 119;
+    constexpr static unsigned int binary_footprint_bytes = (binary_footprint_bits+7)/8; //round up (to 15 bytes)
+    constexpr static unsigned int text_footprint_bytes = binary_footprint_bytes*2;
 
 private:
     UndirectedGraph::vertex_t verts[16] = {0};
     uint8_t edges[binary_footprint_bytes] = {0};
+    uint64_t spanning_trees = 0;
+
+    char text_footprint_buffer[text_footprint_bytes+1] = {0}; //Add null-terminator
 
     inline void add_edge(unsigned int i, unsigned int j)
     {
@@ -52,7 +55,7 @@ public:
     const UndirectedGraph::vertex_t* vertices() const { return verts; };
     const char* binary_footprint() const { return reinterpret_cast<const char*>(edges); };
 
-    std::string text_footprint();
+    const char* text_footprint();
 };
 
 

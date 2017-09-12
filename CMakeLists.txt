@@ -14,20 +14,11 @@ set(MOTIVO_BUILD_TYPE CMAKE_BUILD_TYPE)
 option(ENABLE_ASSERTS "Enable asserts (slower)" OFF)
 option(OPTIMIZE_MORE "Optimize for current hardware" OFF)
 option(MOTIVO_OVERFLOW_SAFE "Check for overflows during computation" ON)
-option(MOTIVO_MULTITHREAD "Enable multithread support" ON)
 option(MOTIVO_MAY_ALIAS "Turn off if compiler does not support the may_alias attribute" ON)
 option(USE_TCMALLOC "Use tcmalloc allocator library" OFF)
 option(MOTIVO_DENSE_HASHMAP "Use dense hashmaps" OFF)
 
 set(MOTIVO_FLAGS "")
-
-if(MOTIVO_MULTITHREAD)
-    message(STATUS "Multithreading support enabled.")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} TH")
-else()
-    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} th")
-endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wconversion -Wall -Wextra -Wpedantic -pedantic-errors -Wdisabled-optimization -Wfloat-equal -Wold-style-cast -Wsign-conversion -Winline -Wzero-as-null-pointer-constant -Wuseless-cast -Wno-zero-as-null-pointer-constant -Wno-unknown-warning-option")
 
@@ -112,10 +103,10 @@ if(MOTIVO_OVERFLOW_SAFE AND NOT MOTIVO_HAS_BUILTIN_MUL_OVERFLOW)
     message(WARNING "No builtin function for checking multiplication overflow. Will use slow implementation.")
 endif()
 
-set(COMMON_SOURCE_FILES src/common/UndirectedGraph.cpp src/common/UndirectedGraph.h src/common/Treelet.h src/common/GraphColoring.cpp src/common/GraphColoring.h src/common/Random.h src/common/Treelet.cpp src/common/TreeletTableCollection.cpp src/common/TreeletTableCollection.h src/common/TreeletTable.cpp src/common/TreeletTable.h src/platform/platform.h src/platform/platform.cpp src/common/AliasMethodSampler.h src/common/OptionsParser.cpp src/common/OptionsParser.h src/common/Random.cpp src/common/CompressedRecordFile.cpp src/common/CompressedRecordFile.h src/common/RecordCompressor.cpp src/common/RecordCompressor.h  src/common/BaseRecordSource.h)
+set(COMMON_SOURCE_FILES src/common/graph/UndirectedGraph.cpp src/common/graph/UndirectedGraph.h src/common/treelets/Treelet.h src/common/graph/GraphColoring.cpp src/common/graph/GraphColoring.h src/common/Random.h src/common/treelets/Treelet.cpp src/common/treelets/TreeletTableCollection.cpp src/common/treelets/TreeletTableCollection.h src/common/treelets/TreeletTable.cpp src/common/treelets/TreeletTable.h src/platform/platform.h src/platform/platform.cpp src/common/AliasMethodSampler.h src/common/OptionsParser.cpp src/common/OptionsParser.h src/common/io/CompressedRecordFile.cpp src/common/io/CompressedRecordFile.h src/common/io/RecordCompressor.cpp src/common/io/RecordCompressor.h src/common/io/BaseRecordSource.h src/common/sequencer/BaseSequencer.h src/common/sequencer/StaticSequencer.h src/common/sequencer/DynamicSequencer.h src/common/io/ConcurrentWriter.cpp src/common/io/ConcurrentWriter.h)
 set(MERGER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/merger/merger.cpp)
-set(BUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/builder/TreeletTableBuilder.cpp src/builder/TreeletTableBuilder.h src/builder/ConcurrentFIFO.h src/builder/builder_main.cpp src/builder/SpookyHash.h src/builder/SpookyHash.cpp src/builder/BaseSequencer.h src/builder/StaticSequencer.h src/builder/builder.cpp src/builder/builder.h)
-set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp src/sampler/TreeletSampler.h src/sampler/sampler_main.cpp src/sampler/include_nauty.h src/sampler/Occurrence.cpp src/sampler/Occurrence.h src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp src/sampler/sampler_impl.cpp src/sampler/sampler_impl.h)
+set(BUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/builder/TreeletTableBuilder.cpp src/builder/TreeletTableBuilder.h src/common/io/ConcurrentFIFO.h src/builder/builder_main.cpp src/builder/builder.cpp src/builder/builder.h)
+set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp src/sampler/TreeletSampler.h src/sampler/sampler_main.cpp src/sampler/include_nauty.h src/sampler/Occurrence.cpp src/sampler/Occurrence.h src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp src/sampler/OccurrenceSampler.cpp src/sampler/OccurrenceSampler.h)
 set(GRAPH_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/graph.cpp)
 set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp tests/Treelet.cpp tests/Occurrence.cpp src/sampler/Occurrence.cpp src/sampler/Occurrence.h tests/leftmost_bit_tie.cpp tests/CompressedRecordFile.cpp)
 
@@ -132,11 +123,14 @@ set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} ${INCLUDE_PATH_STR})
 
 set(COMMON_LIBRARIES "m")
 
+find_package(Threads REQUIRED)
+set(COMMON_LIBRARIES ${COMMON_LIBRARIES} Threads::Threads)
+
 find_library(LZ4 NAMES lz4)
 if(NOT LZ4)
     message(FATAL_ERROR "Could not find lz4 library")
 endif()
-set(COMMON_LIBRARIES "${COMMON_LIBRARIES} ${LZ4}")
+set(COMMON_LIBRARIES ${COMMON_LIBRARIES} ${LZ4})
 
 
 if(USE_TCMALLOC)
@@ -148,7 +142,7 @@ if(USE_TCMALLOC)
 
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free")
     set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free")
-    set(COMMON_LIBRARIES "${COMMON_LIBRARIES} ${TCMALLOC}")
+    set(COMMON_LIBRARIES ${COMMON_LIBRARIES} ${TCMALLOC})
     set(MOTIVO_FLAGS "${MOTIVO_FLAGS} AL")
 else()
     set(MOTIVO_FLAGS "${MOTIVO_FLAGS} al")
@@ -205,6 +199,7 @@ else()
     message(FATAL_ERROR "Could not find sparsehash header files")
 endif()
 
+
 set(SAMPLER_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
 set(BUILDER_LIBRARIES ${COMMON_LIBRARIES})
 set(MERGER_LIBRARIES ${COMMON_LIBRARIES})
@@ -238,10 +233,10 @@ if(MPI_FOUND)
     set(COMMON_MPI_SOURCE_FILES src/mpi/protocol.h src/mpi/MotivoMPIContext.h src/mpi/MotivoMPIContext.cpp src/mpi/MPISequencer.h src/mpi/MPIRemoteCompressedRecordFile.h)
 
     set(TABLESERVER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/mpi/tableserver.cpp )
-    set(MASTERBUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/builder/mpi/master_builder.cpp src/builder/builder.h src/builder/builder.cpp src/builder/BaseSequencer.h src/builder/StaticSequencer.h)
-    set(SLAVEBUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/builder/mpi/slave_builder.cpp src/builder/builder.h src/builder/builder.cpp src/builder/BaseSequencer.h src/builder/TreeletTableBuilder.h src/builder/TreeletTableBuilder.cpp src/builder/SpookyHash.h src/builder/SpookyHash.cpp)
+    set(MASTERBUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/builder/mpi/master_builder.cpp src/builder/builder.h src/builder/builder.cpp)
+    set(SLAVEBUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/builder/mpi/slave_builder.cpp src/builder/builder.h src/builder/builder.cpp src/builder/TreeletTableBuilder.h src/builder/TreeletTableBuilder.cpp)
     set(MASTERSAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/sampler/mpi/master_sampler.cpp src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp)
-    set(SLAVESAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/sampler/mpi/slave_sampler.cpp src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp src/sampler/sampler_impl.h src/sampler/sampler_impl.cpp src/sampler/Occurrence.h src/sampler/Occurrence.cpp src/sampler/TreeletSampler.h src/sampler/TreeletSampler.cpp)
+    set(SLAVESAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/sampler/mpi/slave_sampler.cpp src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp src/sampler/Occurrence.h src/sampler/Occurrence.cpp src/sampler/TreeletSampler.h src/sampler/TreeletSampler.cpp)
 
     set(TABLESERVER_LIBRARIES ${COMMON_LIBRARIES} ${MPI_LIBRARIES})
     set(MASTERBUILDER_LIBRARIES  ${COMMON_LIBRARIES} ${MPI_LIBRARIES})

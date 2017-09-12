@@ -8,11 +8,11 @@
 #include <cstdint>
 #include <string>
 #include "Treelet.h"
-#include "Random.h"
-#include "UndirectedGraph.h"
-#include "AliasMethodSampler.h"
-#include "../platform/platform.h"
-#include "CompressedRecordFile.h"
+#include "../Random.h"
+#include "../graph/UndirectedGraph.h"
+#include "../AliasMethodSampler.h"
+#include "../../platform/platform.h"
+#include "../io/CompressedRecordFile.h"
 
 class TreeletTable
 {

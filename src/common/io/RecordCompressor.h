@@ -62,8 +62,22 @@ public:
             if(RAW)
                 return decompress_result_t<T>{reinterpret_cast<T*>(record+sizeof(header_t)), (length - sizeof(header_t))/sizeof(T), nullptr};
 
-            //This is properly aligned.
-            //3.7.3.1/2: The pointer returned shall be suitably aligned so that it can be converted to a pointer of any complete object type and then used to access the object or array in the storage allocated
+            /* 5.3.4/10 - New
+             * A new-expression passes the amount of space requested to the allocation function as the first argument of type std::
+             * size_t. That argument shall be no less than the size of the object being created; it may be greater than the size of the
+             * object being created only if the object is an array. For arrays of char and unsigned char, the difference between the
+             * result of the new-expression and the address returned by the allocation function shall be an integral multiple of the most
+             * stringent alignment requirement (3.9) of any object type whose size is no greater than the size of the array being created.
+             * [Note: Because allocation functions are assumed to return pointers to storage that is appropriately aligned for objects
+             * of any type, this constraint on array allocation overhead permits the common idiom of allocating character arrays into
+             * which objects of other types will later be placed. — end note ]
+
+             * 3.7.3.1/2 - Allocation functions
+             * The pointer returned shall be suitably aligned so that it can be converted to a pointer of any complete object type and then
+             * used to access the object or array in the storage allocated (until the storage is explicitly deallocated by a call to a
+             * corresponding deallocatio function)
+             *
+             * TLDR: The next pointer is properly aligned. */
             char* buffer = new char[length- sizeof(header_t)];
             typename std::remove_const<T>::type* buffer_T = new (buffer) typename std::remove_const<T>::type[(length- sizeof(header_t))/sizeof(T)];
             memcpy(buffer, record+sizeof(header_t), (length- sizeof(header_t)));
@@ -76,6 +90,7 @@ public:
         assert(uncompressed_size_ub>0);
         assert(uncompressed_size_ub%sizeof(T)==0);
 
+        //Properly aligned
         char* buffer = new char[uncompressed_size_ub];
         typename std::remove_const<T>::type* buffer_T = new (buffer) typename std::remove_const<T>::type[uncompressed_size_ub/sizeof(T)];
         assert(buffer==reinterpret_cast<char*>(buffer_T));

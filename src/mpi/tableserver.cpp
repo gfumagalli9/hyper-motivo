@@ -4,7 +4,7 @@
 
 #include <cstdio>
 #include <mpi.h>
-#include "../common/CompressedRecordFile.h"
+#include "../common/io/CompressedRecordFile.h"
 #include "protocol.h"
 #include "MotivoMPIContext.h"
 

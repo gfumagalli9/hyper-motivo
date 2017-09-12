@@ -7,7 +7,7 @@
 
 #include <chrono>
 #include <config.h>
-#include "../common/UndirectedGraph.h"
+#include "../common/graph/UndirectedGraph.h"
 
 struct builder_opts
 {
@@ -22,7 +22,7 @@ struct builder_opts
     char output_basename[MOTIVO_ARG_MAX];
     UndirectedGraph::vertex_t progress;
     bool store0;
-    UndirectedGraph::vertex_t batch_size;
+    //UndirectedGraph::vertex_t batch_size;
 };
 
 bool parse_builder_args(const int argc, const char **argv, const std::string &name, builder_opts *opts);

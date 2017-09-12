@@ -7,33 +7,17 @@
 #include <iostream>
 #include <algorithm>
 #include <atomic>
-#include "config.h"
-
-
-#ifdef MOTIVO_MULTITHREAD
-    #include <thread>
-#endif
+#include <thread>
 
 #include "TreeletTableBuilder.h"
 
 TreeletTableBuilder::TreeletTableBuilder(const UndirectedGraph* graph, const GraphColoring* coloring, const unsigned int size,
-    const TreeletTableCollection* lower, std::ostream* output, BaseSequencer* const sequencer, const bool store_0_only, const unsigned int num_threads)
+    const TreeletTableCollection* lower, std::ostream* output, sequencer_t* const sequencer, const bool store_0_only, const unsigned int num_threads)
         : graph(graph), coloring(coloring), size(size), lower(lower), output(output), sequencer(sequencer),
           store_0_only(store_0_only), number_of_threads(num_threads)
-#ifdef MOTIVO_MULTITHREAD
-, write_queue(2*num_threads)
-#endif
 {
     if(num_threads==0)
         throw std::runtime_error("Invalid number of threads");
-
-#ifndef MOTIVO_MULTITHREAD
-    if(num_threads!=1)
-        throw std::runtime_error("Multithread support is not enabled");
-
-    if(num_threads>1 && thread_batch_size<=0)
-        throw std::runtime_error("Invalid batch size");
-#endif
 
     if(size==0)
         throw std::runtime_error("Invalid size");
@@ -52,20 +36,17 @@ void TreeletTableBuilder::build()
             do_build_st();
         else
         {
-#ifdef MOTIVO_MULTITHREAD
-            std::thread writer_thread([this] { writer_loop(); });
+            ConcurrentWriter *writer = new ConcurrentWriter(output, 100*number_of_threads);
 
             std::thread *worker_threads = new std::thread[number_of_threads];
             for (unsigned int i = 0; i < number_of_threads; i++)
-                worker_threads[i] = std::thread([this] { do_build_mt(); });
+                worker_threads[i] = std::thread([this, writer] { do_build_mt(writer); });
 
             for (unsigned int i = 0; i < number_of_threads; i++)
                 worker_threads[i].join();
 
             delete[] worker_threads;
-
-            writer_thread.join();
-#endif
+            delete writer;
         }
     }
 }
@@ -83,11 +64,11 @@ void TreeletTableBuilder::do_build_1_st()
 
     while(true)
     {
-        BaseSequencer::sequence_batch_t batch = sequencer->next_batch();
+        sequencer_t::sequence_batch_t batch = sequencer->next_batch();
         if (batch.from > batch.to)
             break;
 
-        for (UndirectedGraph::vertex_t u = batch.from; u <= batch.to; u++)
+        for (UndirectedGraph::vertex_t u = batch.from; u<batch.to; u++)
         {
             if (store_0_only && coloring->color_of(u) != 1) //color 0 is represented as 1<<0 = 1
                 continue;
@@ -105,8 +86,8 @@ void TreeletTableBuilder::do_build_st()
 {
     while(true)
     {
-        BaseSequencer::sequence_batch_t batch = sequencer->next_batch();
-        if(batch.from>batch.to)
+        sequencer_t::sequence_batch_t batch = sequencer->next_batch();
+        if(batch.from>=batch.to)
             break;
 
         for (UndirectedGraph::vertex_t u = batch.from; u <= batch.to; u++)
@@ -121,30 +102,22 @@ void TreeletTableBuilder::do_build_st()
             for (UndirectedGraph::vertex_t d = 0; d < degree; d++)
                 combine(u, graph->neighbor(u, d), table);
 
-            std::pair<void *, std::streamsize> to_write = to_normalized_sorted_byte_array(u, table);
-            output->write(static_cast<char *>(to_write.first), to_write.second);
-            ::operator delete(to_write.first);
+            std::pair<char*, std::size_t> to_write = to_normalized_sorted_byte_array(u, table);
+            output->write(to_write.first, static_cast<std::streamsize>(to_write.second));
+            delete[] to_write.first;
         }
     }
 }
 
-#ifdef MOTIVO_MULTITHREAD
-void TreeletTableBuilder::do_build_mt()
+void TreeletTableBuilder::do_build_mt(ConcurrentWriter* writer)
 {
     while(true)
     {
-        BaseSequencer::sequence_batch_t batch = sequencer->next_batch();
-        if(batch.from>batch.to)
-        {
-            std::pair<char*, std::size_t >* outout_rows = new std::pair<char*, std::size_t>[1];
-            outout_rows[0] = std::make_pair(nullptr, 0); //Signal the end of the thread
-            write_queue.push( outout_rows );
+        sequencer_t::sequence_batch_t batch = sequencer->next_batch();
+        if(batch.from>=batch.to)
             break;
-        }
 
-        std::pair<char*, std::size_t >* outout_rows = new std::pair<char*, std::size_t>[batch.to-batch.from+2];
-        UndirectedGraph::vertex_t written=0;
-        for(UndirectedGraph::vertex_t u=batch.from; u<=batch.to; u++)
+        for(UndirectedGraph::vertex_t u=batch.from; u<batch.to; u++)
         {
             if(store_0_only && lower->get_table(1)->begin(u).treelet().get_colors()!=1) //color 0 is represented as 1<<0 = 1
                 continue;
@@ -155,26 +128,17 @@ void TreeletTableBuilder::do_build_mt()
             for (UndirectedGraph::vertex_t d = 0; d < degree; d++)
                 combine(u, graph->neighbor(u,d), table);
 
-            outout_rows[written++] = to_normalized_sorted_byte_array(u, table);
+            std::pair<char*, std::size_t > r = to_normalized_sorted_byte_array(u, table);
+            writer->write(r.first, r.second);
         }
-
-        if(written>0)
-        {
-            outout_rows[written] = std::make_pair(nullptr, 0); //Signal the of current batch
-            write_queue.push( outout_rows );
-        }
-        else
-            delete[] outout_rows;
     }
 }
-#endif
-
 
 std::pair<char*, std::size_t > TreeletTableBuilder::to_normalized_sorted_byte_array(const UndirectedGraph::vertex_t u, const table_t &table)
 {
-    std::pair<char*, std::size_t > result;
+    std::pair<char*, std::size_t> result;
     result.second = sizeof(UndirectedGraph::vertex_t) + sizeof(uint64_t) + table.size() * sizeof(TreeletTable::treelet_count_pair);
-    result.first = static_cast<char*>(::operator new(result.second));
+    result.first = new char[result.second];
 
     //Prevent alignment issues (size might get copied to unaligned memory)
     memcpy(result.first, &u, sizeof(UndirectedGraph::vertex_t));
@@ -225,8 +189,6 @@ void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const Undir
                 Treelet merged = t1.merge(t2);
                 if(merged.is_valid())
                 {
-                    //(*counts[u])[merged] += u_it.count() * v_it.count();
-
                     TreeletTable::treelet_count_t &count = counts[merged];
                     TreeletTable::treelet_count_t tmp;
                     safe_mul(u_it.count(), v_it.count(), &tmp);
@@ -236,31 +198,5 @@ void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const Undir
                     break; //All the remaining treelets t2 will have a structure that is too small.
             }
         }
-    }
-}
-
-void TreeletTableBuilder::writer_loop()
-{
-    unsigned int threads_over=0;
-    while(threads_over<number_of_threads)
-    {
-        std::pair<char*, std::size_t>* to_write = write_queue.pop();
-        std::pair<char*, std::size_t>* p = to_write;
-
-        if(p->first == nullptr)
-            threads_over++;
-        else
-        {
-            while (p->first != nullptr)
-            {
-                assert(p->second > 0);
-                output->write(p->first, static_cast<std::streamsize>(p->second));
-                ::operator delete(p->first);
-
-                p++;
-            }
-        }
-
-        delete[] to_write;
     }
 }

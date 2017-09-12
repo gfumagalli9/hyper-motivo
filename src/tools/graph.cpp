@@ -6,7 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <config.h>
-#include "../common/UndirectedGraph.h"
+#include "../common/graph/UndirectedGraph.h"
 #include "../common/OptionsParser.h"
 
 void graph2bin(const std::string &graph_filename, const std::string &output_basename)

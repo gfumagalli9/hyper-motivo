@@ -7,10 +7,11 @@
 #include <cstring>
 #include <chrono>
 #include <new>
+#include <thread>
 #include "sampler_opts.h"
 #include "../common/OptionsParser.h"
-#include "../common/UndirectedGraph.h"
-#include "../common/TreeletTableCollection.h"
+#include "../common/graph/UndirectedGraph.h"
+#include "../common/treelets/TreeletTableCollection.h"
 #include "TreeletSampler.h"
 #include "Occurrence.h"
 
@@ -21,7 +22,6 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *graph_opt = op.add_option(true, true, "graph", 'g', "", "Input graph basename (required)");
     OptionsParser::Option *size_opt = op.add_option(true, true, "size", 's', "", "Size of the treelets to sample (required)");
     OptionsParser::Option *numsamples_opt = op.add_option(false, true, "num-samples", 'n', "", "Stop after this number of samples (default: unlimited)");
-    OptionsParser::Option *numaccepted_opt = op.add_option(false, true, "num-accepted", 'a', "", "Stop after this number of accepted samples (default: unlimited)");
     OptionsParser::Option *input_opt = op.add_option(true, true, "tables-basename", 'i', "", "Input tables basename (required)");
     OptionsParser::Option *output_opt = op.add_option(false, true, "output", 'o', "", "Output file (default: stdout)");
     OptionsParser::Option *text_opt = op.add_option(false, false, "text", 't', "", "Output occurrences in text format");
@@ -32,6 +32,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *spanning_opt = op.add_option(false, false, "spanning-trees-no", '\0', "", "Output the number of spanning trees in the sampels treelet/graphlet");
     OptionsParser::Option *vertices_opt = op.add_option(false, false, "vertices", '\0', "", "Output the IDs of the sampled vertices");
     OptionsParser::Option *seed_opt = op.add_option(false, true, "seed", '\0', "", "String used to seed the random number generator (default or empty string: seed from system random device)");
+    OptionsParser::Option *threads_opt = op.add_option(false, true, "threads", '\0', "1", "Number of threads to use or 0 for to use the number of logical processors (default: 1)");
 
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
@@ -61,13 +62,6 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     if(opts->number_of_samples==0)
         throw std::runtime_error("'num-samples' option is invalid");
 
-
-    opts->number_of_accepted_samples = std::numeric_limits<uint64_t>::max();
-    if(numaccepted_opt->is_found())
-        opts->number_of_accepted_samples = std::stoull(numaccepted_opt->get_value());
-    if(opts->number_of_accepted_samples==0)
-        throw std::runtime_error("'num-accepted' option is invalid");
-
     opts->footprints = footprints_opt->is_found();
     opts->spanning_trees = spanning_opt->is_found();
     opts->vertices = vertices_opt->is_found();
@@ -89,6 +83,22 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     if(seed_opt->get_value().length()>=MOTIVO_ARG_MAX)
         throw std::runtime_error("'seed' option is too long");
     strcpy(opts->seed, seed_opt->get_value().c_str());
+
+
+    int threads = std::stoi(threads_opt->get_value());
+    if(threads<0)
+        throw std::runtime_error("The number of threads is invalid");
+
+    if (threads == 0)
+        opts->threads = std::thread::hardware_concurrency();
+    else
+        opts->threads = static_cast<unsigned int>(threads);
+
+    if(opts->threads<=0)
+        throw std::runtime_error("Failed to determine the number of logical processors");
+
+    opts->threads = static_cast<unsigned int>(threads);
+
 
     opts->canonicize = canonicize_opt->is_found();
     opts->graphlets = graphlets_opt->is_found();

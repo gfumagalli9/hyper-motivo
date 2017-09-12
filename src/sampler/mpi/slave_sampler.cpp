@@ -8,10 +8,9 @@
 
 #include <fstream>
 #include <mpi.h>
-#include "../../common/UndirectedGraph.h"
+#include "../../common/graph/UndirectedGraph.h"
 #include "../TreeletSampler.h"
 #include "../sampler_opts.h"
-#include "../sampler_impl.h"
 #include "../../mpi/MotivoMPIContext.h"
 #include "../../mpi/protocol.h"
 #include "../../mpi/MPIRemoteCompressedRecordFile.h"
@@ -68,8 +67,8 @@ int main(const int argc, const char** argv)
 
         MPI_Barrier(MPI_COMM_WORLD);
 
-        sample(G, ttc, opts.size, opts.number_of_samples, opts.number_of_accepted_samples, *output, opts.text,
-               opts.canonicize, opts.graphlets, opts.norejection, opts.footprints, opts.spanning_trees, opts.vertices, &rng);
+        //sample(G, ttc, opts.size, opts.number_of_samples, opts.number_of_accepted_samples, *output, opts.text,
+        //       opts.canonicize, opts.graphlets, opts.norejection, opts.footprints, opts.spanning_trees, opts.vertices, &rng);
 
         MPI_Send(nullptr, 0, MPI_BYTE, master_rank, protocol::MSG_SAMPLER_SLAVE_DONE, MPI_COMM_WORLD);
 

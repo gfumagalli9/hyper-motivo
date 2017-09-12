@@ -5,15 +5,15 @@
 #include <cstdlib>
 #include <cstdio>
 #include <mpi.h>
-#include "../../common/CompressedRecordFile.h"
-#include "../../common/UndirectedGraph.h"
+#include "../../common/io/CompressedRecordFile.h"
+#include "../../common/graph/UndirectedGraph.h"
 #include "../../mpi/protocol.h"
 #include "../../common/OptionsParser.h"
-#include "../StaticSequencer.h"
+#include "../../common/sequencer/StaticSequencer.h"
 #include "../../mpi/MotivoMPIContext.h"
 #include "../builder.h"
 
-void loop(StaticSequencer &sequencer, const MotivoMPIContext* context)
+void loop(StaticSequencer<UndirectedGraph::vertex_t> &sequencer, const MotivoMPIContext* context)
 {
 
     unsigned int builders = context->number_of_slave_builders();
@@ -27,8 +27,8 @@ void loop(StaticSequencer &sequencer, const MotivoMPIContext* context)
             builders_done++;
         else if(recv_status.MPI_TAG == protocol::MSG_NEXT_BATCH_REQUEST)
         {
-            BaseSequencer::sequence_batch_t batch = sequencer.next_batch();
-            MPI_Send(&batch, sizeof(BaseSequencer::sequence_batch_t), MPI_BYTE, recv_status.MPI_SOURCE, protocol::MSG_NEXT_BATCH_RESPONSE, MPI_COMM_WORLD);
+            BaseSequencer<UndirectedGraph::vertex_t>::sequence_batch_t batch = sequencer.next_batch();
+            MPI_Send(&batch, sizeof(BaseSequencer<UndirectedGraph::vertex_t>::sequence_batch_t), MPI_BYTE, recv_status.MPI_SOURCE, protocol::MSG_NEXT_BATCH_RESPONSE, MPI_COMM_WORLD);
         }
         else
             MPI_Abort(MPI_COMM_WORLD, 6);
@@ -93,7 +93,9 @@ int main(const int argc, const char** argv)
     for(unsigned int i=0; i<context.number_of_tableservers(); i++)
         MPI_Send(&tableserver_args, sizeof(protocol::tableserver_args_t), MPI_BYTE, tableservers[i], protocol::MSG_TABLESERVER_ARGS, MPI_COMM_WORLD);
 
-    StaticSequencer sequencer(opts.from_vertex, opts.to_vertex, opts.batch_size);
+    UndirectedGraph::vertex_t batch_size = opts.to_vertex/(context.number_of_slave_builders() * opts.threads * 100);
+    batch_size = (batch_size<1)?1:batch_size;
+    StaticSequencer<UndirectedGraph::vertex_t> sequencer(opts.from_vertex, opts.to_vertex, batch_size);
     if(opts.progress > 0)
     {
         std::cout << "Will print a progress report every " << opts.progress << " processed vertices" << std::endl;

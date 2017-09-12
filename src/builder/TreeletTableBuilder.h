@@ -10,13 +10,14 @@
 #include <string>
 #include <functional>
 #include "config.h"
-#include "../common/Treelet.h"
-#include "../common/UndirectedGraph.h"
-#include "../common/GraphColoring.h"
-#include "../common/TreeletTable.h"
-#include "../common/TreeletTableCollection.h"
-#include "ConcurrentFIFO.h"
-#include "BaseSequencer.h"
+#include "../common/treelets/Treelet.h"
+#include "../common/graph/UndirectedGraph.h"
+#include "../common/graph/GraphColoring.h"
+#include "../common/treelets/TreeletTable.h"
+#include "../common/treelets/TreeletTableCollection.h"
+#include "../common/sequencer/BaseSequencer.h"
+#include "../common/io/ConcurrentFIFO.h"
+#include "../common/io/ConcurrentWriter.h"
 
 #ifdef MOTIVO_MULTITHREAD
     #include <mutex>
@@ -24,6 +25,9 @@
 
 class TreeletTableBuilder
 {
+public:
+    typedef BaseSequencer<UndirectedGraph::vertex_t> sequencer_t;
+
 private:
     struct TreeletHash
     {
@@ -51,25 +55,17 @@ private:
 #define MOTIVO_INIT_HASHMAP(hm) do {} while(false)
 #endif
 
-
     const UndirectedGraph* graph;
     const GraphColoring* coloring;
     const unsigned int size;
     const TreeletTableCollection* lower;
     std::ostream* output;
-    BaseSequencer* const sequencer;
+    sequencer_t* const sequencer;
     const bool store_0_only;
     const unsigned int number_of_threads;
 
-#ifdef MOTIVO_MULTITHREAD
-    ConcurrentFIFO< std::pair<char*, std::size_t>* > write_queue;
-
     /// Fills a table for sizes > 1
-    void do_build_mt [[gnu::hot,gnu::flatten]]();
-
-    ///Writing thread entry point
-    void writer_loop();
-#endif
+    void do_build_mt [[gnu::hot,gnu::flatten]](ConcurrentWriter *writer);
 
     /// Fills a size-1 table
     void do_build_1_st [[gnu::hot,gnu::flatten]]();
@@ -84,7 +80,7 @@ private:
 
 public:
     TreeletTableBuilder(const UndirectedGraph* graph, const GraphColoring* coloring, const unsigned int size,
-                        const TreeletTableCollection* lower, std::ostream* output, BaseSequencer* const sequencer,
+                        const TreeletTableCollection* lower, std::ostream* output, sequencer_t* const sequencer,
                         const bool store_0_only=false, const unsigned int num_threads=1);
 
     /// Fills the treelet table computing the number of treelets of each kind rooted at each vertex

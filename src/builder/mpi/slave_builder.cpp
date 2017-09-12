@@ -7,7 +7,7 @@
 #include "../builder.h"
 #include "../../mpi/protocol.h"
 #include "../../mpi/MotivoMPIContext.h"
-#include "../../common/TreeletTableCollection.h"
+#include "../../common/treelets/TreeletTableCollection.h"
 #include "../../mpi/MPISequencer.h"
 #include "../TreeletTableBuilder.h"
 #include "../../mpi/MPIRemoteCompressedRecordFile.h"
@@ -42,7 +42,6 @@ int main(const int argc, const char** argv)
         G.prefault();
         std::cout << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
 
-        std::cout << "Using a thread batch size of " << opts.batch_size << std::endl;
         assert(opts.size!=1);
 
         TreeletTableCollection ttc;

@@ -5,8 +5,8 @@
 #ifndef MOTIVO_TREELETSAMPLER_H
 #define MOTIVO_TREELETSAMPLER_H
 
-#include "../common/Treelet.h"
-#include "../common/TreeletTableCollection.h"
+#include "../common/treelets/Treelet.h"
+#include "../common/treelets/TreeletTableCollection.h"
 
 class TreeletSampler
 {

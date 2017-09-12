@@ -5,7 +5,7 @@
 #include "doctest.h"
 #include <sstream>
 #include <cmath>
-#include "../src/common/UndirectedGraph.h"
+#include "../src/common/graph/UndirectedGraph.h"
 #include "../src/sampler/Occurrence.h"
 
 /* Graph test contains 56 vertices and 159 edges:

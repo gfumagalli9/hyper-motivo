@@ -7,20 +7,17 @@
 #include <fstream>
 #include <vector>
 #include <utility>
-#include "../common/UndirectedGraph.h"
-#include "../common/Treelet.h"
-#include "../common/TreeletTable.h"
+#include "../common/graph/UndirectedGraph.h"
+#include "../common/treelets/Treelet.h"
+#include "../common/treelets/TreeletTable.h"
 #include "../common/OptionsParser.h"
-#include "../common/CompressedRecordFile.h"
+#include "../common/io/CompressedRecordFile.h"
 
 unsigned int bits_needed(uint128_t n)
 {
     unsigned int needed = 1;
-    while(n>=2)
-    {
-        n/=2;
+    for(n>>=1; n!=0; n>>=1)
         needed++;
-    }
 
     return needed;
 }
@@ -224,7 +221,7 @@ int main(const int argc, const char** argv)
         std::cout << "  Builds treelet tables for use with motivo-sample" << std::endl << std::endl;
         std::cout << op.help() << std::endl;
 
-        return parse_ok ? EXIT_SUCCESS : EXIT_FAILURE;
+        return parse_ok?EXIT_SUCCESS:EXIT_FAILURE;
     }
 
     if(!op.has_required_options())
@@ -238,7 +235,7 @@ int main(const int argc, const char** argv)
     {
         compress_threshold=std::stod(compress_opt->get_value());
     }
-    catch(std::exception& e)
+    catch(std::exception &e)
     {
         std::cout << "Invalid compress-thresold" << std::endl;
         return EXIT_FAILURE;
@@ -257,7 +254,7 @@ int main(const int argc, const char** argv)
     {
         merge(count_files, output_opt->get_value(), compress_threshold);
     }
-    catch(std::exception& e)
+    catch(std::exception &e)
     {
         std::cerr << "Error: " << e.what() << std::endl;
         return EXIT_FAILURE;

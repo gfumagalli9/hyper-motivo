@@ -9,11 +9,11 @@
 #include <cstdint>
 #include <mutex>
 #include <mpi.h>
-#include "../common/RecordCompressor.h"
+#include "../common/io/RecordCompressor.h"
 #include "protocol.h"
-#include "../common/CompressedRecordFile.h"
+#include "../common/io/CompressedRecordFile.h"
 #include "MotivoMPIContext.h"
-#include "../common/UndirectedGraph.h"
+#include "../common/graph/UndirectedGraph.h"
 
 template<typename T, bool RAW> class MPIRemoteCompressedRecordFile : public BaseRecordSource<T>
 {

@@ -9,15 +9,14 @@
 #include <cstdint>
 #include <string>
 #include "../common/Random.h"
-#include "../common/UndirectedGraph.h"
-#include "../common/TreeletTableCollection.h"
+#include "../common/graph/UndirectedGraph.h"
+#include "../common/treelets/TreeletTableCollection.h"
 
 struct sampler_opts
 {
     char graph[MOTIVO_ARG_MAX];
     unsigned int size;
     uint64_t number_of_samples;
-    uint64_t number_of_accepted_samples;
     char tables_basename[MOTIVO_ARG_MAX];
     char output_basename[MOTIVO_ARG_MAX];
     bool text;
@@ -28,6 +27,7 @@ struct sampler_opts
     bool spanning_trees;
     bool vertices;
     char seed[MOTIVO_ARG_MAX + 2 + std::numeric_limits<unsigned int>::digits/3]; //Enough space to append one character + 1 integer
+    unsigned int threads;
 };
 
 bool parse_sampler_args(const int argc, const char **argv, const std::string &name, sampler_opts *opts);

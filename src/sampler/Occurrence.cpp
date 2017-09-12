@@ -46,16 +46,18 @@ Occurrence::Occurrence(const Treelet& treelet, const UndirectedGraph::vertex_t *
     assert(n==size-1);
 }
 
-std::string Occurrence::text_footprint()
+const char* Occurrence::text_footprint()
 {
-    char c[text_footprint_bytes];
-    for(unsigned int i=0; i<binary_footprint_bytes; i++)
+    if(text_footprint_buffer[0]==0)
     {
-        c[2*i]= static_cast<char>('A'+ (edges[i]>>4));
-        c[2*i+1]= static_cast<char>('A'+ (edges[i] & 0x0F));
+        for(unsigned int i=0; i<binary_footprint_bytes; i++)
+        {
+            text_footprint_buffer[2*i]= static_cast<char>('A'+ (edges[i]>>4));
+            text_footprint_buffer[2*i+1]= static_cast<char>('A'+ (edges[i] & 0x0F));
+        }
     }
 
-    return std::string(c, text_footprint_bytes);
+    return text_footprint_buffer;
 }
 
 void Occurrence::canonicize()
@@ -112,9 +114,12 @@ void Occurrence::canonicize()
 
 uint64_t Occurrence::number_of_spanning_trees()
 {
+    if(spanning_trees!=0)
+        return spanning_trees;
+
     //Handle small cases
     if(size<=2) //Isolated vertex or 2 vertices and a single edge
-        return 1;
+        return spanning_trees=1;
 
     if(size==3)
     {
@@ -122,7 +127,7 @@ uint64_t Occurrence::number_of_spanning_trees()
         if( has_edge(1,0) && has_edge(2,1) && has_edge(2,0) )
             return 3;
 
-        return  1;
+        return spanning_trees=1;
     }
 
     double* matrix = new double[(size-1)*(size-1)];
@@ -177,5 +182,5 @@ uint64_t Occurrence::number_of_spanning_trees()
 
     delete[] matrix;
 
-    return static_cast<uint64_t>(det*det + 0.5); //fast round(det*det)
+    return spanning_trees=static_cast<uint64_t>(det*det + 0.5); //fast round(det*det)
 }

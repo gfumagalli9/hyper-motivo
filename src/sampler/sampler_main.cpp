@@ -3,10 +3,10 @@
 //
 
 #include <fstream>
-#include "../common/UndirectedGraph.h"
+#include "../common/graph/UndirectedGraph.h"
 #include "TreeletSampler.h"
 #include "sampler_opts.h"
-#include "sampler_impl.h"
+#include "OccurrenceSampler.h"
 
 
 int main(const int argc, const char** argv)
@@ -16,7 +16,8 @@ int main(const int argc, const char** argv)
     sampler_opts opts;
     try
     {
-        parse_sampler_args(argc, argv, "motivo-sample", &opts);
+        if(!parse_sampler_args(argc, argv, "motivo-sample", &opts))
+            return EXIT_SUCCESS;
 
         std::ostream* output = &std::cout;
         if(strlen(opts.output_basename)!=0)
@@ -30,7 +31,7 @@ int main(const int argc, const char** argv)
         TreeletTableCollection ttc;
         CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>* readers = nullptr;
         TreeletTable** tables = nullptr;
-        std::cout << "Loading tables for smaller sizes" << std::endl;
+        std::cerr << "Loading tables for smaller sizes" << std::endl;
         readers = new CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>[opts.size];
         tables = new TreeletTable*[opts.size];
 
@@ -47,8 +48,9 @@ int main(const int argc, const char** argv)
         std::cerr << "Using seed " << rng.get_seed() << std::endl;
         std::cerr << "Sampling..." << std::endl;
 
-        sample(G, ttc, opts.size, opts.number_of_samples, opts.number_of_accepted_samples, *output, opts.text,
-               opts.canonicize, opts.graphlets, opts.norejection, opts.footprints, opts.spanning_trees, opts.vertices, &rng);
+        OccurrenceSampler sampler(&G, &ttc, opts.size, opts.number_of_samples, &rng, opts.vertices, opts.graphlets,
+                                  opts.spanning_trees, opts.footprints, opts.canonicize, opts.norejection, opts.text, output, opts.threads);
+        sampler.sample();
 
         for(unsigned int i=0; i<opts.size-1; i++)
             delete tables[i];
@@ -60,7 +62,7 @@ int main(const int argc, const char** argv)
             delete output;
 
     }
-    catch(std::exception& e)
+    catch(std::exception &e)
     {
         std::cerr << "Error: " << e.what() << std::endl;
         return EXIT_FAILURE;

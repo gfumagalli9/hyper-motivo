@@ -3,10 +3,11 @@
 #include <fstream>
 #include <thread>
 
-#include "../common/UndirectedGraph.h"
+#include "../common/graph/UndirectedGraph.h"
+#include "../common/sequencer/StaticSequencer.h"
 #include "TreeletTableBuilder.h"
-#include "StaticSequencer.h"
 #include "builder.h"
+#include "../common/sequencer/DynamicSequencer.h"
 
 int main(const int argc, const char** argv)
 {
@@ -22,7 +23,7 @@ int main(const int argc, const char** argv)
         G.prefault();
         std::cout << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
 
-        std::cout << "Using a thread batch size of " << opts.batch_size << std::endl;
+        //std::cout << "Using a thread batch size of " << opts.batch_size << std::endl;
 
         std::unique_ptr<GraphColoring> coloring;
         if(opts.size == 1)
@@ -59,7 +60,8 @@ int main(const int argc, const char** argv)
         std::cout << "Computing counts of treelets of size " << opts.size << " for vertices " << opts.from_vertex << "--"
                   << opts.to_vertex << " using " << opts.threads << " worker thread(s)" << std::endl;
 
-        StaticSequencer sequencer(opts.from_vertex, opts.to_vertex, opts.batch_size);
+
+        DynamicSequencer<UndirectedGraph::vertex_t> sequencer(opts.from_vertex, opts.to_vertex, opts.threads);
         if(opts.progress > 0)
         {
             std::cout << "Will print a progress report every " << opts.progress << " processed vertices" << std::endl;
@@ -78,7 +80,7 @@ int main(const int argc, const char** argv)
         delete[] readers;
         delete[] tables;
     }
-    catch(std::exception& e)
+    catch(std::exception &e)
     {
         std::cerr << "Error: " << e.what() << std::endl;
         return EXIT_FAILURE;

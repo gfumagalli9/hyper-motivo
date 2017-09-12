@@ -8,7 +8,7 @@
 
 #include <cstdint>
 #include "UndirectedGraph.h"
-#include "Random.h"
+#include "../Random.h"
 
 class GraphColoring
 {

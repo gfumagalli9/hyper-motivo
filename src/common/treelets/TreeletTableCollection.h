@@ -6,8 +6,8 @@
 #define MOTIVO_TREELETTABLECOLLECTION_H
 
 
-#include "UndirectedGraph.h"
-#include "GraphColoring.h"
+#include "../graph/UndirectedGraph.h"
+#include "../graph/GraphColoring.h"
 #include "TreeletTable.h"
 
 class TreeletTableCollection

@@ -3,7 +3,7 @@
 //
 
 #include "doctest.h"
-#include "../src/common/Treelet.h"
+#include "../src/common/treelets/Treelet.h"
 
 void test(const Treelet& treelet, Treelet::treelet_structure_t structure, Treelet::treelet_colors_t colors, uint8_t norm, uint8_t size)
 {

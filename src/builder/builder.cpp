@@ -23,7 +23,7 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
     OptionsParser::Option *progress_opt = op.add_option(false, true, "progress", 'P', "0", "Number of processed vertices between progress reports or 0 for no progress reports (default: 0)");
     OptionsParser::Option *store0_opt  = op.add_option(false, false, "store-on-0-colored-vertices-only", '0', "", "Store treelet counts only for the vertices with color 0 (default: false)");
-    OptionsParser::Option *batchsize_opt  = op.add_option(false, true, "thread-batch-size", '\0', "", "Number of vertices processed by each thread at a time (default: auto computed)");
+    //OptionsParser::Option *batchsize_opt  = op.add_option(false, true, "thread-batch-size", '\0', "", "Number of vertices processed by each thread at a time (default: auto computed)");
 
     if (!op.parse(argc, argv) || help_opt->is_found())
     {
@@ -95,7 +95,7 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
 
     opts->threads = static_cast<unsigned int>(threads);
 
-    UndirectedGraph::vertex_t batch_size = (opts->to_vertex-opts->from_vertex+1)/(opts->threads*1000); //Each thread should get ~1000 slices
+    /*UndirectedGraph::vertex_t batch_size = (opts->to_vertex-opts->from_vertex+1)/(opts->threads*1000); //Each thread should get ~1000 slices
     if(batch_size<=0)
         batch_size=1;
     if(batch_size>1000)
@@ -108,7 +108,7 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
 
         batch_size= static_cast<UndirectedGraph::vertex_t>(bs);
     }
-    opts->batch_size=batch_size;
+    opts->batch_size=batch_size;*/
 
     if(output_opt->get_value().size()>=MOTIVO_ARG_MAX)
         throw std::runtime_error("'output' option is too long");

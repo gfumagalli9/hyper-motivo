@@ -6,18 +6,17 @@
 #define MOTIVO_BASESEQUENCER_H
 
 
-#include "../common/UndirectedGraph.h"
-
-class BaseSequencer
+template <typename T> class BaseSequencer
 {
 public:
     struct sequence_batch_t
     {
-        UndirectedGraph::vertex_t from;
-        UndirectedGraph::vertex_t to;
+        T from;
+        T to;
     };
 
     virtual sequence_batch_t next_batch() = 0;
+    virtual ~BaseSequencer() {};
 
 };
 

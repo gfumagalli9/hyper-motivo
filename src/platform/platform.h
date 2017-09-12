@@ -5,7 +5,6 @@
 #ifndef MOTIVO_PLATFORM_H
 #define MOTIVO_PLATFORM_H
 
-
 #include <cstdlib>
 #include <cstdint>
 #include <immintrin.h>
