@@ -9,15 +9,16 @@
     #error defines clash
 #endif
 
-#define MAXN 16 //FIXME: Can we set it here?
 #include <nauty/nauty.h>
 
 #ifndef HAVE_TLS
     #error Nauty does not have multithreading support
 #endif
 
-static constexpr int MOTIVO_NAUTY_MAXN = MAXN;
-static constexpr int MOTIVO_NAUTY_MAXM = MAXM;
+#if(MAXN != 0)
+    #error Nauty is compiled with static allocation
+#endif
+
 static constexpr int MOTIVO_NAUTY_WORDSIZE = WORDSIZE;
 static constexpr int MOTIVO_NAUTY_TRUE = TRUE;
 

@@ -79,7 +79,7 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
 
     Treelet complement = t.complement(child_treelet);
 
-    return (complement.is_singleton() || sample_rooted_occurrence(complement, u, occurrence + child_treelet.number_of_vertices()) ) &&
+    return ( complement.is_singleton() || sample_rooted_occurrence(complement, u, occurrence + child_treelet.number_of_vertices()) ) &&
             sample_rooted_occurrence(child_treelet, child_vertex, occurrence+1);
 }
 

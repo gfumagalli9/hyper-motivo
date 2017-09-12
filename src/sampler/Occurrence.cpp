@@ -60,58 +60,6 @@ const char* Occurrence::text_footprint()
     return text_footprint_buffer;
 }
 
-void Occurrence::canonicize()
-{
-    nauty_graph g[MOTIVO_NAUTY_MAXN*MOTIVO_NAUTY_MAXM];
-    nauty_graph cang[MOTIVO_NAUTY_MAXN*MOTIVO_NAUTY_MAXM];
-
-    static DEFAULTOPTIONS_GRAPH(options);
-    options.getcanon = MOTIVO_NAUTY_TRUE;
-
-    int m = SETWORDSNEEDED(static_cast<int>(size));
-
-#ifndef NDEBUG
-    nauty_check(MOTIVO_NAUTY_WORDSIZE, m, static_cast<int>(size), NAUTYVERSIONID);
-#endif
-
-    EMPTYGRAPH(g, static_cast<unsigned int>(m), size);
-    for(unsigned int i=1; i<size; i++)
-    {
-        for(unsigned int j=0; j<i; j++)
-        {
-            if(has_edge(i,j))
-                ADDONEEDGE(g, static_cast<int>(i), static_cast<int>(j), static_cast<unsigned int>(m));
-        }
-    }
-
-    int lab[MOTIVO_NAUTY_MAXN];
-    int ptn[MOTIVO_NAUTY_MAXN];
-    int orbits[MOTIVO_NAUTY_MAXN];
-    statsblk stats;
-    densenauty(g, lab, ptn, orbits, &options, &stats, m, static_cast<int>(size), cang);
-
-    //From the nauty manual: the value of lab on return is the canonical labelling
-    //of the graph. Precisely, it lists the vertices of g in the order in which they need to
-    //be relabelled to give canong
-
-    UndirectedGraph::vertex_t verts[16];
-    memcpy(verts, verts, sizeof(UndirectedGraph::vertex_t)*size);
-
-    for(unsigned int i=1; i<size; i++)
-        verts[i] = verts[ lab[i] ];
-
-    memset(edges, 0, sizeof(uint8_t)*size);
-    for(unsigned int i=1; i<size; i++)
-    {
-        nauty_set* row = GRAPHROW (cang ,i, static_cast<unsigned int>(m));
-        for(unsigned int j = 0; j < i; j++)
-        {
-            if( ISELEMENT( row , j ) )
-                add_edge(i, j);
-         }
-    }
-}
-
 uint64_t Occurrence::number_of_spanning_trees()
 {
     if(spanning_trees!=0)
@@ -183,4 +131,68 @@ uint64_t Occurrence::number_of_spanning_trees()
     delete[] matrix;
 
     return spanning_trees=static_cast<uint64_t>(det*det + 0.5); //fast round(det*det)
+}
+
+OccurrenceCanonicizer::OccurrenceCanonicizer(unsigned int size) : size(size)
+{
+    options.getcanon = MOTIVO_NAUTY_TRUE;
+
+    words_needed = static_cast<size_t>(SETWORDSNEEDED(static_cast<int>(size)));
+    nauty_check(MOTIVO_NAUTY_WORDSIZE, static_cast<int>(words_needed), static_cast<int>(size), NAUTYVERSIONID);
+
+    DYNALLOC2(graph, g, g_sz, words_needed, size, "nauty malloc g");
+    DYNALLOC2(graph, cang, cang_sz, words_needed, size, "nauty malloc cang");
+    DYNALLOC1(int, lab, lab_sz, size, "nauty malloc lab");
+    DYNALLOC1(int, ptn, ptn_sz, size, "nauty malloc ptn");
+    DYNALLOC1(int, orbits, orbits_sz, size, "nauty malloc orbits");
+}
+
+OccurrenceCanonicizer::~OccurrenceCanonicizer()
+{
+    DYNFREE(g, g_sz);
+    DYNFREE(cang, cang_sz);
+    DYNFREE(lab, lab_sz);
+    DYNFREE(ptn, ptn_sz);
+    DYNFREE(orbits, orbits_sz);
+
+    nauty_freedyn();
+    nautil_freedyn();
+    naugraph_freedyn();
+}
+
+void OccurrenceCanonicizer::canonicize(Occurrence *occ)
+{
+    EMPTYGRAPH(g, words_needed, size);
+
+    for(unsigned int i=1; i<size; i++)
+    {
+        for (unsigned int j = 0; j < i; j++)
+        {
+            if (occ->has_edge(i, j))
+                ADDONEEDGE (g, i, j, words_needed);
+        }
+    }
+
+    densenauty(g, lab, ptn, orbits, &options, &stats, static_cast<int>(words_needed), static_cast<int>(size), cang);
+
+    //From the nauty manual: the value of lab on return is the canonical labelling
+    //of the graph. Precisely, it lists the vertices of g in the order in which they need to
+    //be relabelled to give canong
+
+    UndirectedGraph::vertex_t new_verts[16];
+    memcpy(new_verts, occ->verts, sizeof(UndirectedGraph::vertex_t)*size);
+
+    for(unsigned int i=1; i<size; i++)
+        occ->verts[i] = new_verts[ lab[i] ];
+
+    memset(occ->edges, 0, sizeof(uint8_t)*size);
+    for(unsigned int i=1; i<size; i++)
+    {
+        nauty_set* row = GRAPHROW(cang, i, words_needed);
+        for(unsigned int j = 0; j < i; j++)
+        {
+            if( ISELEMENT( row, j) )
+                occ->add_edge(i, j);
+        }
+    }
 }

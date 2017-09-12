@@ -113,6 +113,7 @@ const Treelet TreeletTable::get_random_treelet(UndirectedGraph::vertex_t root, R
     const treelet_count_pair_maybe_alias *tcp = count_upper_bound(record.begin()+1, record.end(), r);
     assert(tcp!=record.end());
     assert(tcp->treelet.is_valid());
+    Treelet t = tcp->treelet;
     record.free();
-    return tcp->treelet;
+    return t;
 }

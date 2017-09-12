@@ -31,5 +31,6 @@ void ConcurrentWriter::close()
     {
         queue.push( {nullptr, 0} );
         write_thread.join();
+        closed=true;
     }
 }

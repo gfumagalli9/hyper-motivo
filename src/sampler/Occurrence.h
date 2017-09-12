@@ -8,9 +8,14 @@
 
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/treelets/Treelet.h"
+#include "include_nauty.h"
+
+class OccurrenceCanonicizer;
 
 class Occurrence
 {
+friend class OccurrenceCanonicizer;
+
 public:
     const unsigned int size;
 
@@ -50,13 +55,37 @@ public:
     ///@returns the number of spanning trees of this occurrence
     uint64_t number_of_spanning_trees();
 
-    void canonicize();
-
     const UndirectedGraph::vertex_t* vertices() const { return verts; };
     const char* binary_footprint() const { return reinterpret_cast<const char*>(edges); };
 
     const char* text_footprint();
 };
 
+
+//The underlying library used to canonicize the occurrence requires initialization and cleanup to be used
+//from multiple threads. We use this friend class to save on this overhead.
+//A single instance of this class is not thread safe. However distinct instances can be used by differenc threads.
+class OccurrenceCanonicizer
+{
+private:
+    const unsigned int size;
+
+    nauty_graph *g; size_t g_sz=0;
+    nauty_graph *cang; size_t cang_sz=0;
+    int *lab; size_t lab_sz=0;
+    int *ptn; size_t ptn_sz=0;
+    int *orbits; size_t orbits_sz=0;
+
+    DEFAULTOPTIONS_GRAPH(options);
+
+    size_t words_needed;
+    statsblk stats;
+
+public:
+    OccurrenceCanonicizer(unsigned int size);
+    ~OccurrenceCanonicizer();
+
+    void canonicize(Occurrence* occ);
+};
 
 #endif //MOTIVO_OCCURRENCE_H

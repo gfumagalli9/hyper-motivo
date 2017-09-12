@@ -36,9 +36,6 @@ void OccurrenceSampler::sample_one(Occurrence *occurrence)
 
         break;
     }
-
-    if(canonicize)
-        occurrence->canonicize();
 }
 
 void OccurrenceSampler::sample()
@@ -76,13 +73,17 @@ void OccurrenceSampler::sample()
 void OccurrenceSampler::do_sample_st()
 {
     Occurrence occurrence;
+    OccurrenceCanonicizer canonicizer(size);
     char* buffer = new char[buffer_size];
     char* p=buffer;
 
     for(uint64_t i=0; i<num_samples; i++)
     {
         sample_one(&occurrence);
-        if(p-buffer < max_occurrence_size)
+        if(canonicize)
+            canonicizer.canonicize(&occurrence);
+
+        if(buffer+buffer_size-p < max_occurrence_size)
         {
             output->write(buffer, p-buffer);
             p = buffer = new char[buffer_size];
@@ -93,13 +94,14 @@ void OccurrenceSampler::do_sample_st()
 
     if(p!=buffer)
         output->write(buffer, p-buffer);
-    else
-        delete[] buffer;
+
+    delete[] buffer;
 }
 
 void OccurrenceSampler::do_sample_mt(sequencer_t *sequencer, ConcurrentWriter *writer)
 {
     Occurrence occurrence;
+    OccurrenceCanonicizer canonicizer(size);
     char* buffer = new char[buffer_size];
     char* p=buffer;
 
@@ -112,8 +114,10 @@ void OccurrenceSampler::do_sample_mt(sequencer_t *sequencer, ConcurrentWriter *w
         for (uint64_t i = batch.from; i < batch.to; i++)
         {
             sample_one(&occurrence);
+            if(canonicize)
+                canonicizer.canonicize(&occurrence);
 
-            if (p - buffer < max_occurrence_size)
+            if (buffer+buffer_size-p < max_occurrence_size)
             {
                 writer->write(buffer, static_cast<std::size_t>(p - buffer));
                 p = buffer = new char[buffer_size];

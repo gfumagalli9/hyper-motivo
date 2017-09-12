@@ -31,7 +31,6 @@ int main(const int argc, const char** argv)
         TreeletTableCollection ttc;
         CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>* readers = nullptr;
         TreeletTable** tables = nullptr;
-        std::cerr << "Loading tables for smaller sizes" << std::endl;
         readers = new CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>[opts.size];
         tables = new TreeletTable*[opts.size];
 
@@ -52,7 +51,7 @@ int main(const int argc, const char** argv)
                                   opts.spanning_trees, opts.footprints, opts.canonicize, opts.norejection, opts.text, output, opts.threads);
         sampler.sample();
 
-        for(unsigned int i=0; i<opts.size-1; i++)
+        for(unsigned int i=0; i<opts.size; i++)
             delete tables[i];
 
         delete[] readers;
