@@ -106,7 +106,7 @@ void OccurrenceSampler::do_sample_mt(sequencer_t *sequencer, ConcurrentWriter *w
     while(true)
     {
         sequencer_t::sequence_batch_t batch = sequencer->next_batch();
-        if(batch.to<=batch.from)
+        if(batch.from>=batch.to)
             break;
 
         for (uint64_t i = batch.from; i < batch.to; i++)

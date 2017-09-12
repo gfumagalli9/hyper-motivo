@@ -65,7 +65,7 @@ void TreeletTableBuilder::do_build_1_st()
     while(true)
     {
         sequencer_t::sequence_batch_t batch = sequencer->next_batch();
-        if (batch.from > batch.to)
+        if (batch.from >= batch.to)
             break;
 
         for (UndirectedGraph::vertex_t u = batch.from; u<batch.to; u++)
@@ -90,7 +90,7 @@ void TreeletTableBuilder::do_build_st()
         if(batch.from>=batch.to)
             break;
 
-        for (UndirectedGraph::vertex_t u = batch.from; u <= batch.to; u++)
+        for (UndirectedGraph::vertex_t u = batch.from; u<batch.to; u++)
         {
             if (store_0_only &&
                 lower->get_table(1)->begin(u).treelet().get_colors() != 1) //color 0 is represented as 1<<0 = 1
