@@ -133,6 +133,24 @@ uint64_t Occurrence::number_of_spanning_trees()
     return spanning_trees=static_cast<uint64_t>(det*det + 0.5); //fast round(det*det)
 }
 
+
+
+
+TLS_ATTR nauty_graph *OccurrenceCanonicizer::g;
+TLS_ATTR size_t OccurrenceCanonicizer::g_sz = 0;
+
+TLS_ATTR nauty_graph *OccurrenceCanonicizer::cang;
+TLS_ATTR size_t OccurrenceCanonicizer::cang_sz=0;
+
+TLS_ATTR int *OccurrenceCanonicizer::lab;
+TLS_ATTR size_t OccurrenceCanonicizer::lab_sz=0;
+
+TLS_ATTR int *OccurrenceCanonicizer::ptn;
+TLS_ATTR size_t OccurrenceCanonicizer::ptn_sz=0;
+
+TLS_ATTR int *OccurrenceCanonicizer::orbits;
+TLS_ATTR size_t OccurrenceCanonicizer::orbits_sz=0;
+
 OccurrenceCanonicizer::OccurrenceCanonicizer(unsigned int size) : size(size)
 {
     options.getcanon = MOTIVO_NAUTY_TRUE;

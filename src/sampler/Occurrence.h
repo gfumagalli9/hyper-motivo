@@ -70,11 +70,20 @@ class OccurrenceCanonicizer
 private:
     const unsigned int size;
 
-    nauty_graph *g; size_t g_sz=0;
-    nauty_graph *cang; size_t cang_sz=0;
-    int *lab; size_t lab_sz=0;
-    int *ptn; size_t ptn_sz=0;
-    int *orbits; size_t orbits_sz=0;
+    static TLS_ATTR nauty_graph *g;
+    static TLS_ATTR size_t g_sz;
+
+    static TLS_ATTR nauty_graph *cang;
+    static TLS_ATTR size_t cang_sz;
+
+    static TLS_ATTR int *lab;
+    static TLS_ATTR size_t lab_sz;
+
+    static TLS_ATTR int *ptn;
+    static TLS_ATTR size_t ptn_sz;
+
+    static TLS_ATTR int *orbits;
+    static TLS_ATTR size_t orbits_sz;
 
     DEFAULTOPTIONS_GRAPH(options);
 
