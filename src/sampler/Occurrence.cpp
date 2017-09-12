@@ -211,4 +211,14 @@ void OccurrenceCanonicizer::canonicize(Occurrence *occ)
                 occ->add_edge(i, j);
         }
     }
+
+    DYNFREE(g, g_sz);
+    DYNFREE(cang, cang_sz);
+    DYNFREE(lab, lab_sz);
+    DYNFREE(ptn, ptn_sz);
+    DYNFREE(orbits, orbits_sz);
+
+    nauty_freedyn();
+    nautil_freedyn();
+    naugraph_freedyn();
 }

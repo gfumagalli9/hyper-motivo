@@ -11,7 +11,7 @@
 
 #include <nauty/nauty.h>
 
-#ifndef HAVE_TLS
+#if(!defined(HAVE_TLS) || HAVE_TLS==0)
     #error Nauty does not have multithreading support
 #endif
 
