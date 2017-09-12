@@ -57,10 +57,7 @@ public:
 
     OccurrenceSampler(UndirectedGraph *graph, TreeletTableCollection* ttc, unsigned int size, uint64_t num_samples, Random *rng,
                       bool vertices, bool graphlets, bool spanning_trees_no, bool footprints, bool canonicize, bool no_rejection,
-                      bool text, std::ostream *out, unsigned int number_of_threads)
-            : graph(graph), ttc(ttc), size(size), num_samples(num_samples), rng(rng), vertices(vertices), graphlets(graphlets), spanning_trees_no(spanning_trees_no), footprints(footprints),
-              canonicize(canonicize), no_rejection(no_rejection), text(text), output(out), number_of_threads(number_of_threads), sampler(graph, ttc, rng)
-    {}
+                      bool text, std::ostream *out, unsigned int number_of_threads);
 
 };
 

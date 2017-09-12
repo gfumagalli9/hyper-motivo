@@ -97,9 +97,6 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     if(opts->threads<=0)
         throw std::runtime_error("Failed to determine the number of logical processors");
 
-    opts->threads = static_cast<unsigned int>(threads);
-
-
     opts->canonicize = canonicize_opt->is_found();
     opts->graphlets = graphlets_opt->is_found();
     opts->norejection = norejection_opt->is_found();

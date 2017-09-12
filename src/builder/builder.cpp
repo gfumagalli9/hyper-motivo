@@ -93,8 +93,6 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     if(opts->threads<=0)
         throw std::runtime_error("Failed to determine the number of logical processors");
 
-    opts->threads = static_cast<unsigned int>(threads);
-
     /*UndirectedGraph::vertex_t batch_size = (opts->to_vertex-opts->from_vertex+1)/(opts->threads*1000); //Each thread should get ~1000 slices
     if(batch_size<=0)
         batch_size=1;
