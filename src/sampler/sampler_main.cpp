@@ -46,7 +46,7 @@ int main(const int argc, const char** argv)
 
         Random rng(opts.seed);
         std::cerr << "Using seed " << rng.get_seed() << std::endl;
-        std::cerr << "Sampling..." << std::endl;
+        std::cerr << "Sampling using " << opts.threads << " thread(s)..." << std::endl;
 
         OccurrenceSampler sampler(&G, &ttc, opts.size, opts.number_of_samples, &rng, opts.vertices, opts.graphlets,
                                   opts.spanning_trees, opts.footprints, opts.canonicize, opts.norejection, opts.text, output, opts.threads);

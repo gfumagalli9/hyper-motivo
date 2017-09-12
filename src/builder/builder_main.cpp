@@ -58,7 +58,7 @@ int main(const int argc, const char** argv)
             throw std::runtime_error("Could not open output file for writing");
 
         std::cout << "Computing counts of treelets of size " << opts.size << " for vertices " << opts.from_vertex << "--"
-                  << opts.to_vertex << " using " << opts.threads << " worker thread(s)" << std::endl;
+                  << opts.to_vertex << " using " << opts.threads << " thread(s)" << std::endl;
 
 
         DynamicSequencer<UndirectedGraph::vertex_t> sequencer(opts.from_vertex, opts.to_vertex, opts.threads);
