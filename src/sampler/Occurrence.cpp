@@ -136,23 +136,37 @@ uint64_t Occurrence::number_of_spanning_trees()
 
 
 
-TLS_ATTR nauty_graph *OccurrenceCanonicizer::g;
-TLS_ATTR size_t OccurrenceCanonicizer::g_sz = 0;
-
-TLS_ATTR nauty_graph *OccurrenceCanonicizer::cang;
-TLS_ATTR size_t OccurrenceCanonicizer::cang_sz=0;
-
-TLS_ATTR int *OccurrenceCanonicizer::lab;
-TLS_ATTR size_t OccurrenceCanonicizer::lab_sz=0;
-
-TLS_ATTR int *OccurrenceCanonicizer::ptn;
-TLS_ATTR size_t OccurrenceCanonicizer::ptn_sz=0;
-
-TLS_ATTR int *OccurrenceCanonicizer::orbits;
-TLS_ATTR size_t OccurrenceCanonicizer::orbits_sz=0;
-
 OccurrenceCanonicizer::OccurrenceCanonicizer(unsigned int size) : size(size)
 {
+}
+
+OccurrenceCanonicizer::~OccurrenceCanonicizer()
+{
+/*    DYNFREE(g, g_sz);
+    DYNFREE(cang, cang_sz);
+    DYNFREE(lab, lab_sz);
+    DYNFREE(ptn, ptn_sz);
+    DYNFREE(orbits, orbits_sz);
+
+    nauty_freedyn();
+    nautil_freedyn();
+    naugraph_freedyn();
+*/
+}
+
+void OccurrenceCanonicizer::canonicize(Occurrence *occ)
+{
+    DYNALLSTAT(nauty_graph, g, g_sz);
+    DYNALLSTAT(nauty_graph, cang, cang_sz);
+    DYNALLSTAT(int, lab, lab_sz);
+    DYNALLSTAT(int, ptn, ptn_sz);
+    DYNALLSTAT(int, orbits, orbits_sz);
+
+    DEFAULTOPTIONS_GRAPH(options);
+
+    size_t words_needed;
+    statsblk stats;
+
     options.getcanon = MOTIVO_NAUTY_TRUE;
 
     words_needed = static_cast<size_t>(SETWORDSNEEDED(static_cast<int>(size)));
@@ -163,23 +177,7 @@ OccurrenceCanonicizer::OccurrenceCanonicizer(unsigned int size) : size(size)
     DYNALLOC1(int, lab, lab_sz, size, "nauty malloc lab");
     DYNALLOC1(int, ptn, ptn_sz, size, "nauty malloc ptn");
     DYNALLOC1(int, orbits, orbits_sz, size, "nauty malloc orbits");
-}
 
-OccurrenceCanonicizer::~OccurrenceCanonicizer()
-{
-    DYNFREE(g, g_sz);
-    DYNFREE(cang, cang_sz);
-    DYNFREE(lab, lab_sz);
-    DYNFREE(ptn, ptn_sz);
-    DYNFREE(orbits, orbits_sz);
-
-    nauty_freedyn();
-    nautil_freedyn();
-    naugraph_freedyn();
-}
-
-void OccurrenceCanonicizer::canonicize(Occurrence *occ)
-{
     EMPTYGRAPH(g, words_needed, size);
 
     for(unsigned int i=1; i<size; i++)
@@ -200,7 +198,7 @@ void OccurrenceCanonicizer::canonicize(Occurrence *occ)
     UndirectedGraph::vertex_t new_verts[16];
     memcpy(new_verts, occ->verts, sizeof(UndirectedGraph::vertex_t)*size);
 
-    for(unsigned int i=1; i<size; i++)
+    for(unsigned int i=0; i<size; i++)
         occ->verts[i] = new_verts[ lab[i] ];
 
     memset(occ->edges, 0, sizeof(uint8_t)*size);

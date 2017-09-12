@@ -83,7 +83,7 @@ void OccurrenceSampler::do_sample_st()
         if(canonicize)
             canonicizer.canonicize(&occurrence);
 
-        if(buffer+buffer_size-p < max_occurrence_size)
+        if (p > buffer + buffer_size - max_occurrence_size)
         {
             output->write(buffer, p-buffer);
             p = buffer = new char[buffer_size];
@@ -117,7 +117,7 @@ void OccurrenceSampler::do_sample_mt(sequencer_t *sequencer, ConcurrentWriter *w
             if(canonicize)
                 canonicizer.canonicize(&occurrence);
 
-            if (buffer+buffer_size-p < max_occurrence_size)
+            if (p > buffer + buffer_size - max_occurrence_size)
             {
                 writer->write(buffer, static_cast<std::size_t>(p - buffer));
                 p = buffer = new char[buffer_size];

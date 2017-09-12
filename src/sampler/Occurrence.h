@@ -70,26 +70,6 @@ class OccurrenceCanonicizer
 private:
     const unsigned int size;
 
-    static TLS_ATTR nauty_graph *g;
-    static TLS_ATTR size_t g_sz;
-
-    static TLS_ATTR nauty_graph *cang;
-    static TLS_ATTR size_t cang_sz;
-
-    static TLS_ATTR int *lab;
-    static TLS_ATTR size_t lab_sz;
-
-    static TLS_ATTR int *ptn;
-    static TLS_ATTR size_t ptn_sz;
-
-    static TLS_ATTR int *orbits;
-    static TLS_ATTR size_t orbits_sz;
-
-    DEFAULTOPTIONS_GRAPH(options);
-
-    size_t words_needed;
-    statsblk stats;
-
 public:
     OccurrenceCanonicizer(unsigned int size);
     ~OccurrenceCanonicizer();
