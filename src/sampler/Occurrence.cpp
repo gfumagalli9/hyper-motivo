@@ -136,13 +136,28 @@ uint64_t Occurrence::number_of_spanning_trees()
 
 
 
+OccurrenceCanonicizer::OccurrenceCanonicizer(unsigned int size) : size(size), words_needed(static_cast<size_t>(SETWORDSNEEDED(size)))
+{
+    g = new nauty_graph[size*words_needed];
+    cang = new nauty_graph[size*words_needed];
+    lab = new int[size];
+    ptn = new int[size];
+    orbits = new int[size];
+
+    options.getcanon = MOTIVO_NAUTY_TRUE;
+}
+
 OccurrenceCanonicizer::~OccurrenceCanonicizer()
 {
+    delete[] g;
+    delete[] cang;
+    delete[] lab;
+    delete[] ptn;
+    delete[] orbits;
+
     nauty_freedyn();
     nautil_freedyn();
     naugraph_freedyn();
-
-    options.getcanon = MOTIVO_NAUTY_TRUE;
 }
 
 void OccurrenceCanonicizer::canonicize(Occurrence *occ)

@@ -68,20 +68,20 @@ public:
 class OccurrenceCanonicizer
 {
 private:
-    static constexpr const int max_size = 16;
-    static constexpr const int words_needed = SETWORDSNEEDED(max_size);
+    const int size;
+    const size_t words_needed;
 
-    nauty_graph g[max_size*words_needed];
-    nauty_graph cang[max_size*words_needed];
-    int lab[max_size];
-    int ptn[max_size];
-    int orbits[max_size];
+    nauty_graph* g;
+    nauty_graph *cang;
+    int *lab;
+    int *ptn;
+    int *orbits;
 
     DEFAULTOPTIONS_GRAPH(options);
     statsblk stats;
 
 public:
-    OccurrenceCanonicizer() {};
+    OccurrenceCanonicizer(unsigned int size);
     ~OccurrenceCanonicizer();
 
     void canonicize(Occurrence* occ);
