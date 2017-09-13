@@ -68,7 +68,7 @@ public:
 class OccurrenceCanonicizer
 {
 private:
-    const int size;
+    const unsigned int size;
     const size_t words_needed;
 
     nauty_graph* g;

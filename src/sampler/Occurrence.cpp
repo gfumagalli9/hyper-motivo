@@ -5,7 +5,6 @@
 #include <lapacke.h>
 
 #include "Occurrence.h"
-#include "include_nauty.h"
 
 Occurrence::Occurrence(const unsigned int size, const UndirectedGraph *graph, const UndirectedGraph::vertex_t *occ) : size(size)
 {
@@ -136,7 +135,7 @@ uint64_t Occurrence::number_of_spanning_trees()
 
 
 
-OccurrenceCanonicizer::OccurrenceCanonicizer(unsigned int size) : size(size), words_needed(static_cast<size_t>(SETWORDSNEEDED(size)))
+OccurrenceCanonicizer::OccurrenceCanonicizer(unsigned int size) : size(size), words_needed(static_cast<size_t>(SETWORDSNEEDED(static_cast<int>(size))))
 {
     g = new nauty_graph[size*words_needed];
     cang = new nauty_graph[size*words_needed];
@@ -162,13 +161,14 @@ OccurrenceCanonicizer::~OccurrenceCanonicizer()
 
 void OccurrenceCanonicizer::canonicize(Occurrence *occ)
 {
+    assert(size==occ->size);
 #ifndef NEBUG
-    nauty_check(MOTIVO_NAUTY_WORDSIZE, static_cast<int>(words_needed), static_cast<int>(occ->size), NAUTYVERSIONID);
+    nauty_check(MOTIVO_NAUTY_WORDSIZE, static_cast<int>(words_needed), static_cast<int>(size), NAUTYVERSIONID);
 #endif
 
-    EMPTYGRAPH(g, words_needed, occ->size);
+    EMPTYGRAPH(g, words_needed, size);
 
-    for(unsigned int i=1; i<occ->size; i++)
+    for(unsigned int i=1; i<size; i++)
     {
         for (unsigned int j = 0; j < i; j++)
         {
@@ -177,20 +177,20 @@ void OccurrenceCanonicizer::canonicize(Occurrence *occ)
         }
     }
 
-    densenauty(g, lab, ptn, orbits, &options, &stats, static_cast<int>(words_needed), static_cast<int>(occ->size), cang);
+    densenauty(g, lab, ptn, orbits, &options, &stats, static_cast<int>(words_needed), static_cast<int>(size), cang);
 
     //From the nauty manual: the value of lab on return is the canonical labelling
     //of the graph. Precisely, it lists the vertices of g in the order in which they need to
     //be relabelled to give canong
 
     UndirectedGraph::vertex_t new_verts[16];
-    memcpy(new_verts, occ->verts, sizeof(UndirectedGraph::vertex_t)*occ->size);
+    memcpy(new_verts, occ->verts, sizeof(UndirectedGraph::vertex_t)*size);
 
-    for(unsigned int i=0; i<occ->size; i++)
+    for(unsigned int i=0; i<size; i++)
         occ->verts[i] = new_verts[ lab[i] ];
 
-    memset(occ->edges, 0, sizeof(uint8_t)*occ->size);
-    for(unsigned int i=1; i<occ->size; i++)
+    memset(occ->edges, 0, sizeof(uint8_t)*size);
+    for(unsigned int i=1; i<size; i++)
     {
         nauty_set* row = GRAPHROW(cang, i, words_needed);
         for(unsigned int j = 0; j < i; j++)
