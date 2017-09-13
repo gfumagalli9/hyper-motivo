@@ -210,7 +210,7 @@ int main(const int argc, const char** argv)
 
     OptionsParser op;
     OptionsParser::Option *help_opt = op.add_option(false, false, "help", '\0', "", "Print help and exit");
-    OptionsParser::Option *compress_opt = op.add_option(false, true, "compress-threshold", '\0', "1", "Compress records if the compressed size is less than ARG times the uncompressed size (default: 1, 0 disables compression)");
+    OptionsParser::Option *compress_opt = op.add_option(false, true, "compress-threshold", '\0', "0", "Compress records if the compressed size is less than ARG times the uncompressed size (default or 0: disables compression)");
     OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output basename (required)");
 
 
