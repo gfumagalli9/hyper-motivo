@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.5)
 project(Motivo)
 
+set(MOTIVO_VERSION_MAJOR 0)
+set(MOTIVO_VERSION_MINOR 1)
+set(MOTIVO_VERSION_PATCH 1)
+
 # Set a default build type if none was specified
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     message(STATUS "Setting build type to 'RelWithDebInfo' as none was specified.")
@@ -300,9 +304,9 @@ set_tests_properties(motivo-tests PROPERTIES DEPENDS build-graph)
 
 SET(CPACK_GENERATOR "DEB")
 SET(CPACK_PACKAGE_CONTACT "Stefano Leucci")
-SET(CPACK_PACKAGE_VERSION_MAJOR "0")
-SET(CPACK_PACKAGE_VERSION_MINOR "1")
-SET(CPACK_PACKAGE_VERSION_PATCH "1")
+SET(CPACK_PACKAGE_VERSION_MAJOR ${MOTIVO_VERSION_MAJOR})
+SET(CPACK_PACKAGE_VERSION_MINOR ${MOTIVO_VERSION_MINOR})
+SET(CPACK_PACKAGE_VERSION_PATCH ${MOTIVO_VERSION_PATCH})
 SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Tools for counting and sampling motifs in large graphs")
 SET(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://bitbucket.org/steven_/motivo")
 SET(CPACK_DEBIAN_PACKAGE_SECTION "science")

@@ -73,7 +73,7 @@ void OccurrenceSampler::sample()
 void OccurrenceSampler::do_sample_st()
 {
     Occurrence occurrence;
-    OccurrenceCanonicizer canonicizer(size);
+    OccurrenceCanonicizer canonicizer;
     char* buffer = new char[buffer_size];
     char* p=buffer;
 
@@ -101,7 +101,7 @@ void OccurrenceSampler::do_sample_st()
 void OccurrenceSampler::do_sample_mt(sequencer_t *sequencer, ConcurrentWriter *writer)
 {
     Occurrence occurrence;
-    OccurrenceCanonicizer canonicizer(size);
+    OccurrenceCanonicizer canonicizer;
     char* buffer = new char[buffer_size];
     char* p=buffer;
 

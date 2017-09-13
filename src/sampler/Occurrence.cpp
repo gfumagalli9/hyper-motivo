@@ -136,51 +136,24 @@ uint64_t Occurrence::number_of_spanning_trees()
 
 
 
-OccurrenceCanonicizer::OccurrenceCanonicizer(unsigned int size) : size(size)
-{
-}
-
 OccurrenceCanonicizer::~OccurrenceCanonicizer()
 {
-/*    DYNFREE(g, g_sz);
-    DYNFREE(cang, cang_sz);
-    DYNFREE(lab, lab_sz);
-    DYNFREE(ptn, ptn_sz);
-    DYNFREE(orbits, orbits_sz);
-
     nauty_freedyn();
     nautil_freedyn();
     naugraph_freedyn();
-*/
+
+    options.getcanon = MOTIVO_NAUTY_TRUE;
 }
 
 void OccurrenceCanonicizer::canonicize(Occurrence *occ)
 {
-    DYNALLSTAT(nauty_graph, g, g_sz);
-    DYNALLSTAT(nauty_graph, cang, cang_sz);
-    DYNALLSTAT(int, lab, lab_sz);
-    DYNALLSTAT(int, ptn, ptn_sz);
-    DYNALLSTAT(int, orbits, orbits_sz);
+#ifndef NEBUG
+    nauty_check(MOTIVO_NAUTY_WORDSIZE, static_cast<int>(words_needed), static_cast<int>(occ->size), NAUTYVERSIONID);
+#endif
 
-    DEFAULTOPTIONS_GRAPH(options);
+    EMPTYGRAPH(g, words_needed, occ->size);
 
-    size_t words_needed;
-    statsblk stats;
-
-    options.getcanon = MOTIVO_NAUTY_TRUE;
-
-    words_needed = static_cast<size_t>(SETWORDSNEEDED(static_cast<int>(size)));
-    nauty_check(MOTIVO_NAUTY_WORDSIZE, static_cast<int>(words_needed), static_cast<int>(size), NAUTYVERSIONID);
-
-    DYNALLOC2(graph, g, g_sz, words_needed, size, "nauty malloc g");
-    DYNALLOC2(graph, cang, cang_sz, words_needed, size, "nauty malloc cang");
-    DYNALLOC1(int, lab, lab_sz, size, "nauty malloc lab");
-    DYNALLOC1(int, ptn, ptn_sz, size, "nauty malloc ptn");
-    DYNALLOC1(int, orbits, orbits_sz, size, "nauty malloc orbits");
-
-    EMPTYGRAPH(g, words_needed, size);
-
-    for(unsigned int i=1; i<size; i++)
+    for(unsigned int i=1; i<occ->size; i++)
     {
         for (unsigned int j = 0; j < i; j++)
         {
@@ -189,20 +162,20 @@ void OccurrenceCanonicizer::canonicize(Occurrence *occ)
         }
     }
 
-    densenauty(g, lab, ptn, orbits, &options, &stats, static_cast<int>(words_needed), static_cast<int>(size), cang);
+    densenauty(g, lab, ptn, orbits, &options, &stats, static_cast<int>(words_needed), static_cast<int>(occ->size), cang);
 
     //From the nauty manual: the value of lab on return is the canonical labelling
     //of the graph. Precisely, it lists the vertices of g in the order in which they need to
     //be relabelled to give canong
 
     UndirectedGraph::vertex_t new_verts[16];
-    memcpy(new_verts, occ->verts, sizeof(UndirectedGraph::vertex_t)*size);
+    memcpy(new_verts, occ->verts, sizeof(UndirectedGraph::vertex_t)*occ->size);
 
-    for(unsigned int i=0; i<size; i++)
+    for(unsigned int i=0; i<occ->size; i++)
         occ->verts[i] = new_verts[ lab[i] ];
 
-    memset(occ->edges, 0, sizeof(uint8_t)*size);
-    for(unsigned int i=1; i<size; i++)
+    memset(occ->edges, 0, sizeof(uint8_t)*occ->size);
+    for(unsigned int i=1; i<occ->size; i++)
     {
         nauty_set* row = GRAPHROW(cang, i, words_needed);
         for(unsigned int j = 0; j < i; j++)
@@ -211,14 +184,4 @@ void OccurrenceCanonicizer::canonicize(Occurrence *occ)
                 occ->add_edge(i, j);
         }
     }
-
-    DYNFREE(g, g_sz);
-    DYNFREE(cang, cang_sz);
-    DYNFREE(lab, lab_sz);
-    DYNFREE(ptn, ptn_sz);
-    DYNFREE(orbits, orbits_sz);
-
-    nauty_freedyn();
-    nautil_freedyn();
-    naugraph_freedyn();
 }
