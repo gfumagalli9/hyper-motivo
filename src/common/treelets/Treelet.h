@@ -38,20 +38,17 @@ private:
     treelet_structure_t structure;
     uint16_t colors;
 
-    Treelet(treelet_structure_t structure, uint16_t colors=0) : structure(structure), colors(colors)
-    {};
-
 public:
     Treelet() = default;
+    Treelet(treelet_structure_t structure, uint16_t colors=0) : structure(structure), colors(colors)
+    {};
 
     const static Treelet invalid_treelet; //A generic invalid treelet representation
     const static Treelet invalid_merge_colors; //Merge failed due to intersecting colors
     const static Treelet invalid_merge_structure; //Merge failed due to wrong structure order
 
     ///@returns the number of vertices of the treelet
-    inline unsigned int number_of_vertices() const { return number_of_vertices(structure); }
-
-    inline static unsigned int number_of_vertices(treelet_structure_t structure) { return static_cast<unsigned  int>(popcount32(structure)+1); };
+    inline unsigned int number_of_vertices() const { return static_cast<unsigned  int>(popcount32(structure)+1); }
 
     ///@returns true iff the represented treelet is invalid, e.g., due to a failed merge
     inline bool is_valid() const { return structure!=invalid_structure; }

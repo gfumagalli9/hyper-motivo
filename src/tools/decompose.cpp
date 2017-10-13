@@ -13,7 +13,7 @@ unsigned int nverts=0;
 unsigned int  degrees[16] = {0};
 unsigned int  adj[16][16] = {0};
 
-Treelet dfs(unsigned int u, unsigned int parent, bool *visited, std::set<Treelet::treelet_structure_t> *treelets)
+Treelet dfs(unsigned int u, unsigned int parent, bool *visited, std::set<Treelet> *treelets)
 {
     visited[u]=true;
 
@@ -39,13 +39,13 @@ Treelet dfs(unsigned int u, unsigned int parent, bool *visited, std::set<Treelet
     {
         t=t.merge(child_treelets[--nchild_treelets]);
         assert(t.is_valid());
-        treelets->insert(t.get_structure());
+        treelets->insert(t);
     }
 
     return t;
 }
 
-void decompose(std::set<Treelet::treelet_structure_t> *treelets, int root)
+void decompose(std::set<Treelet> *treelets, int root)
 {
     bool visited[16];
 
@@ -134,6 +134,7 @@ int main(const int argc, const char** argv)
     OptionsParser::Option* path_opt = op.add_option(false, true, "path", '\0', "", "Use a path of ARG vertices");
     OptionsParser::Option* star_opt = op.add_option(false, true, "star", '\0', "", "Use a star of ARG vertices");
     OptionsParser::Option* root_opt = op.add_option(false, true, "root", '\0', "", "Only decompose the treelet rootet at vertex ARG (default: use all vertices as roots)");
+    OptionsParser::Option* colored_opt =  op.add_option(false, false, "colored", '\0', "", "Decompose using a fixed coloring of the vertices");
 
     bool parse_ok = op.parse(argc, argv);
     if(!parse_ok || help_opt->is_found())
@@ -181,11 +182,18 @@ int main(const int argc, const char** argv)
                 throw std::runtime_error("Invalid root");
         }
 
-        std::set<Treelet::treelet_structure_t> treelets;
+        std::set<Treelet> treelets;
         decompose(&treelets, root);
 
-        for(std::set<Treelet::treelet_structure_t>::iterator it=treelets.begin(); it!=treelets.end(); it++)
-            std::cout << *it << "\n";
+        Treelet::treelet_structure_t previous_structure = Treelet::invalid_structure;
+        for(std::set<Treelet>::iterator it=treelets.begin(); it!=treelets.end(); it++)
+        {
+            if(!colored_opt->is_found() && it->get_structure()==previous_structure)
+                continue;
+
+            std::cout << it->get_structure() << " " << (colored_opt->is_found() ? it->get_colors() : 0) << "\n";
+            previous_structure = it->get_structure();
+        }
     }
     catch(std::exception &e)
     {

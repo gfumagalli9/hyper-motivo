@@ -25,7 +25,6 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *store0_opt  = op.add_option(false, false, "store-on-0-colored-vertices-only", '0', "", "Store treelet counts only for the vertices with color 0 (default: false)");
     OptionsParser::Option *countonly_opt = op.add_option(false, true, "count-only", '\0', "", "Count only treelets whose structure is listed in file ARG");
 
-
     if (!op.parse(argc, argv) || help_opt->is_found())
     {
         std::cout << name << " [OPTION]..." << std::endl;

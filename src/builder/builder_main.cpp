@@ -13,16 +13,17 @@ void add_selective_structures(TreeletTableBuilder &builder, const std::string& f
 {
     std::ifstream ifs(filename, std::ifstream::binary);
     Treelet::treelet_structure_t structure;
+    Treelet::treelet_colors_t  colors;
     uint64_t read=0;
     uint64_t added=0;
-    while(ifs >> structure)
+    while(ifs >> structure >> colors)
     {
         read++;
-        if(builder.add_selective_structure(structure))
+        if(builder.add_selective_treelet(Treelet(structure, colors)))
             added++;
     }
 
-    std::cout << "Selectively counting " << added << " treelets (out of " << read << " listed treelet structure(s))" << std::endl;
+    std::cout << "Selectively counting " << added << " treelets (out of " << read << " listed treelet(s))" << std::endl;
 }
 
 
@@ -85,9 +86,10 @@ int main(const int argc, const char** argv)
             sequencer.set_progress_callback( [](UndirectedGraph::vertex_t next) -> void { report_progress(next, opts.from_vertex, opts.to_vertex); }, opts.progress);
         }
 
-        TreeletTableBuilder builder(&G, coloring.get(), opts.size, &ttc, &out, &sequencer, opts.store0, opts.threads);
+        bool selective = strlen(opts.count_only_filename)!=0;
+        TreeletTableBuilder builder(&G, coloring.get(), opts.size, &ttc, &out, &sequencer, opts.threads, opts.store0, selective);
 
-        if(strlen(opts.count_only_filename)!=0)
+        if(selective)
             add_selective_structures(builder, opts.count_only_filename);
 
         builder.build();

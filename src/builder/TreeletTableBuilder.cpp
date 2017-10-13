@@ -12,9 +12,10 @@
 #include "TreeletTableBuilder.h"
 
 TreeletTableBuilder::TreeletTableBuilder(const UndirectedGraph* graph, const GraphColoring* coloring, const unsigned int size,
-    const TreeletTableCollection* lower, std::ostream* output, sequencer_t* const sequencer, const bool store_0_only, const unsigned int num_threads)
+    const TreeletTableCollection* lower, std::ostream* output, sequencer_t* const sequencer,
+    const unsigned int num_threads, const bool store_0_only, bool selective)
         : graph(graph), coloring(coloring), size(size), lower(lower), output(output), sequencer(sequencer),
-          store_0_only(store_0_only), number_of_threads(num_threads)
+          number_of_threads(num_threads), store_0_only(store_0_only), selective(selective)
 {
     if(num_threads==0)
         throw std::runtime_error("Invalid number of threads");
@@ -187,7 +188,7 @@ void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const Undir
                 assert(v_it.count() != 0);
 
                 Treelet merged = t1.merge(t2);
-                if(merged.is_valid() && (!selective || selective_structures.find(merged.get_structure())!=selective_structures.end()))
+                if(merged.is_valid() && (!selective || should_count(merged)))
                 {
                     TreeletTable::treelet_count_t &count = counts[merged];
                     TreeletTable::treelet_count_t tmp;
@@ -201,12 +202,38 @@ void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const Undir
     }
 }
 
-bool TreeletTableBuilder::add_selective_structure(const Treelet::treelet_structure_t structure)
+bool TreeletTableBuilder::should_count(Treelet t) //FIXME: Sort and binary search?
 {
-    selective=true;
-    if(Treelet::number_of_vertices(structure)!=size)
-        return  false;
+    for(uint64_t i=0; i<selective_num; i++)
+    {
+        if(selective_treelets[i].get_structure()==t.get_structure() && (!selective_treelets[i].is_colored() || selective_treelets[i].get_colors()==t.get_colors()))
+            return true;
+    }
 
-    selective_structures.insert(structure);
+    return false;
+}
+
+bool TreeletTableBuilder::add_selective_treelet(const Treelet treelet)
+{
+    if(treelet.number_of_vertices()!=size)
+        return false;
+
+    if(selective_num==selective_capacity)
+    {
+        selective_capacity=(selective_capacity==0)?16:(selective_capacity*2);
+        Treelet *t = new Treelet[selective_capacity];
+
+        std::copy(selective_treelets, selective_treelets+selective_num, t);
+        delete[] selective_treelets;
+        selective_treelets=t;
+    }
+
+    selective_treelets[selective_num++] = treelet;
     return true;
+}
+
+TreeletTableBuilder::~TreeletTableBuilder()
+{
+    if(selective_treelets != nullptr)
+        delete[] selective_treelets;
 }
