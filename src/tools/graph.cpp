@@ -89,7 +89,7 @@ int main(const int argc, const char** argv)
     bool parse_ok = op.parse(argc, argv);
     if(!parse_ok || help_opt->is_found())
     {
-        std::cout << "motivo-graph2bin [OPTION]..." << std::endl;
+        std::cout << "motivo-graph [OPTION]..." << std::endl;
         std::cout << "  Converts a ascii representation of a graph to Motivo's binary format or vice-versa" << std::endl << std::endl;
         std::cout << op.help() << std::endl;
 

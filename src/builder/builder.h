@@ -22,7 +22,7 @@ struct builder_opts
     char output_basename[MOTIVO_ARG_MAX];
     UndirectedGraph::vertex_t progress;
     bool store0;
-    //UndirectedGraph::vertex_t batch_size;
+    char count_only_filename[MOTIVO_ARG_MAX];
 };
 
 bool parse_builder_args(const int argc, const char **argv, const std::string &name, builder_opts *opts);

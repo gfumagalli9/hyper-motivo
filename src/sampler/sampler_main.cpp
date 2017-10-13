@@ -59,7 +59,6 @@ int main(const int argc, const char** argv)
 
         if(strlen(opts.output_basename)!=0)
             delete output;
-
     }
     catch(std::exception &e)
     {

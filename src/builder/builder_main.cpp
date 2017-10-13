@@ -9,6 +9,23 @@
 #include "builder.h"
 #include "../common/sequencer/DynamicSequencer.h"
 
+void add_selective_structures(TreeletTableBuilder &builder, const std::string& filename)
+{
+    std::ifstream ifs(filename, std::ifstream::binary);
+    Treelet::treelet_structure_t structure;
+    uint64_t read=0;
+    uint64_t added=0;
+    while(ifs >> structure)
+    {
+        read++;
+        if(builder.add_selective_structure(structure))
+            added++;
+    }
+
+    std::cout << "Selectively counting " << added << " treelets (out of " << read << " listed treelet structure(s))" << std::endl;
+}
+
+
 int main(const int argc, const char** argv)
 {
     std::cout << "This is motivo-build. Version: " << MOTIVO_VERSION_STRING << std::endl;
@@ -69,6 +86,10 @@ int main(const int argc, const char** argv)
         }
 
         TreeletTableBuilder builder(&G, coloring.get(), opts.size, &ttc, &out, &sequencer, opts.store0, opts.threads);
+
+        if(strlen(opts.count_only_filename)!=0)
+            add_selective_structures(builder, opts.count_only_filename);
+
         builder.build();
 
         out.close();

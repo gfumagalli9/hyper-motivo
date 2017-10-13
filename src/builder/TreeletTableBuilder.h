@@ -9,6 +9,7 @@
 #include <sparsehash/dense_hash_map>
 #include <string>
 #include <functional>
+#include <unordered_set>
 #include "config.h"
 #include "../common/treelets/Treelet.h"
 #include "../common/graph/UndirectedGraph.h"
@@ -64,6 +65,9 @@ private:
     const bool store_0_only;
     const unsigned int number_of_threads;
 
+    bool selective = false;
+    std::unordered_set<Treelet::treelet_structure_t> selective_structures;
+
     /// Fills a table for sizes > 1
     void do_build_mt [[gnu::hot,gnu::flatten]](ConcurrentWriter *writer);
 
@@ -85,6 +89,8 @@ public:
 
     /// Fills the treelet table computing the number of treelets of each kind rooted at each vertex
     void build();
+
+    bool add_selective_structure(const Treelet::treelet_structure_t structure);
 };
 
 #endif //MOTIVO_TREELETTABLEBUILDER_H
