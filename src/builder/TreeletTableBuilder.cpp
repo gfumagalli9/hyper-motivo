@@ -187,7 +187,7 @@ void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const Undir
                 assert(v_it.count() != 0);
 
                 Treelet merged = t1.merge(t2);
-                if(merged.is_valid())
+                if(merged.is_valid() && (!selective || selective_structures.find(merged.get_structure())!=selective_structures.end()))
                 {
                     TreeletTable::treelet_count_t &count = counts[merged];
                     TreeletTable::treelet_count_t tmp;
@@ -199,4 +199,14 @@ void TreeletTableBuilder::combine(const UndirectedGraph::vertex_t u, const Undir
             }
         }
     }
+}
+
+bool TreeletTableBuilder::add_selective_structure(const Treelet::treelet_structure_t structure)
+{
+    selective=true;
+    if(Treelet::number_of_vertices(structure)!=size)
+        return  false;
+
+    selective_structures.insert(structure);
+    return true;
 }
