@@ -11,7 +11,7 @@
 
 unsigned int nverts=0;
 unsigned int  degrees[16] = {0};
-unsigned int  adj[16][16] = {0};
+unsigned int  adj_lists[16][16] = {0};
 
 Treelet dfs(unsigned int u, unsigned int parent, bool *visited, std::set<Treelet> *treelets)
 {
@@ -22,7 +22,7 @@ Treelet dfs(unsigned int u, unsigned int parent, bool *visited, std::set<Treelet
 
     for(unsigned int i=0; i<degrees[u]; i++)
     {
-        unsigned int v = adj[u][i];
+        unsigned int v = adj_lists[u][i];
         if(parent==v)
             continue;
 
@@ -78,6 +78,16 @@ void read_graph()
             continue;
         }
 
+        bool existing=false;
+        for(unsigned int j=0; j<=degrees[u]; j++)
+            existing |= (adj_lists[u][j]==v);
+
+        if(existing)
+        {
+            std::cerr << "Duplicate edge" << std::endl;
+            continue;
+        }
+
         if(!seen[u])
         {
             seen[u]=true;
@@ -90,8 +100,8 @@ void read_graph()
             nverts++;
         }
 
-        adj[u][degrees[u]++]=v;
-        adj[v][degrees[v]++]=u;
+        adj_lists[u][degrees[u]++]=v;
+        adj_lists[v][degrees[v]++]=u;
         nedges++;
     }
 
@@ -110,8 +120,8 @@ void path(unsigned int size)
     nverts=size;
     for(unsigned int i=1; i<size; i++)
     {
-        adj[i-1][degrees[i-1]++]=i;
-        adj[i][degrees[i]++]=i-1;
+        adj_lists[i-1][degrees[i-1]++]=i;
+        adj_lists[i][degrees[i]++]=i-1;
     }
 }
 
@@ -120,8 +130,8 @@ void star(unsigned int size)
     nverts=size;
     for(unsigned int i=1; i<size; i++)
     {
-        adj[0][degrees[0]++]=i;
-        adj[i][degrees[i]++]=0;
+        adj_lists[0][degrees[0]++]=i;
+        adj_lists[i][degrees[i]++]=0;
     }
 }
 
@@ -135,11 +145,12 @@ int main(const int argc, const char** argv)
     OptionsParser::Option* star_opt = op.add_option(false, true, "star", '\0', "", "Use a star of ARG vertices");
     OptionsParser::Option* root_opt = op.add_option(false, true, "root", '\0', "", "Only decompose the treelet rootet at vertex ARG (default: use all vertices as roots)");
     OptionsParser::Option* colored_opt =  op.add_option(false, false, "colored", '\0', "", "Decompose using a fixed coloring of the vertices");
+    OptionsParser::Option* size_opt = op.add_option(false, true, "size", '\0', "", "Only print treelets with ARG vertices (default: print all treelets)");
 
     bool parse_ok = op.parse(argc, argv);
     if(!parse_ok || help_opt->is_found())
     {
-        std::cout << "motivo-decomposes [OPTION]..." << std::endl;
+        std::cout << "motivo-decompose [OPTION]..." << std::endl;
         std::cout << "  Decomposes a graph in list of edges format into its rooted treelets" << std::endl << std::endl;
         std::cout << op.help() << std::endl;
 
@@ -154,22 +165,31 @@ int main(const int argc, const char** argv)
 
     try
     {
+        unsigned int size=0;
+        if(size_opt->is_found())
+        {
+            int s= std::stoi(size_opt->get_value());
+            if(s<=0 || s>16)
+                throw std::runtime_error("Invalid size");
+            size = static_cast<unsigned int>(s);
+        }
+
         if(path_opt->is_found() && star_opt->is_found())
             throw new std::runtime_error("Options 'path' and 'star' cannot be used at the same time");
 
         if(path_opt->is_found())
         {
-            int size = std::stoi(path_opt->get_value());
-            if(size<=0 || size>16)
+            int s = std::stoi(path_opt->get_value());
+            if(s<=0 || s>16)
                 throw std::runtime_error("Invalid path size");
-            path(static_cast<unsigned int>(size));
+            path(static_cast<unsigned int>(s));
         }
         else if(star_opt->is_found())
         {
-            int size = std::stoi(star_opt->get_value());
-            if(size<=0 || size>16)
+            int s = std::stoi(star_opt->get_value());
+            if(s<=0 || s>16)
                 throw std::runtime_error("Invalid star size");
-            star(static_cast<unsigned int>(size));
+            star(static_cast<unsigned int>(s));
         }
         else
             read_graph();
@@ -189,6 +209,9 @@ int main(const int argc, const char** argv)
         for(std::set<Treelet>::iterator it=treelets.begin(); it!=treelets.end(); it++)
         {
             if(!colored_opt->is_found() && it->get_structure()==previous_structure)
+                continue;
+
+            if(size!=0 && it->number_of_vertices()!=size)
                 continue;
 
             std::cout << it->get_structure() << " " << (colored_opt->is_found() ? it->get_colors() : 0) << "\n";

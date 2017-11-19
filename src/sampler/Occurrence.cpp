@@ -45,7 +45,7 @@ Occurrence::Occurrence(const Treelet& treelet, const UndirectedGraph::vertex_t *
     assert(n==size-1);
 }
 
-const char* Occurrence::text_footprint()
+const char* Occurrence::text_footprint() const
 {
     if(text_footprint_buffer[0]==0)
     {
@@ -59,7 +59,7 @@ const char* Occurrence::text_footprint()
     return text_footprint_buffer;
 }
 
-uint64_t Occurrence::number_of_spanning_trees()
+uint64_t Occurrence::number_of_spanning_trees() const
 {
     if(spanning_trees!=0)
         return spanning_trees;
@@ -189,7 +189,7 @@ void OccurrenceCanonicizer::canonicize(Occurrence *occ)
     for(unsigned int i=0; i<size; i++)
         occ->verts[i] = new_verts[ lab[i] ];
 
-    memset(occ->edges, 0, sizeof(uint8_t)*size);
+    memset(occ->edges, 0, sizeof(uint8_t)*Occurrence::binary_footprint_bytes);
     for(unsigned int i=1; i<size; i++)
     {
         nauty_set* row = GRAPHROW(cang, i, words_needed);
@@ -199,4 +199,6 @@ void OccurrenceCanonicizer::canonicize(Occurrence *occ)
                 occ->add_edge(i, j);
         }
     }
+
+    occ->text_footprint_buffer[0]=0; //Invalidate text footprint
 }

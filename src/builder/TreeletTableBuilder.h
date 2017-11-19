@@ -49,10 +49,10 @@ private:
 
 #ifdef MOTIVO_DENSE_HASHMAP
     typedef google::dense_hash_map<Treelet, TreeletTable::treelet_count_t, TreeletHash> table_t;
-#define MOTIVO_INIT_HASHMAP(hm) do { (hm).set_empty_key(Treelet::invalid_treelet); } while(false)
+#define BUILDER_INIT_HASHMAP(hm) do { (hm).set_empty_key(Treelet::invalid_treelet); } while(false)
 #else
     typedef google::sparse_hash_map<Treelet, TreeletTable::treelet_count_t, TreeletHash> table_t;
-#define MOTIVO_INIT_HASHMAP(hm) do {} while(false)
+#define BUILDER_INIT_HASHMAP(hm) do {} while(false)
 #endif
 
     const UndirectedGraph* graph;

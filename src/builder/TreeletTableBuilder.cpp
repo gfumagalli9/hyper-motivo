@@ -98,7 +98,7 @@ void TreeletTableBuilder::do_build_st()
                 continue;
 
             table_t table;
-            MOTIVO_INIT_HASHMAP(table);
+            BUILDER_INIT_HASHMAP(table);
             const UndirectedGraph::vertex_t degree = graph->degree(u);
             for (UndirectedGraph::vertex_t d = 0; d < degree; d++)
                 combine(u, graph->neighbor(u, d), table);
@@ -124,7 +124,7 @@ void TreeletTableBuilder::do_build_mt(ConcurrentWriter* writer)
                 continue;
 
             table_t table;
-            MOTIVO_INIT_HASHMAP(table);
+            BUILDER_INIT_HASHMAP(table);
             const UndirectedGraph::vertex_t degree = graph->degree(u);
             for (UndirectedGraph::vertex_t d = 0; d < degree; d++)
                 combine(u, graph->neighbor(u,d), table);

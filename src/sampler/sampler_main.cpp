@@ -45,11 +45,16 @@ int main(const int argc, const char** argv)
 
         Random rng(opts.seed);
         std::cerr << "Using seed " << rng.get_seed() << std::endl;
-        std::cerr << "Sampling using " << opts.threads << " thread(s)..." << std::endl;
+        std::cerr << "Sampling using " << opts.threads << " thread(s)" << std::endl;
 
         OccurrenceSampler sampler(&G, &ttc, opts.size, opts.number_of_samples, &rng, opts.vertices, opts.graphlets,
-                                  opts.spanning_trees, opts.footprints, opts.canonicize, opts.norejection, opts.text, output, opts.threads);
+                                  opts.spanning_trees, opts.footprints, opts.canonicize, opts.norejection, opts.text, opts.group,
+                                  output, opts.threads);
+
+        std::chrono::time_point<std::chrono::steady_clock>  tstart = std::chrono::steady_clock::now();
         sampler.sample();
+        std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
+        std::cerr << "Sampling time: " << delta_t.count() << " s\n";
 
         for(unsigned int i=0; i<opts.size; i++)
             delete tables[i];
