@@ -29,6 +29,7 @@ struct sampler_opts
     bool group;
     char seed[MOTIVO_ARG_MAX + 2 + std::numeric_limits<unsigned int>::digits/3]; //Enough space to append one character + 1 integer
     unsigned int threads;
+    char selective_filename[MOTIVO_ARG_MAX];
 };
 
 bool parse_sampler_args(const int argc, const char **argv, const std::string &name, sampler_opts *opts);

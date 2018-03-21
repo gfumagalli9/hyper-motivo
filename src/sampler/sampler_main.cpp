@@ -45,16 +45,26 @@ int main(const int argc, const char** argv)
 
         Random rng(opts.seed);
         std::cerr << "Using seed " << rng.get_seed() << std::endl;
+
+        TreeletSelector* selector = nullptr;
+        if(*opts.selective_filename!='\0')
+        {
+            selector = new TreeletSelector(opts.selective_filename, opts.size);
+            std::cout << "Selectively " << ((selector->get_mode()==TreeletSelector::MODE_INCLUDE)?"sampling only ":"ignoring ") << selector->get_size() << " treelet(s) of the given size" << std::endl;
+        }
+
         std::cerr << "Sampling using " << opts.threads << " thread(s)" << std::endl;
 
         OccurrenceSampler sampler(&G, &ttc, opts.size, opts.number_of_samples, &rng, opts.vertices, opts.graphlets,
                                   opts.spanning_trees, opts.footprints, opts.canonicize, opts.norejection, opts.text, opts.group,
-                                  output, opts.threads);
+                                  output, opts.threads, selector);
 
         std::chrono::time_point<std::chrono::steady_clock>  tstart = std::chrono::steady_clock::now();
         sampler.sample();
         std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
         std::cerr << "Sampling time: " << delta_t.count() << " s\n";
+
+        delete selector;
 
         for(unsigned int i=0; i<opts.size; i++)
             delete tables[i];

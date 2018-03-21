@@ -9,9 +9,9 @@
 void OccurrenceSampler::sample_one(Occurrence *occurrence)
 {
     UndirectedGraph::vertex_t sampled_vertices[16];
-    UndirectedGraph::vertex_t root = sampler.sample_root(size);
+    UndirectedGraph::vertex_t root = sampler.sample_root();
     assert(root<graph->number_of_vertices());
-    Treelet t = sampler.sample_treelet(size, root);
+    Treelet t = sampler.sample_treelet(root);
 
     while(true)
     {
@@ -294,9 +294,9 @@ char* OccurrenceSampler::write(Occurrence *occurrence, char* buf)
 OccurrenceSampler::OccurrenceSampler(UndirectedGraph *graph, TreeletTableCollection *ttc, unsigned int size,
                                      uint64_t num_samples, Random *rng, bool vertices, bool graphlets,
                                      bool spanning_trees_no, bool footprints, bool canonicize, bool no_rejection,
-                                     bool text, bool group_same, std::ostream *out, unsigned int number_of_threads)
+                                     bool text, bool group_same, std::ostream *out, unsigned int number_of_threads, TreeletSelector* selector)
         : graph(graph), ttc(ttc), size(size), num_samples(num_samples), rng(rng), vertices(vertices), graphlets(graphlets), spanning_trees_no(spanning_trees_no), footprints(footprints),
-          canonicize(canonicize), no_rejection(no_rejection), text(text), group_same(group_same), output(out), number_of_threads(number_of_threads), sampler(graph, ttc, rng)
+          canonicize(canonicize), no_rejection(no_rejection), text(text), group_same(group_same), output(out), number_of_threads(number_of_threads), sampler(graph, ttc, size, rng, selector)
 {
     if(number_of_threads==0)
         throw std::runtime_error("Invalid number of threads");

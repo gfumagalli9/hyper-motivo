@@ -7,30 +7,50 @@
 
 #include "../common/treelets/Treelet.h"
 #include "../common/treelets/TreeletTableCollection.h"
+#include "../common/treelets/TreeletSelector.h"
 
 class TreeletSampler
 {
 private:
     const UndirectedGraph* graph;
     const TreeletTableCollection* table_collection;
-    Random *rng;
+    const unsigned int size;
+    Random* rng;
+
+    TreeletSelector* selector = nullptr;
+    RangeSampler<TreeletTable::treelet_count_t>** range_samplers = nullptr;
+    AliasMethodSampler<UndirectedGraph::vertex_t,TreeletTable::treelet_count_t>* root_sampler = nullptr;
 
 public:
-    TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, Random* rng) : graph(graph), table_collection(ttc), rng(rng) {};
+    TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, const unsigned int size, Random* rng, TreeletSelector* selector = nullptr);
+    ~TreeletSampler();
 
     ///Samples an occurrence of @param t rooted in @param u
     bool sample_rooted_occurrence [[gnu::hot]] (const Treelet& t, const UndirectedGraph::vertex_t u, UndirectedGraph::vertex_t* occurrence);
 
-    UndirectedGraph::vertex_t sample_root [[gnu::hot]] (const unsigned int size)
+    UndirectedGraph::vertex_t sample_root [[gnu::hot]] ()
     {
-        return table_collection->get_table(size)->get_random_root(rng);
+        if(!selector)
+            return table_collection->get_table(size)->get_random_root(rng);
+        else
+            return root_sampler->sample(rng);
     }
 
-    Treelet sample_treelet [[gnu::hot]] (const unsigned int size, UndirectedGraph::vertex_t root)
+    Treelet sample_treelet [[gnu::hot]] (UndirectedGraph::vertex_t root)
     {
-        Treelet t = table_collection->get_table(size)->get_random_treelet(root, rng);
-        assert(t.is_valid());
-        return t;
+        if(!selector)
+        {
+            Treelet t = table_collection->get_table(size)->get_random_treelet(root, rng);
+            assert(t.is_valid());
+            return t;
+        }
+        else
+        {
+            Treelet t = table_collection->get_table(size)->get_treelet_no(root, range_samplers[root]->sample(rng));
+            assert(t.is_valid());
+            assert(selector->is_included(t));
+            return t;
+        }
     }
 };
 

@@ -205,6 +205,8 @@ int main(const int argc, const char** argv)
         std::set<Treelet> treelets;
         decompose(&treelets, root);
 
+        std::cout << "INCLUDE\n";
+
         Treelet::treelet_structure_t previous_structure = Treelet::invalid_structure;
         for(std::set<Treelet>::iterator it=treelets.begin(); it!=treelets.end(); it++)
         {

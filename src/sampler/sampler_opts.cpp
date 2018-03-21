@@ -34,6 +34,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *group_opt = op.add_option(false, false, "group", '\0', "", "Group and count identical samples");
     OptionsParser::Option *seed_opt = op.add_option(false, true, "seed", '\0', "", "String used to seed the random number generator (default or empty string: seed from system random device)");
     OptionsParser::Option *threads_opt = op.add_option(false, true, "threads", '\0', "1", "Number of threads to use or 0 for to use the number of logical processors (default: 1)");
+    OptionsParser::Option *selective_opt = op.add_option(false, true, "selective", '\0', "", "Sample only treelets whose structures are allowed in file ARG");
 
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
@@ -100,10 +101,20 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     if(opts->threads<=0)
         throw std::runtime_error("Failed to determine the number of logical processors");
 
+    if(selective_opt->is_found())
+    {
+        if(selective_opt->get_value().length()>=MOTIVO_ARG_MAX)
+            throw std::runtime_error("'selective' option is too long");
+        strcpy(opts->selective_filename, selective_opt->get_value().c_str());
+    }
+    else
+        *(opts->selective_filename)='\0';
+
     opts->canonicize = canonicize_opt->is_found();
     opts->graphlets = graphlets_opt->is_found();
     opts->norejection = norejection_opt->is_found();
     opts->text = text_opt->is_found();
+
 
     return true;
 }

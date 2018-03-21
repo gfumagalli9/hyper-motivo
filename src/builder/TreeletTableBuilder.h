@@ -18,6 +18,7 @@
 #include "../common/sequencer/BaseSequencer.h"
 #include "../common/io/ConcurrentFIFO.h"
 #include "../common/io/ConcurrentWriter.h"
+#include "../common/treelets/TreeletSelector.h"
 
 #ifdef MOTIVO_MULTITHREAD
     #include <mutex>
@@ -64,10 +65,7 @@ private:
     const unsigned int number_of_threads;
 
     const bool store_0_only;
-    bool selective;
-    uint64_t selective_num = 0;
-    uint64_t selective_capacity = 0;
-    Treelet* selective_treelets = nullptr;
+    TreeletSelector* selector;
 
     /// Fills a table for sizes > 1
     void do_build_mt [[gnu::hot,gnu::flatten]](ConcurrentWriter *writer);
@@ -83,19 +81,13 @@ private:
 
     inline std::pair<char*, std::size_t > to_normalized_sorted_byte_array [[gnu::hot]](const UndirectedGraph::vertex_t u, const table_t &table);
 
-    inline bool should_count(Treelet t);
-
 public:
     TreeletTableBuilder(const UndirectedGraph* graph, const GraphColoring* coloring, const unsigned int size,
                         const TreeletTableCollection* lower, std::ostream* output, sequencer_t* const sequencer,
-                        const unsigned int num_threads=1, const bool store_0_only=false, bool selective=false);
-
-    ~TreeletTableBuilder();
+                        const unsigned int num_threads=1, const bool store_0_only=false, TreeletSelector* selector=nullptr);
 
     /// Fills the treelet table computing the number of treelets of each kind rooted at each vertex
     void build();
-
-    bool add_selective_treelet(const Treelet treelet);
 };
 
 #endif //MOTIVO_TREELETTABLEBUILDER_H

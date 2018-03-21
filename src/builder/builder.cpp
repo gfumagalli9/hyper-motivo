@@ -23,7 +23,7 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
     OptionsParser::Option *progress_opt = op.add_option(false, true, "progress", 'P', "0", "Number of processed vertices between progress reports or 0 for no progress reports (default: 0)");
     OptionsParser::Option *store0_opt  = op.add_option(false, false, "store-on-0-colored-vertices-only", '0', "", "Store treelet counts only for the vertices with color 0 (default: false)");
-    OptionsParser::Option *countonly_opt = op.add_option(false, true, "count-only", '\0', "", "Count only treelets whose structure is listed in file ARG");
+    OptionsParser::Option *selective_opt = op.add_option(false, true, "selective", '\0', "", "Count only treelets whose structures are allowed in file ARG");
 
     if (!op.parse(argc, argv) || help_opt->is_found())
     {
@@ -124,14 +124,14 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
         throw std::runtime_error("'seed' option is too long");
     strcpy(opts->seed, seed_opt->get_value().c_str());
 
-    if(countonly_opt->is_found())
+    if(selective_opt->is_found())
     {
-        if(countonly_opt->get_value().length()>=MOTIVO_ARG_MAX)
-            throw std::runtime_error("'count-only' option is too long");
-        strcpy(opts->count_only_filename, countonly_opt->get_value().c_str());
+        if(selective_opt->get_value().length()>=MOTIVO_ARG_MAX)
+            throw std::runtime_error("'selective' option is too long");
+        strcpy(opts->selective_filename, selective_opt->get_value().c_str());
     }
     else
-        *(opts->count_only_filename)='\0';
+        *(opts->selective_filename)='\0';
 
     return true;
 }

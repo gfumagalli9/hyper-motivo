@@ -111,7 +111,7 @@ public:
 
     OccurrenceSampler(UndirectedGraph *graph, TreeletTableCollection* ttc, unsigned int size, uint64_t num_samples, Random *rng,
                       bool vertices, bool graphlets, bool spanning_trees_no, bool footprints, bool canonicize, bool no_rejection,
-                      bool text, bool group_same, std::ostream *out, unsigned int number_of_threads);
+                      bool text, bool group_same, std::ostream *out, unsigned int number_of_threads, TreeletSelector* selector = nullptr);
 };
 
 

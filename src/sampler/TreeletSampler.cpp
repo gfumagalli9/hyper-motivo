@@ -4,6 +4,37 @@
 
 #include "TreeletSampler.h"
 
+TreeletSampler::TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, const unsigned int size, Random *rng, TreeletSelector *selector)
+        : graph(graph), table_collection(ttc), size(size), rng(rng), selector(selector)
+{
+    if(selector)
+    {
+        range_samplers = new RangeSampler<TreeletTable::treelet_count_t>*[graph->number_of_vertices()];
+        root_sampler = new AliasMethodSampler<UndirectedGraph::vertex_t,TreeletTable::treelet_count_t>(graph->number_of_vertices());
+        for(UndirectedGraph::vertex_t u=0; u<graph->number_of_vertices(); u++)
+        {
+            range_samplers[u] = ttc->get_table(size)->build_range_sampler(u, selector);
+            root_sampler->set(u, range_samplers[u]->get_total_length());
+        }
+
+        root_sampler->build();
+    }
+
+}
+
+TreeletSampler::~TreeletSampler()
+{
+    if(selector)
+    {
+        delete root_sampler;
+        for(UndirectedGraph::vertex_t u=0; u<graph->number_of_vertices(); u++)
+            delete range_samplers[u];
+
+        delete range_samplers;
+    }
+}
+
+
 bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const UndirectedGraph::vertex_t u, UndirectedGraph::vertex_t* occurrence)
 {
     assert(t.is_valid());
@@ -12,8 +43,6 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
 
     if(t.number_of_vertices() == 1)
         return true;
-
-    //ReservoirSampler<std::pair<Treelet, UndirectedGraph::vertex_t> > sampler(std::make_pair(Treelet::invalid_treelet, 0), rng);
 
     Treelet split = t.split_child();
     assert(!split.is_colored());
@@ -82,4 +111,6 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
     return ( complement.is_singleton() || sample_rooted_occurrence(complement, u, occurrence + child_treelet.number_of_vertices()) ) &&
             sample_rooted_occurrence(child_treelet, child_vertex, occurrence+1);
 }
+
+
 

@@ -22,7 +22,7 @@ class [[gnu::packed]] Treelet
      * 1 means that we entered a new vertex and 0 means we are leaving a vertex and its subtree.
      * The first bit is always 1 and it is not stored. Bits are left-aligned.
      * We can represent treelets up to size 16 (using 31 bits).
-     * I.e: a star with 3 leavers is 1010100 followed by 25 zeros, a path with 4 nodes is 1110000 followed by 26 zeros,
+     * I.e: a star with 3 leaves is 1010100 followed by 25 zeros, a path with 4 nodes is 1110000 followed by 26 zeros,
      * a binary tree of height two is 1101001101000 followed by 19 zeros.
     */
 public:
@@ -32,6 +32,7 @@ public:
     constexpr static treelet_structure_t treelet_structure_highest_bit = 1u<<(treelet_structure_bits-1);
     constexpr static treelet_structure_t invalid_structure = 0xFFFFFFFF;
     constexpr static treelet_structure_t singleton_structure = 0;
+    constexpr static treelet_colors_t all_colors = 0xFFFF;
 
 
 private:
