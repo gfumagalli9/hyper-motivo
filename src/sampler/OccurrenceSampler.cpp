@@ -20,7 +20,7 @@ void OccurrenceSampler::sample_one(Occurrence *occurrence)
 #ifndef NDEBUG
             bool success =
 #endif
-                    sampler.sample_rooted_occurrence(t, root, sampled_vertices);
+                    sampler.sample_rooted_occurrence(t, root, sampled_vertices); //FIXME: Handle case in which there are no treelets
             assert(success);
         }
 
@@ -40,18 +40,40 @@ void OccurrenceSampler::sample_one(Occurrence *occurrence)
 
 void OccurrenceSampler::sample()
 {
-    std::chrono::time_point<std::chrono::steady_clock>  tstart = std::chrono::steady_clock::now();
-
     if(number_of_threads==1)
-        do_sample_st();
+    {
+        table_t* count_table = nullptr;
+        if(group_same)
+            count_table = create_table();
+
+        do_sample_st(count_table);
+
+        if(group_same)
+        {
+            write_table(count_table);
+            delete count_table;
+        }
+    }
     else
     {
         sequencer_t *sequencer = new sequencer_t(1, num_samples, number_of_threads);
-        ConcurrentWriter* writer = new ConcurrentWriter(output, 10*number_of_threads);
+        ConcurrentWriter* writer = nullptr;
+        table_t** count_tables = nullptr;
+
+        if(group_same)
+            count_tables = new table_t*[number_of_threads];
+        else
+            writer = new ConcurrentWriter(output, 10*number_of_threads);
 
         std::thread *worker_threads = new std::thread[number_of_threads];
         for(unsigned int i = 0; i < number_of_threads; i++)
-            worker_threads[i] = std::thread([this, sequencer, writer] { do_sample_mt(sequencer, writer); });
+        {
+            table_t* count_table = nullptr;
+            if(group_same)
+                count_table = count_tables[i] = create_table();
+
+            worker_threads[i] = std::thread([this, sequencer, writer, count_table] { do_sample_mt(sequencer, writer, count_table); });
+        }
 
         for(unsigned int i = 0; i < number_of_threads; i++)
             worker_threads[i].join();
@@ -59,22 +81,91 @@ void OccurrenceSampler::sample()
         delete[] worker_threads;
         delete writer;
         delete sequencer;
+
+        if(group_same)
+        {
+            merge_tables(count_tables);
+            write_table(count_tables[0]);
+
+            for(unsigned int i = 0; i < number_of_threads; i++)
+                delete count_tables[i];
+            delete[] count_tables;
+        }
     }
-
-    std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
-
-    std::cerr << "Sampling time: " << delta_t.count() << " s\n";
     //std::cerr << "Sampled treelets: " << sampled << " (" << static_cast<double>(sampled)/delta_t.count() << " occ/s)" << "\n";
     //std::cerr << "Accepted treelets/graphlets: " << accepted<< " (" << static_cast<double>(accepted)/delta_t.count() << " occ/s)" << "\n";
     //std::cerr << "Rejected treelets/graphlets: " << sampled - accepted << std::endl;
 }
 
 
-void OccurrenceSampler::do_sample_st()
+OccurrenceSampler::table_t *OccurrenceSampler::create_table()
+{
+    static Occurrence empty_key = Occurrence();
+    static OccurrenceHash hasher = OccurrenceHash(footprints, vertices);
+    static OccurrenceEquality eq = OccurrenceEquality(footprints, vertices);
+
+    table_t* table = new table_t(0, hasher, eq);
+    table->set_empty_key(empty_key);
+    return table;
+}
+
+void OccurrenceSampler::merge_tables(OccurrenceSampler::table_t **count_tables)
+{
+    for(unsigned int i=1; i<number_of_threads; i++)
+    {
+        table_t::const_iterator it = count_tables[i]->begin();
+        while(it != count_tables[i]->end())
+        {
+            (*count_tables[0])[it->first] += it->second;
+            it++;
+        }
+
+        count_tables[i]->clear();
+    }
+}
+
+void OccurrenceSampler::write_table(OccurrenceSampler::table_t *count_table)
+{
+    table_t::const_iterator it = count_table->begin();
+    while(it != count_table->end())
+    {
+        if(text)
+        {
+            *output << it->second << ":";
+
+            if (footprints)
+                *output << it->first.text_footprint() << ";";
+
+            if (spanning_trees_no)
+                *output << it->first.number_of_spanning_trees() << ";";
+
+            *output << "\n";
+        }
+        else
+        {
+            output->write(reinterpret_cast<const char*>(&(it->second)), sizeof(uint64_t));
+            if(footprints)
+                output->write(it->first.binary_footprint(), Occurrence::binary_footprint_bytes);
+
+            if(spanning_trees_no)
+            {
+                uint64_t st = it->first.number_of_spanning_trees();
+                output->write(reinterpret_cast<const char*>(&st), sizeof(uint64_t));
+            }
+        }
+        it++;
+    }
+}
+
+
+void OccurrenceSampler::do_sample_st(table_t* count_table)
 {
     Occurrence occurrence;
     OccurrenceCanonicizer canonicizer(size);
-    char* buffer = new char[buffer_size];
+
+    char* buffer = nullptr;
+    if(!group_same)
+        buffer= new char[buffer_size];
     char* p=buffer;
 
     for(uint64_t i=0; i<num_samples; i++)
@@ -83,13 +174,18 @@ void OccurrenceSampler::do_sample_st()
         if(canonicize)
             canonicizer.canonicize(&occurrence);
 
-        if (p > buffer + buffer_size - max_occurrence_size)
+        if(group_same)
+            (*count_table)[occurrence]+=1;
+        else
         {
-            output->write(buffer, p-buffer);
-            p = buffer = new char[buffer_size];
-        }
+            if (p > buffer + buffer_size - max_occurrence_size)
+            {
+                output->write(buffer, p - buffer);
+                p = buffer;
+            }
 
-        p=write(&occurrence, p);
+            p = write(&occurrence, p);
+        }
     }
 
     if(p!=buffer)
@@ -98,11 +194,14 @@ void OccurrenceSampler::do_sample_st()
     delete[] buffer;
 }
 
-void OccurrenceSampler::do_sample_mt(sequencer_t *sequencer, ConcurrentWriter *writer)
+void OccurrenceSampler::do_sample_mt(sequencer_t *sequencer, ConcurrentWriter *writer, table_t* count_table)
 {
     Occurrence occurrence;
     OccurrenceCanonicizer canonicizer(size);
-    char* buffer = new char[buffer_size];
+
+    char* buffer = nullptr;
+    if(!group_same)
+        buffer= new char[buffer_size];
     char* p=buffer;
 
     while(true)
@@ -117,13 +216,18 @@ void OccurrenceSampler::do_sample_mt(sequencer_t *sequencer, ConcurrentWriter *w
             if(canonicize)
                 canonicizer.canonicize(&occurrence);
 
-            if (p > buffer + buffer_size - max_occurrence_size)
+            if(group_same)
+                (*count_table)[occurrence]+=1;
+            else
             {
-                writer->write(buffer, static_cast<std::size_t>(p - buffer));
-                p = buffer = new char[buffer_size];
-            }
+                if (p > buffer + buffer_size - max_occurrence_size)
+                {
+                    writer->write(buffer, static_cast<std::size_t>(p - buffer));
+                    p = buffer = new char[buffer_size];
+                }
 
-            p = write(&occurrence, p);
+                p = write(&occurrence, p);
+            }
         }
     }
 
@@ -137,6 +241,9 @@ char* OccurrenceSampler::write(Occurrence *occurrence, char* buf)
 {
     if(text)
     {
+        *(buf++) = '1';
+        *(buf++) = ':';
+
         if(footprints)
         {
             strcpy(buf, occurrence->text_footprint());
@@ -176,8 +283,8 @@ char* OccurrenceSampler::write(Occurrence *occurrence, char* buf)
 
         if(vertices)
         {
-            memcpy(buf, occurrence->vertices(), sizeof(UndirectedGraph::vertex_t) * occurrence->size);
-            buf+=sizeof(UndirectedGraph::vertex_t) * occurrence->size;
+            memcpy(buf, occurrence->vertices(), sizeof(UndirectedGraph::vertex_t) * size);
+            buf+=sizeof(UndirectedGraph::vertex_t) * size;
         }
     }
 
@@ -187,9 +294,9 @@ char* OccurrenceSampler::write(Occurrence *occurrence, char* buf)
 OccurrenceSampler::OccurrenceSampler(UndirectedGraph *graph, TreeletTableCollection *ttc, unsigned int size,
                                      uint64_t num_samples, Random *rng, bool vertices, bool graphlets,
                                      bool spanning_trees_no, bool footprints, bool canonicize, bool no_rejection,
-                                     bool text, std::ostream *out, unsigned int number_of_threads)
+                                     bool text, bool group_same, std::ostream *out, unsigned int number_of_threads)
         : graph(graph), ttc(ttc), size(size), num_samples(num_samples), rng(rng), vertices(vertices), graphlets(graphlets), spanning_trees_no(spanning_trees_no), footprints(footprints),
-          canonicize(canonicize), no_rejection(no_rejection), text(text), output(out), number_of_threads(number_of_threads), sampler(graph, ttc, rng)
+          canonicize(canonicize), no_rejection(no_rejection), text(text), group_same(group_same), output(out), number_of_threads(number_of_threads), sampler(graph, ttc, rng)
 {
     if(number_of_threads==0)
         throw std::runtime_error("Invalid number of threads");

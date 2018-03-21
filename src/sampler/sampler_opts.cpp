@@ -31,6 +31,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *footprints_opt = op.add_option(false, false, "footprints", '\0', "", "Output the graphlet/treelet footprints");
     OptionsParser::Option *spanning_opt = op.add_option(false, false, "spanning-trees-no", '\0', "", "Output the number of spanning trees in the sampels treelet/graphlet");
     OptionsParser::Option *vertices_opt = op.add_option(false, false, "vertices", '\0', "", "Output the IDs of the sampled vertices");
+    OptionsParser::Option *group_opt = op.add_option(false, false, "group", '\0', "", "Group and count identical samples");
     OptionsParser::Option *seed_opt = op.add_option(false, true, "seed", '\0', "", "String used to seed the random number generator (default or empty string: seed from system random device)");
     OptionsParser::Option *threads_opt = op.add_option(false, true, "threads", '\0', "1", "Number of threads to use or 0 for to use the number of logical processors (default: 1)");
 
@@ -67,6 +68,8 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     opts->vertices = vertices_opt->is_found();
     if(!opts->footprints  && !opts->spanning_trees && !opts->vertices)
         throw std::runtime_error("Nothing to output. Please specify at least one of --footprints, --spanning-trees-no, --vertices");
+
+    opts->group=group_opt->is_found();
 
     if(input_opt->get_value().size()>=MOTIVO_ARG_MAX)
         throw std::runtime_error("'tables-basename' option is too long");

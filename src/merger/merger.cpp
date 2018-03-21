@@ -213,7 +213,6 @@ int main(const int argc, const char** argv)
     OptionsParser::Option *compress_opt = op.add_option(false, true, "compress-threshold", '\0', "0", "Compress records if the compressed size is less than ARG times the uncompressed size (default or 0: disables compression)");
     OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output basename (required)");
 
-
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
     {
@@ -252,7 +251,10 @@ int main(const int argc, const char** argv)
 
     try
     {
+        std::chrono::time_point<std::chrono::steady_clock>  tstart = std::chrono::steady_clock::now();
         merge(count_files, output_opt->get_value(), compress_threshold);
+        std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
+        std::cerr << "Merge time: " << delta_t.count() << " s\n";
     }
     catch(std::exception &e)
     {

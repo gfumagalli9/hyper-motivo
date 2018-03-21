@@ -12,17 +12,21 @@
 void add_selective_structures(TreeletTableBuilder &builder, const std::string& filename)
 {
     std::ifstream ifs(filename, std::ifstream::binary);
+    if(!ifs.is_open())
+        throw std::runtime_error("Could not open file " + filename);
+
     Treelet::treelet_structure_t structure;
+    Treelet::treelet_colors_t  colors;
     uint64_t read=0;
     uint64_t added=0;
-    while(ifs >> structure)
+    while(ifs >> structure >> colors)
     {
         read++;
-        if(builder.add_selective_structure(structure))
+        if(builder.add_selective_treelet(Treelet(structure, colors)))
             added++;
     }
 
-    std::cout << "Selectively counting " << added << " treelets (out of " << read << " listed treelet structure(s))" << std::endl;
+    std::cout << "Selectively counting " << added << " treelets (out of " << read << " listed treelet(s))" << std::endl;
 }
 
 
@@ -39,8 +43,6 @@ int main(const int argc, const char** argv)
         UndirectedGraph G(opts.graph);
         G.prefault();
         std::cout << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
-
-        //std::cout << "Using a thread batch size of " << opts.batch_size << std::endl;
 
         std::unique_ptr<GraphColoring> coloring;
         if(opts.size == 1)
@@ -85,12 +87,16 @@ int main(const int argc, const char** argv)
             sequencer.set_progress_callback( [](UndirectedGraph::vertex_t next) -> void { report_progress(next, opts.from_vertex, opts.to_vertex); }, opts.progress);
         }
 
-        TreeletTableBuilder builder(&G, coloring.get(), opts.size, &ttc, &out, &sequencer, opts.store0, opts.threads);
+        bool selective = strlen(opts.count_only_filename)!=0 && opts.size>1;
+        TreeletTableBuilder builder(&G, coloring.get(), opts.size, &ttc, &out, &sequencer, opts.threads, opts.store0, selective);
 
-        if(strlen(opts.count_only_filename)!=0)
+        if(selective)
             add_selective_structures(builder, opts.count_only_filename);
 
+        std::chrono::time_point<std::chrono::steady_clock>  tstart = std::chrono::steady_clock::now();
         builder.build();
+        std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
+        std::cerr << "Building time: " << delta_t.count() << " s\n";
 
         out.close();
         std::cout << "Output written to " << filename << std::endl;

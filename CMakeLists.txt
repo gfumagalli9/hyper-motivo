@@ -113,6 +113,8 @@ set(BUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/builder/TreeletTableBuilder.
 set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp src/sampler/TreeletSampler.h src/sampler/sampler_main.cpp src/sampler/include_nauty.h src/sampler/Occurrence.cpp src/sampler/Occurrence.h src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp src/sampler/OccurrenceSampler.cpp src/sampler/OccurrenceSampler.h)
 set(GRAPH_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/graph.cpp)
 set(DECOMPOSE_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/decompose.cpp)
+set(HOMOMORPHISM_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/homomorphism.cpp)
+
 set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp tests/Treelet.cpp tests/Occurrence.cpp src/sampler/Occurrence.cpp src/sampler/Occurrence.h tests/leftmost_bit_tie.cpp tests/CompressedRecordFile.cpp)
 
 
@@ -211,6 +213,7 @@ set(BUILDER_LIBRARIES ${COMMON_LIBRARIES})
 set(MERGER_LIBRARIES ${COMMON_LIBRARIES})
 set(GRAPH_LIBRARIES ${COMMON_LIBRARIES})
 set(DECOMPOSE_LIBRARIES ${COMMON_LIBRARIES})
+set(HOMOMORPHISM_LIBRARIES ${COMMON_LIBRARIES})
 set(TEST_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
 
 add_executable(motivo-build ${BUILDER_SOURCE_FILES})
@@ -218,6 +221,7 @@ add_executable(motivo-merge ${MERGER_SOURCE_FILES})
 add_executable(motivo-sample ${SAMPLER_SOURCE_FILES})
 add_executable(motivo-graph ${GRAPH_SOURCE_FILES})
 add_executable(motivo-decompose ${DECOMPOSE_SOURCE_FILES})
+add_executable(motivo-homomorphism ${HOMOMORPHISM_SOURCE_FILES})
 add_executable(motivo-tests ${TEST_SOURCE_FILES})
 
 target_link_libraries(motivo-build ${BUILDER_LIBRARIES})
@@ -225,6 +229,8 @@ target_link_libraries(motivo-merge ${MERGER_LIBRARIES})
 target_link_libraries(motivo-sample ${SAMPLER_LIBRARIES})
 target_link_libraries(motivo-graph ${GRAPH_LIBRARIES})
 target_link_libraries(motivo-decompose ${DECOMPOSE_LIBRARIES})
+target_link_libraries(motivo-homomorphism ${HOMOMORPHISM_LIBRARIES})
+
 target_link_libraries(motivo-tests ${TEST_LIBRARIES})
 
 add_custom_target(hg_id COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/hg_id.cmake)
@@ -280,6 +286,7 @@ if(MPI_FOUND)
 endif()
 
 
+file(COPY scripts/build-and-sample.sh DESTINATION .)
 file(COPY scripts/build-many.sh DESTINATION .)
 file(COPY scripts/loe_to_graph.py DESTINATION .)
 
@@ -287,7 +294,10 @@ INSTALL(TARGETS motivo-build DESTINATION bin)
 INSTALL(TARGETS motivo-merge DESTINATION bin)
 INSTALL(TARGETS motivo-sample DESTINATION bin)
 INSTALL(TARGETS motivo-graph DESTINATION bin)
+INSTALL(TARGETS motivo-decompose DESTINATION bin)
+INSTALL(TARGETS motivo-homomorphism DESTINATION bin)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/build-many.sh DESTINATION share/motivo)
+INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/build-and-sample.sh DESTINATION share/motivo)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/loe_to_graph.py DESTINATION share/motivo)
 
 if(MPI_FOUND)
