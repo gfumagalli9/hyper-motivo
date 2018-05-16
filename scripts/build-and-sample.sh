@@ -19,6 +19,7 @@ GRAPH="$1"
 SIZE="$2"
 NSAMPLES="$3"
 OUTPUT="$4"
+LOGFILE="$4.log"
 
 COMPRESS_THRESHOLD="0"
 if [ "$5" != "" ]; then
@@ -61,7 +62,7 @@ get_ntreelets()
 
 get_actualtime()
 {
-    echo $(grep -Eo "^(Building|Merge|Sampling) time: [0-9.]+ s$" "$1" | grep -Eo "[0-9.]+ s$" | cut -d' ' -f 1)
+    echo $(grep -Eo "^(Building|Merge|Sampling) time: [0-9.]+ s$" "$1" | grep -Eo "[0-9.]+ s$" | cut -d' ' -f 1 | xargs printf "%.2f")
 }
 
 get_nthreads()
@@ -69,8 +70,10 @@ get_nthreads()
     echo $(grep -Eo "using [0-9]+ thread\(s\)$" "$1" | cut -d' ' -f 2)
 }
 
-echo "##Run at $(date)" >&2
-echo "#output,graph,size,colors,compress_threshold,type,ntreelets,nsamples,nthreads,walltime,usertime,systemtime,actualtime" >&2
+echo "[$(date)] MOTIVO Start" | tee $LOGFILE
+echo "#output,graph,size,colors,compress_threshold,type,ntreelets,nsamples,nthreads,walltime,usertime,systemtime,actualtime" >> $LOGFILE
+
+echo -e "size\t\tbuild\t\tmerge\t\tsample"
 
 for i in $(seq 1 "$SIZE"); do
 
@@ -83,15 +86,23 @@ for i in $(seq 1 "$SIZE"); do
         fi
     fi
 
-    echo "[$(date)] Building table of size $i"
-    ($TIME ./motivo-build --graph "$GRAPH" --size "$i" --colors "$SIZE" --tables-basename "$OUTPUT" --output "$OUTPUT" --threads 0 ${EXTRA_BUILD_OPTS[@]} > >(tee "$OUTPUT.b$i.log") 2>&1 ) || exit 1
-    echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,build,0,0,$(get_nthreads "$OUTPUT.b$i.log"),$(get_walltime "$OUTPUT.b$i.log"),$(get_usertime "$OUTPUT.b$i.log"),$(get_systemtime "$OUTPUT.b$i.log"),$(get_actualtime "$OUTPUT.b$i.log")" >&2
+    echo -en "$i  \t\t"
+    echo "[$(date)] Building table of size $i" >> $LOGFILE
+    ($TIME ./motivo-build --graph "$GRAPH" --size "$i" --colors "$SIZE" --tables-basename "$OUTPUT" --output "$OUTPUT" --threads 0 ${EXTRA_BUILD_OPTS[@]} > "$OUTPUT.b$i.log" 2>&1) || exit 1  
+    echo -n $(get_actualtime "$OUTPUT.b$i.log")
+    echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,build,0,0,$(get_nthreads "$OUTPUT.b$i.log"),$(get_walltime "$OUTPUT.b$i.log"),$(get_usertime "$OUTPUT.b$i.log"),$(get_systemtime "$OUTPUT.b$i.log"),$(get_actualtime "$OUTPUT.b$i.log")" >> $LOGFILE
 
-    echo "[$(date)] Merging table of size $i"
-    ($TIME ./motivo-merge --output "$OUTPUT.$i" --compress-threshold "$COMPRESS_THRESHOLD" "$OUTPUT.$i.cnt" > >(tee "$OUTPUT.m$i.log") 2>&1) || exit 1
-    echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,merge,$(get_ntreelets "$OUTPUT.m$i.log"),0,0,$(get_walltime "$OUTPUT.m$i.log"),$(get_usertime "$OUTPUT.m$i.log"),$(get_systemtime "$OUTPUT.m$i.log"),$(get_actualtime "$OUTPUT.m$i.log")" >&2
+    echo -en "\t\t"
+    echo "[$(date)] Merging table of size $i" >> $LOGFILE
+    ($TIME ./motivo-merge --output "$OUTPUT.$i" --compress-threshold "$COMPRESS_THRESHOLD" "$OUTPUT.$i.cnt" > "$OUTPUT.m$i.log" 2>&1) || exit 1
+    if [ $i -ne $SIZE ]; then
+        echo $(get_actualtime "$OUTPUT.m$i.log")
+    else
+        echo -n $(get_actualtime "$OUTPUT.m$i.log")
+    fi
+    echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,merge,$(get_ntreelets "$OUTPUT.m$i.log"),0,0,$(get_walltime "$OUTPUT.m$i.log"),$(get_usertime "$OUTPUT.m$i.log"),$(get_systemtime "$OUTPUT.m$i.log"),$(get_actualtime "$OUTPUT.m$i.log")" >> $LOGFILE
 
-    echo "[$(date)] Done. Removing count file."
+    echo "[$(date)] Done. Removing count file." >> $LOGFILE
     rm "$OUTPUT.$i.cnt"
 done
 
@@ -100,10 +111,15 @@ if [ "$SELECTIVE_FILE" == "" ]; then
     EXTRA_SAMPLE_OPTS=(--spanning-trees-no)
 fi
 
-echo "[$(date)] Sampling..."
-($TIME ./motivo-sample --graph "$GRAPH" --size "$SIZE" -n "$NSAMPLES" -i "$OUTPUT" -t -c --graphlets -o "$OUTPUT" --footprints --no-rejection --group --threads 0 ${EXTRA_SAMPLE_OPTS[@]} > >(tee "$OUTPUT.s$SIZE.log") 2>&1) || exit 1
-echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,sample,0,$NSAMPLES,$(get_nthreads "$OUTPUT.s$SIZE.log"),$(get_walltime "$OUTPUT.s$SIZE.log"),$(get_usertime "$OUTPUT.s$SIZE.log"),$(get_systemtime "$OUTPUT.s$SIZE.log"),$(get_actualtime "$OUTPUT.s$SIZE.log")" >&2
+echo -en "\t\t"
+echo "[$(date)] Sampling..." >> $LOGFILE
+($TIME ./motivo-sample --graph "$GRAPH" --size "$SIZE" -n "$NSAMPLES" -i "$OUTPUT" -t -c --graphlets -o "$OUTPUT" --footprints --no-rejection --group --threads 0 ${EXTRA_SAMPLE_OPTS[@]} > "$OUTPUT.s$SIZE.log" 2>&1) || exit 1
+echo $(get_actualtime "$OUTPUT.s$SIZE.log")
+echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,sample,0,$NSAMPLES,$(get_nthreads "$OUTPUT.s$SIZE.log"),$(get_walltime "$OUTPUT.s$SIZE.log"),$(get_usertime "$OUTPUT.s$SIZE.log"),$(get_systemtime "$OUTPUT.s$SIZE.log"),$(get_actualtime "$OUTPUT.s$SIZE.log")" >> $LOGFILE
 
-echo "[$(date)] Done"
+echo "[$(date)] Done" | tee -a $LOGFILE
+
+echo "Samples are in $OUTPUT.$SIZE.samples:"
+head -6 $OUTPUT.$SIZE.samples
 
 exit 0

@@ -85,7 +85,7 @@ void OccurrenceSampler::sample()
         if(group_same)
         {
             merge_tables(count_tables);
-            write_table(count_tables[0]);
+            write_table_2(count_tables[0]);
 
             for(unsigned int i = 0; i < number_of_threads; i++)
                 delete count_tables[i];
@@ -150,6 +150,59 @@ void OccurrenceSampler::write_table(OccurrenceSampler::table_t *count_table)
             if(spanning_trees_no)
             {
                 uint64_t st = it->first.number_of_spanning_trees();
+                output->write(reinterpret_cast<const char*>(&st), sizeof(uint64_t));
+            }
+        }
+        it++;
+    }
+}
+
+/***
+ * Print out the motif sample statistics.
+ */
+void OccurrenceSampler::write_table_2(OccurrenceSampler::table_t *count_table)
+{
+    std::multimap<int64_t, Occurrence> sort_table;
+    uint64_t nsamples = 0;
+    double normalized_samples = 0;
+    {
+        table_t::const_iterator it = count_table->begin();
+        while(it != count_table->end()) {
+        	sort_table.insert(std::make_pair(it->second, it->first));
+        	nsamples += it->second;
+        	if (spanning_trees_no)
+        		normalized_samples += (double)it->second / (double)it->first.number_of_spanning_trees();
+        	it++;
+        }
+    }
+    if(text)
+    	*output << "motif,raw_count,spanning_trees,estim_freq" << "\n";
+    auto it = sort_table.rbegin();
+    while(it != sort_table.rend())
+    {
+        if(text)
+        {
+            if (footprints)
+                *output << it->second.text_footprint();
+            *output << "," << it->first;
+            *output <<  ",";
+            if (spanning_trees_no) {
+                *output << it->second.number_of_spanning_trees();
+                double est_freq = (double)it->first / (it->second.number_of_spanning_trees() * normalized_samples);
+                *output << "," << est_freq;
+//                *output << "," << est_freq * normalized_samples * n_tot_trees;
+            }
+            *output << "\n";
+        }
+        else
+        {
+            output->write(reinterpret_cast<const char*>(&(it->first)), sizeof(uint64_t));
+            if(footprints)
+                output->write(it->second.binary_footprint(), Occurrence::binary_footprint_bytes);
+
+            if(spanning_trees_no)
+            {
+                uint64_t st = it->second.number_of_spanning_trees();
                 output->write(reinterpret_cast<const char*>(&st), sizeof(uint64_t));
             }
         }

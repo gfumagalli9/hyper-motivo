@@ -6,12 +6,30 @@
 #define MOTIVO_OCCURRENCESAMPLER_H
 
 #include <google/dense_hash_map>
+#include <map>
 
 #include "../common/graph/UndirectedGraph.h"
 #include "TreeletSampler.h"
 #include "Occurrence.h"
 #include "../common/sequencer/DynamicSequencer.h"
 #include "../common/io/ConcurrentWriter.h"
+
+// Flips a pair<A,B> into pair<B,A>
+template<typename A, typename B>
+std::pair<B,A> flip_pair(const std::pair<A,B> &p)
+{
+    return std::pair<B,A>(p.second, p.first);
+}
+
+// Returns the map indexed and sorted by value
+template<typename A, typename B>
+std::multimap<B,A> flip_map(const std::map<A,B> &src)
+{
+    std::multimap<B,A> dst;
+    std::transform(src.begin(), src.end(), std::inserter(dst, dst.begin()),
+                   flip_pair<A,B>);
+    return dst;
+}
 
 class OccurrenceSampler
 {
@@ -103,6 +121,7 @@ private:
     table_t* create_table();
     void merge_tables(table_t **count_tables);
     void write_table(table_t *count_table);
+    void write_table_2(table_t *count_table);
 
     char* write(Occurrence *occurrence, char* buf);
 

@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <algorithm>
 #include "Treelet.h"
+#include <fstream>
 
 class TreeletSelector
 {
