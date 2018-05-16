@@ -71,7 +71,7 @@ void TreeletTableBuilder::do_build_1_st()
 
         for (UndirectedGraph::vertex_t u = batch.from; u<batch.to; u++)
         {
-            if (store_0_only && coloring->color_of(u) != 1) //color 0 is represented as 1<<0 = 1
+            if (store_0_only && coloring->color_of(u) != 0)
                 continue;
 
             memcpy(buffer, &u, sizeof(UndirectedGraph::vertex_t));
