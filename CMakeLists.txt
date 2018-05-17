@@ -14,6 +14,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 set(MOTIVO_BUILD_TYPE CMAKE_BUILD_TYPE)
+message(STATUS "CMAKE_BUILD_TYPE = " ${CMAKE_BUILD_TYPE})
+
 
 option(ENABLE_ASSERTS "Enable asserts (slower)" OFF)
 option(OPTIMIZE_MORE "Optimize for current hardware" OFF)

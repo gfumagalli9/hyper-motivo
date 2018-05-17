@@ -11,7 +11,6 @@
 #include "treelets/TreeletTableCollection.h"
 #include "../builder/SimpleTreeletTableBuilder.h"
 #include "../builder/TreeletTableBuilder.h"
-#include "../merger/merger.h"
 #include <string>
 
 unsigned int bits_needed(uint128_t n) {
@@ -244,7 +243,6 @@ uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, TreeletS
 	FullGraphColoring *coloring = new FullGraphColoring();
 	TreeletTableCollection ttc;
 	TreeletTable** tables = nullptr;
-	ts = nullptr;
 
 	// the table for 1-graphlets
 	const std::string filename = "spantreecount.1.cnt";

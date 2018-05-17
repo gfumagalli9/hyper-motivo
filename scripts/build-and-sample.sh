@@ -110,6 +110,8 @@ done
 EXTRA_SAMPLE_OPTS=()
 if [ "$SELECTIVE_FILE" == "" ]; then
     EXTRA_SAMPLE_OPTS=(--spanning-trees-no)
+else
+    EXTRA_SAMPLE_OPTS=(--selective "$SELECTIVE_FILE" --spanning-trees-no)
 fi
 
 echo -en "\t\t"
