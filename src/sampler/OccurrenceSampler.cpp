@@ -5,6 +5,7 @@
 #include <thread>
 #include <cinttypes>
 #include "OccurrenceSampler.h"
+#include "../common/SpanningTreeCounter.h"
 
 void OccurrenceSampler::sample_one(Occurrence *occurrence)
 {
@@ -85,7 +86,7 @@ void OccurrenceSampler::sample()
         if(group_same)
         {
             merge_tables(count_tables);
-            write_table_2(count_tables[0]);
+            write_table(count_tables[0]);
 
             for(unsigned int i = 0; i < number_of_threads; i++)
                 delete count_tables[i];
@@ -165,13 +166,16 @@ void OccurrenceSampler::write_table_2(OccurrenceSampler::table_t *count_table)
     std::multimap<int64_t, Occurrence> sort_table;
     uint64_t nsamples = 0;
     double normalized_samples = 0;
+    SpanningTreeCounter stc;
     {
         table_t::const_iterator it = count_table->begin();
         while(it != count_table->end()) {
         	sort_table.insert(std::make_pair(it->second, it->first));
         	nsamples += it->second;
-        	if (spanning_trees_no)
-        		normalized_samples += (double)it->second / (double)it->first.number_of_spanning_trees();
+        	if (spanning_trees_no) {
+        		uint64_t st = 1; // stc.num_spanning_trees(it->first, nullptr);
+        		normalized_samples += (double)it->second / (double)st;
+        	}
         	it++;
         }
     }

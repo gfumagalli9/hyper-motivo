@@ -52,6 +52,8 @@ public:
             return t;
         }
     }
+
+    TreeletSelector *get_selector() {return selector;}
 };
 
 

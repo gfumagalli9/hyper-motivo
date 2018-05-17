@@ -67,7 +67,8 @@ get_actualtime()
 
 get_nthreads()
 {
-    echo $(grep -Eo "using [0-9]+ thread\(s\)$" "$1" | cut -d' ' -f 2)
+    #echo $(grep -Eo "using [0-9]+ thread\(s\)$" "$1" | cut -d' ' -f 2)
+    echo 1
 }
 
 echo "[$(date)] MOTIVO Start" | tee $LOGFILE

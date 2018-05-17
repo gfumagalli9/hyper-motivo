@@ -26,16 +26,38 @@ void test_stc(unsigned int from, unsigned int size) {
 	for (unsigned int i = 0; i < size; i++)
 		subgraph[i] = from + i;
 	Occurrence occ(size, &test_graph, subgraph);
-	UndirectedGraph g1(&occ);
+	UndirectedGraph g1(occ);
+/*
+	for (UndirectedGraph::vertex_t u = 0; u < g1.number_of_vertices(); u++) {
+		std::cout << u << ": ";
+		for (unsigned int i = 0; i < g1.degree(u); i++) {
+			std::cout << " " << g1.neighbor(u, i);
+		}
+		std::cout << std::endl;
+	}
+*/
 	SpanningTreeCounter stc;
-	CHECK_EQ(stc.num_spanning_trees(&occ), occ.number_of_spanning_trees());
-	CHECK_EQ(stc.num_spanning_trees(&occ, nullptr), occ.number_of_spanning_trees());
+	CHECK_EQ(stc.num_spanning_trees(occ), occ.number_of_spanning_trees());
+	uint64_t tc = stc.num_spanning_trees(occ, nullptr);
+	CHECK_EQ(tc, occ.number_of_spanning_trees());
+	std::cout << tc << std::endl;
 ////	CHECK_EQ(g1.number_of_vertices(), size);
 	delete[] subgraph;
 }
 
 TEST_CASE("SpanningTreeCounter.clique")
 {
-	test_stc(0, 16);
+	test_stc(0, 3);
+	test_stc(0, 4);
+	test_stc(0, 5);
+	test_stc(0, 12);
 }
 
+TEST_CASE("SpanningTreeCounter.star")
+{
+	// stars
+	test_stc(16, 3);
+	test_stc(16, 4);
+	test_stc(16, 5);
+	test_stc(16, 14);
+}

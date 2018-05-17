@@ -59,7 +59,7 @@ private:
 
 public:
 	UndirectedGraph(const std::string &filename);
-	UndirectedGraph(const Occurrence* occ); // convert an occurrence into a graph
+	UndirectedGraph(const Occurrence& occ); // convert an occurrence into a graph
 
 	~UndirectedGraph();
 

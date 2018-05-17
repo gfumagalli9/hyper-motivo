@@ -25,7 +25,7 @@ void test_ug(unsigned int from, unsigned int size) {
 	for (unsigned int i = 0; i < size; i++)
 		subgraph[i] = from + i;
 	Occurrence occ(size, &test_graph, subgraph);
-	UndirectedGraph g1(&occ);
+	UndirectedGraph g1(occ);
     CHECK_EQ(g1.number_of_vertices(), size);
 	delete[] subgraph;
 }

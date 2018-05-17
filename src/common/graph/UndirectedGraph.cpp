@@ -13,22 +13,22 @@
 /**
  * Convert a graphlet occurrence into an UndirectedGraph.
  */
-UndirectedGraph::UndirectedGraph(const Occurrence* occ) {
+UndirectedGraph::UndirectedGraph(const Occurrence& occ) {
 	edges_fd = offsets_fd = NULL;
-	num_verts = occ->size;
-	num_edges = occ->binary_footprint_bytes;
+	num_verts = occ.size;
+	num_edges = occ.binary_footprint_bytes;
 	// 1. Compute degrees and offsets of the nodes
-	uint32_t* degrees = new uint32_t[num_verts] {0};
+	uint32_t* degrees = new uint32_t[num_verts] { 0 };
 	for (unsigned int i = 1; i < num_verts; i++) {
 		for (unsigned int j = 0; j < i; j++) {
-			if (occ->has_edge(i, j)) {
+			if (occ.has_edge(i, j)) {
 				degrees[i]++;
 				degrees[j]++;
 			}
 		}
 	}
-	offsets = new char[num_verts * sizeof(vertex_t)] {0};
-	for (unsigned int i = 1; i < num_verts; i++)
+	offsets = new char[(num_verts + 1) * sizeof(vertex_t)] { 0 };
+	for (unsigned int i = 1; i <= num_verts; i++)
 		set_offset(i, get_int_offset(i - 1) + degrees[i - 1]);
 	edges = new char[(get_int_offset(num_verts - 1) + degrees[num_verts - 1]) * sizeof(vertex_t)];
 //	for (unsigned int i = 0; i < num_verts; i++)
@@ -37,7 +37,7 @@ UndirectedGraph::UndirectedGraph(const Occurrence* occ) {
 	// 1. Fill the edge array
 	for (unsigned int i = 1; i < num_verts; i++) {
 		for (unsigned int j = 0; j < i; j++) {
-			if (occ->has_edge(i, j)) {
+			if (occ.has_edge(i, j)) {
 //				std::cout << j << " " << i << std::endl;
 				set_neighbor(j, degrees[j]++, i);
 				set_neighbor(i, degrees[i]++, j);

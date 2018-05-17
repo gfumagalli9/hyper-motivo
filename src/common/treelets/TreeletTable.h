@@ -121,6 +121,7 @@ public:
     ///The iterator initially points to the first treelet of @param u.
     inline const_iterator begin(const UndirectedGraph::vertex_t u)
     {
+//    	std::cout << u << "\t" << num_vertices << std::endl;
         assert(u<num_vertices);
         return TreeletTable::const_iterator(reader->get_record(u));
     }

@@ -23,6 +23,7 @@ SimpleTreeletTableBuilder::~SimpleTreeletTableBuilder() {
 
 void SimpleTreeletTableBuilder::build() {
 	UndirectedGraph::vertex_t num_verts = graph->number_of_vertices();
+	output->write(reinterpret_cast<const char*>(&num_verts), sizeof(UndirectedGraph::vertex_t));
 	if (size == 1)
 		do_build_1_st();
 	else
@@ -31,9 +32,10 @@ void SimpleTreeletTableBuilder::build() {
 
 /**
  * Build the table of 1-graphlets (singletons).
+ * This is a simplified version of TreeletTableBuilder::do_build_1_st().
  */
 void SimpleTreeletTableBuilder::do_build_1_st() {
-	std::cerr << "::do_build_1_st()" << std::endl;
+	UndirectedGraph::vertex_t num_verts = graph->number_of_vertices();
 	constexpr std::streamsize buf_size = sizeof(UndirectedGraph::vertex_t) + sizeof(uint64_t)
 			+ sizeof(TreeletTable::treelet_count_pair);
 	char buffer[buf_size];
@@ -41,9 +43,7 @@ void SimpleTreeletTableBuilder::do_build_1_st() {
 	memcpy(buffer + sizeof(UndirectedGraph::vertex_t), &one, sizeof(uint64_t));
 	TreeletTable::treelet_count_pair tcp;
 	tcp.count = 1;
-	std::cerr << "::do_build_1_st() about to write, n=" << graph->number_of_vertices() << std::endl;
 	for (UndirectedGraph::vertex_t u = 0; u < graph->number_of_vertices(); u++) {
-		std::cout << u << std::endl;
 		if (store_0_only && u != 1) //color 0 is represented as 1<<0 = 1
 			continue;
 		memcpy(buffer, &u, sizeof(UndirectedGraph::vertex_t));
@@ -52,11 +52,11 @@ void SimpleTreeletTableBuilder::do_build_1_st() {
 				sizeof(TreeletTable::treelet_count_pair));
 		output->write(buffer, buf_size);
 	}
-	std::cerr << "::do_build_1_st() done" << std::endl;
-
 }
 
 void SimpleTreeletTableBuilder::do_build_st() {
+//	std::cout << "SimpleTreeletTableBuilder::do_build_st(), nv = " << graph->number_of_vertices()
+//			<< std::endl;
 	for (UndirectedGraph::vertex_t u = 0; u < graph->number_of_vertices(); u++) {
 		if (store_0_only && lower->get_table(1)->begin(u).treelet().get_colors() != 1) //color 0 is represented as 1<<0 = 1
 			continue;
@@ -65,10 +65,8 @@ void SimpleTreeletTableBuilder::do_build_st() {
 		const UndirectedGraph::vertex_t degree = graph->degree(u);
 		for (UndirectedGraph::vertex_t d = 0; d < degree; d++)
 			combine(u, graph->neighbor(u, d), table);
-
 		std::pair<char*, std::size_t> to_write = to_normalized_sorted_byte_array(u, table);
-		std::ostringstream stream;
-		stream.write(to_write.first, static_cast<std::streamsize>(to_write.second));
+		output->write(to_write.first, static_cast<std::streamsize>(to_write.second));
 //		output->write(to_write.first, static_cast<std::streamsize>(to_write.second));
 		delete[] to_write.first;
 	}

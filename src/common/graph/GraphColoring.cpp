@@ -19,6 +19,5 @@ GraphColoring::GraphColoring(const UndirectedGraph::vertex_t from,
 }
 
 GraphColoring::~GraphColoring() {
-	if (colors != NULL)
-		delete[] colors;
+	delete[] colors;
 }
