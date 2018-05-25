@@ -80,11 +80,10 @@ for i in $(seq 1 "$SIZE"); do
 
     EXTRA_BUILD_OPTS=()
     if [ "$SELECTIVE_FILE" != "" ]; then
-        EXTRA_BUILD_OPTS=(--selective "$SELECTIVE_FILE")
-    else
-        if [ $i -eq "$SIZE" ]; then
-            EXTRA_BUILD_OPTS=(--store-on-0-colored-vertices-only)
-        fi
+        EXTRA_BUILD_OPTS+=(--selective "$SELECTIVE_FILE")
+    fi
+    if [ $i -eq "$SIZE" ]; then
+        EXTRA_BUILD_OPTS+=(--store-on-0-colored-vertices-only)
     fi
 
     echo -en "$i  \t\t"

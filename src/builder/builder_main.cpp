@@ -84,6 +84,12 @@ int main(const int argc, const char** argv)
         out.close();
         std::cout << "Output written to " << filename << std::endl;
 
+        // write info for later phases
+        std::ofstream infofile;
+        infofile.open(std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".info", std::ofstream::trunc);
+        infofile << "StoreOnlyOn0 " << std::to_string(opts.store0) << std::endl;
+        infofile.close();
+
         delete selector;
 
         for(unsigned int i=0; i<opts.size-1; i++)

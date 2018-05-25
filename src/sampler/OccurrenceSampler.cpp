@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include "OccurrenceSampler.h"
 #include "../common/SpanningTreeCounter.h"
+#include "../common/common.h"
 
 void OccurrenceSampler::sample_one(Occurrence *occurrence) {
 	UndirectedGraph::vertex_t sampled_vertices[16];
@@ -146,7 +147,8 @@ void OccurrenceSampler::write_table(OccurrenceSampler::table_t *count_table) {
  * count_table maps each graphlet type to its count
  */
 void OccurrenceSampler::write_table_2(OccurrenceSampler::table_t *count_table) {
-	// Sort the graphlets in nonincreasing order of sampled occurrences
+
+	// 1. Sort the graphlets in nonincreasing order of sampled occurrences
 	std::multimap<int64_t, Occurrence> sort_table;
 	std::unordered_map<std::string, TreeletTable::treelet_count_t> tc_table;
 	uint64_t nsamples = 0;
@@ -165,8 +167,11 @@ void OccurrenceSampler::write_table_2(OccurrenceSampler::table_t *count_table) {
 			it++;
 		}
 	}
+
+	// Now tc_table maps each graphlet (its fingerprint) to the number of spanning trees
+	// While sort_table maps counts to graphlets
 	if (text)
-		*output << "motif,raw_count,spanning_trees,estim_freq" << "\n";
+		*output << "motif,raw_count,spanning_trees,estim_freq,estim_occur" << "\n";
 	auto it = sort_table.rbegin();
 	while (it != sort_table.rend()) {
 		if (text) {
@@ -176,10 +181,23 @@ void OccurrenceSampler::write_table_2(OccurrenceSampler::table_t *count_table) {
 			*output << "," << it->first;
 			*output << ",";
 			if (spanning_trees_no) {
+				// print the number of spanning trees
 				*output << static_cast<uint64_t>(tc_table[fp]); // TODO: print 128-bit types!
-				double est_freq = (double) it->first / (tc_table[fp] * normalized_samples);
-				*output << "," << est_freq;
-//                *output << "," << est_freq * normalized_samples * n_tot_trees;
+				// estimate frequency of occurrences
+				*output << "," << (double) it->first / (tc_table[fp] * normalized_samples);
+				// estimate number of occurrences in the whole graph
+				if (tot_treelets > 0) {
+					*output << ","
+							<< (1.0 * it->first / nsamples)
+									* (1.0 * tot_treelets
+											/ (tc_table[fp] * (store_only_0 ? 1 : size)))
+									/ pcol(size, size);
+				}
+//				*output << "," << nsamples;
+//				*output << "," << pcol(size, size);
+//				*output << "," << size;
+//				*output << "," << to_string(tot_treelets);
+//				*output << "," << ((double)tot_treelets / tc_table[fp]);
 			}
 			*output << "\n";
 		} else {
@@ -315,11 +333,12 @@ OccurrenceSampler::OccurrenceSampler(UndirectedGraph *graph, TreeletTableCollect
 		unsigned int size, uint64_t num_samples, Random *rng, bool vertices, bool graphlets,
 		bool spanning_trees_no, bool footprints, bool canonicize, bool no_rejection, bool text,
 		bool group_same, std::ostream *out, unsigned int number_of_threads,
-		TreeletSelector* selector) :
+		TreeletSelector* selector, uint128_t tot_treelets, bool store_only_0) :
 		graph(graph), ttc(ttc), size(size), num_samples(num_samples), rng(rng), vertices(vertices), graphlets(
 				graphlets), spanning_trees_no(spanning_trees_no), footprints(footprints), canonicize(
 				canonicize), no_rejection(no_rejection), text(text), group_same(group_same), output(
-				out), number_of_threads(number_of_threads), sampler(graph, ttc, size, rng, selector) {
+				out), number_of_threads(number_of_threads), sampler(graph, ttc, size, rng,
+				selector), tot_treelets(tot_treelets), store_only_0(store_only_0) {
 	if (number_of_threads == 0)
 		throw std::runtime_error("Invalid number of threads");
 }
