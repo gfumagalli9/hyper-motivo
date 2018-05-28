@@ -29,7 +29,7 @@ std::multimap<B, A> flip_map(const std::map<A, B> &src) {
 }
 
 class OccurrenceSampler {
-private:
+public:
 	struct OccurrenceHash {
 		bool check_footprints;
 		bool check_vertices;
@@ -91,6 +91,7 @@ private:
 	+ 16 * (vertex_no_digits_ub + 1)//verices
 	+ 1;//newline
 
+private:
 	UndirectedGraph *graph;
 	TreeletTableCollection *ttc;
 	const unsigned int size;

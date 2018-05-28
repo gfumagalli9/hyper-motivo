@@ -306,3 +306,14 @@ uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, TreeletS
 	return cnt;
 
 }
+
+/**
+ * Return the number of spanning stars
+ */
+uint64_t SpanningTreeCounter::num_spanning_stars(const Occurrence& occ) {
+	UndirectedGraph h(occ);
+	int count = 0;
+	for (UndirectedGraph::vertex_t v = 0; v < h.number_of_vertices(); v++)
+		count += h.degree(v) == h.number_of_vertices() - 1 ? 1 : 0;
+	return count;
+}

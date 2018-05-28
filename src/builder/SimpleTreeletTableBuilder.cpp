@@ -15,8 +15,6 @@ SimpleTreeletTableBuilder::SimpleTreeletTableBuilder(const UndirectedGraph* grap
 				store_0_only), selector(selector) {
 	if (size == 0)
 		throw std::runtime_error("Invalid size");
-	if (selector)
-		std::cout << "TreeSelector size=" << selector->get_size() << std::endl;
 }
 
 SimpleTreeletTableBuilder::~SimpleTreeletTableBuilder() {

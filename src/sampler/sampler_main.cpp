@@ -3,11 +3,22 @@
 //
 
 #include <fstream>
+#include <unordered_map>
 #include "../common/graph/UndirectedGraph.h"
 #include "TreeletSampler.h"
 #include "sampler_opts.h"
 #include "OccurrenceSampler.h"
+#include "OccurrenceStarSampler.h"
+#include "../common/SpanningTreeCounter.h"
 #include "../common/common.h"
+
+/**
+ */
+OccurrenceSampler::table_t *merge_star_and_nostar_tables(OccurrenceSampler::table_t *t1,
+		OccurrenceSampler::table_t *t2, int s1, uint128_t nstars, int s2, uint128_t ntreelets) {
+	return nullptr;
+}
+
 
 int main(const int argc, const char** argv) {
 	std::cerr << "This is motivo-sample. Version: " << MOTIVO_VERSION_STRING << std::endl;
@@ -48,11 +59,6 @@ int main(const int argc, const char** argv) {
 		G.prefault();
 		std::cerr << "Loaded graph with " << G.number_of_vertices() << " vertices and "
 				<< G.number_of_edges() << " edges" << std::endl;
-
-		double n_stars = 0;
-		for (UndirectedGraph::vertex_t v = 0; v < G.number_of_vertices(); v++)
-			n_stars += binomial(G.degree(v), opts.size - 1);
-		std::cerr << "Total number of stars in graph: " << n_stars << std::endl;
 
 		std::cerr << "Loading tables and root sampler" << std::endl;
 		TreeletTableCollection ttc;
@@ -97,7 +103,6 @@ int main(const int argc, const char** argv) {
 		sampler.sample();
 		std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
 		std::cerr << "Sampling time: " << delta_t.count() << " s\n";
-
 		delete selector;
 
 		for (unsigned int i = 0; i < opts.size; i++)
@@ -105,6 +110,23 @@ int main(const int argc, const char** argv) {
 
 		delete[] readers;
 		delete[] tables;
+
+		// Time to sample stars
+/*		OccurrenceStarSampler star_sampler(&G, opts.size, opts.number_of_samples, &rng,
+				opts.canonicize, opts.norejection, opts.group);
+		Occurrence occ;
+		tstart = std::chrono::steady_clock::now();
+		OccurrenceSampler::table_t* table = star_sampler.sample(opts.number_of_samples,
+				opts.threads);
+		delta_t = std::chrono::steady_clock::now() - tstart;
+		std::cerr << "Star-based sampling time: " << delta_t.count() << " s\n";
+		OccurrenceSampler::table_t::const_iterator it = table->begin();
+		while (it != table->end()) {
+			std::cout << it->first.text_footprint() << " " << it->second;
+			std::cout << " " << SpanningTreeCounter::num_spanning_stars(it->first) << std::endl;
+			it++;
+		}
+		delete table;*/
 
 		if (strlen(opts.output_basename) != 0)
 			delete output;

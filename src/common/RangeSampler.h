@@ -9,69 +9,82 @@
 #include <algorithm>
 #include "Random.h"
 
-template <typename T> class RangeSampler
-{
+template<typename T> class RangeSampler {
 private:
 
-    struct range
-    {
-        T from;
-        T to_exclusive;
-    };
+	struct range {
+		T from;
+		T to_exclusive;
+	};
 
-    range* ranges;
-    uint64_t size;
-    uint64_t capacity;
+	const bool compact = true;
+	range* ranges;
+	uint64_t size;
+	uint64_t capacity;
 
-    T total_length;
+	T total_length;
 
 public:
-    RangeSampler() : size(0), capacity(2), total_length(0)
-    {
-        ranges = new range[capacity];
-    }
+	RangeSampler(bool compact = true) :
+			size(0), capacity(2), total_length(0), compact(compact) {
+		ranges = new range[capacity];
+	}
 
-    ~RangeSampler()
-    {
-        delete[] ranges;
-    }
+	~RangeSampler() {
+		delete[] ranges;
+	}
 
-    T get_total_length() { return total_length; }
+	T get_total_length() {
+		return total_length;
+	}
 
-    void add_range(T from, T to_exclusive)
-    {
-        total_length += to_exclusive - from;
+	void add_range(T from, T to_exclusive) {
+		total_length += to_exclusive - from;
 
-        if(size!=0 && ranges[size-1].to_exclusive==from)
-        {
-            ranges[size-1].to_exclusive = to_exclusive;
-            return;
-        }
+		if (compact && size != 0 && ranges[size - 1].to_exclusive == from) {
+			ranges[size - 1].to_exclusive = to_exclusive;
+			return;
+		}
 
-        if(size==capacity)
-        {
-            capacity*=2;
-            range* new_ranges = new range[capacity];
-            std::copy(ranges, ranges+size, new_ranges);
-            delete[] ranges;
-            ranges = new_ranges;
-        }
+		if (size == capacity) {
+			capacity *= 2;
+			range* new_ranges = new range[capacity];
+			std::copy(ranges, ranges + size, new_ranges);
+			delete[] ranges;
+			ranges = new_ranges;
+		}
 
-        ranges[size++] = {from, to_exclusive};
+		ranges[size++] = {from, to_exclusive};
 
-    }
+	}
 
-    T sample(Random *rng)
-    {
-        assert(total_length>0);
-        T rand = rng->random_uint<T>(0, total_length-1); //FIXME: Handle empty total length
-        range* r=ranges;
-        for(; rand >= r->to_exclusive - r->from; r++)
-            rand -= r->to_exclusive - r->from;
+	T sample(Random *rng)
+	{
+		assert(total_length>0);
+		T rand = rng->random_uint<T>(0, total_length-1); //FIXME: Handle empty total length
+		range* r=ranges;
+		for(; rand >= r->to_exclusive - r->from; r++)
+		rand -= r->to_exclusive - r->from;
 
-        return r->from + rand;
-    }
+		return r->from + rand;
+	}
+
+	/**
+	 * Returns index  i  with probability proportional to the size of the i-th range
+	 */
+	int sample_idx(Random *rng) {
+		assert(total_length>0);
+		T rand = rng->random_uint<T>(0, total_length-1); //FIXME: Handle empty total length
+		range* r = ranges;
+		while (rand >= r->to_exclusive - r->from || (r->to_exclusive - r->from) == 0) {
+			std::cout << rand << " " << r->from << "-" << r->to_exclusive << std::endl;
+			rand -= r->to_exclusive - r->from;
+			r++;
+		}
+		std::cout << "chosen range " << (r-ranges) << " with values " << r->from << "-" << r->to_exclusive << std::endl;
+		return r - ranges;
+	}
+
 };
-
 
 #endif //MOTIVO_RANGESAMPLER_H

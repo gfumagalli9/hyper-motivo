@@ -20,6 +20,7 @@ public:
 	~SpanningTreeCounter();
 	static uint64_t num_spanning_trees(const Occurrence &occ);
 	static uint64_t num_spanning_trees(const Occurrence &occ, TreeletSelector *ts);
+	static uint64_t num_spanning_stars(const Occurrence &occ);
 };
 
 #endif /* SRC_SAMPLER_SPANNINGTREECOUNTER_H_ */
