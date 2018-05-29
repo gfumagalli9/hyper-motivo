@@ -67,7 +67,6 @@ void SimpleTreeletTableBuilder::do_build_st() {
 			combine(u, graph->neighbor(u, d), table);
 		std::pair<char*, std::size_t> to_write = to_normalized_sorted_byte_array(u, table);
 		output->write(to_write.first, static_cast<std::streamsize>(to_write.second));
-//		output->write(to_write.first, static_cast<std::streamsize>(to_write.second));
 		delete[] to_write.first;
 	}
 }

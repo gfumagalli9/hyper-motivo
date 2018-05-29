@@ -5,43 +5,15 @@
  *      Author: brix
  */
 
+#include <string>
 #include "SpanningTreeCounter.h"
 #include "graph/FullGraphColoring.h"
 #include "treelets/TreeletTable.h"
 #include "treelets/TreeletTableCollection.h"
 #include "../builder/SimpleTreeletTableBuilder.h"
 #include "../builder/TreeletTableBuilder.h"
-#include <string>
+#include "../common/common.h"
 
-unsigned int bits_needed(uint128_t n) {
-	unsigned int needed = 1;
-	for (n >>= 1; n != 0; n >>= 1)
-		needed++;
-
-	return needed;
-}
-
-std::string to_string(uint128_t n) {
-	static const constexpr uint128_t ten_19 = 0x8ac7230489e80000; //10^19;
-	static const constexpr uint128_t ten_38 = ten_19 * ten_19; //Maximum power of 10 representable with an uint128_t
-
-	if (n == 0)
-		return "0";
-
-	std::string s = "";
-	bool significant_digit_found = false;
-	for (uint128_t max_dec = ten_38; max_dec != 0; max_dec /= 10) {
-		unsigned int digit = static_cast<unsigned int>(n / max_dec);
-		n = n % max_dec;
-		assert(digit <= 9);
-		if (significant_digit_found || digit != 0) {
-			significant_digit_found = true;
-			s += static_cast<char>('0' + digit);
-		}
-	}
-
-	return s;
-}
 
 struct vertex_info {
 	char* ptr;
@@ -138,10 +110,8 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
 	FILE** count_files = new FILE*[no_files];
 	vertex_info* info = nullptr;
 	std::vector<bool> seen_vertices;
-//	std::cout << "merge: before loop" << std::endl;
 
 	for (unsigned int i = 0; i < no_files; i++) {
-//		std::cout << "merge: loop " << i << std::endl;
 		const std::string &filename = count_filenames[i];
 		count_files[i] = fopen(filename.c_str(), "rb");
 
@@ -150,9 +120,6 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
 
 		UndirectedGraph::vertex_t nv;
 		fread(&nv, sizeof(UndirectedGraph::vertex_t), 1, count_files[i]);
-
-//		std::cout << "merge: loop " << i << std::endl;
-//		std::cout << "merge: nv=" << nv << std::endl;
 
 		if (i == 0) {
 			num_vertices = nv;
@@ -239,6 +206,9 @@ uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ) {
  * Compute the number of spanning trees of the occurrence, possibly including/excluding some
  */
 uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, TreeletSelector* ts) {
+	if (ts == nullptr || ts->get_size() == 0)
+		return occ.number_of_spanning_trees();
+
 	UndirectedGraph h(occ);
 	FullGraphColoring *coloring = new FullGraphColoring();
 	TreeletTableCollection ttc;
@@ -252,46 +222,32 @@ uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, TreeletS
 	SimpleTreeletTableBuilder builder(&h, coloring, 1, &ttc, &out, false, ts);
 	builder.build();
 	out.close();
-//	std::cout << "invoking merge..." << std::endl;
 	std::vector<std::string> vf;
 	vf.push_back(filename);
 	merge(vf, "spantreecount.1", 0);
 
-//	std::chrono::time_point < std::chrono::steady_clock > tstart = std::chrono::steady_clock::now();
-	builder.build();
-//	std::cout << "BUILT TABLE 1" << std::endl;
-//	std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
 	CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,
 			TreeletTable::may_alias>* readers = nullptr;
 	readers = new CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,
 			TreeletTable::may_alias> [h.number_of_vertices() - 1];
 	tables = new TreeletTable*[h.number_of_vertices() - 1];
 	for (unsigned int i = 2; i <= h.number_of_vertices(); i++) {
-		// build tables of size i from those of size 1,...,i-1
-//		std::cout << "BUILDING TABLE " << i << std::endl;
 		readers[i - 2].open("spantreecount." + std::to_string(i - 1) + ".dtz");
 		readers[i - 2].prefault(0, h.number_of_vertices() - 1);
-//		std::cout << "files opened " << std::endl;
 		tables[i - 2] = new TreeletTable(&readers[i - 2]);
 		ttc.add(tables[i - 2]);
-//		std::cout << "num vertices in last table = " << ttc.get_table(1)->number_of_vertices()
-//				<< std::endl;
 		const std::string filename = "spantreecount." + std::to_string(i) + ".cnt";
 		std::ofstream out(filename, std::ofstream::binary | std::ofstream::trunc);
 		SimpleTreeletTableBuilder builder(&h, coloring, i, &ttc, &out, i == h.number_of_vertices(),
 				ts);
-//        std::chrono::time_point<std::chrono::steady_clock>  tstart = std::chrono::steady_clock::now();
 		builder.build();
-//        std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
-//        std::cerr << "Building time: " << delta_t.count() << " s\n";
 		out.close();
-//		std::cout << "BUILT TABLE " << i << std::endl;
-//        std::cout << "Output written to " << filename << std::endl;
-//		std::cout << "invoking merge..." << std::endl;
 		std::vector<std::string> vf;
 		vf.push_back(filename);
 		merge(vf, "spantreecount." + std::to_string(i), 0);
 	}
+	delete[] readers;
+	delete[] tables;
 	CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,
 			TreeletTable::may_alias> reader;
 	reader.open("spantreecount." + std::to_string(h.number_of_vertices()) + ".dtz");
@@ -300,9 +256,9 @@ uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, TreeletS
 	uint64_t cnt = 0;
 	for (UndirectedGraph::vertex_t u = 0; u < h.number_of_vertices(); u++)
 		for (TreeletTable::const_iterator u_it = finalTable.begin(u); !u_it.is_over(); ++u_it) {
-//			std::cout << static_cast<uint64_t>(u_it.count()) << std::endl;
 			cnt += u_it.count();
 		}
+	reader.close();
 	return cnt;
 
 }

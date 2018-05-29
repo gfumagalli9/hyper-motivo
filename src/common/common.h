@@ -7,6 +7,7 @@
 
 #ifndef SRC_COMMON_COMMON_H_
 #define SRC_COMMON_COMMON_H_
+#include <unistd.h>
 
 inline unsigned int bits_needed(uint128_t n) {
 	unsigned int needed = 1;
@@ -77,6 +78,23 @@ inline double binomial(unsigned long n, unsigned long m) {
 	for (unsigned long i = 2; i <= n - m; i++)
 		b /= i;
 	return b;
+}
+
+/**
+ * Determine the number of open file descriptors
+ */
+inline int num_open_fd() {
+	int j, n = 0;
+	// count open file descriptors
+	const int FDMAX = 4096;
+	for (j = 0; j < FDMAX; ++j) {
+		int fd = dup(j);
+		if (fd < 0)
+			continue;
+		++n;
+		close(fd);
+	}
+	return n;
 }
 
 #endif /* SRC_COMMON_COMMON_H_ */

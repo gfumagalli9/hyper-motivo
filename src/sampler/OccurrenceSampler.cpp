@@ -160,7 +160,9 @@ void OccurrenceSampler::write_table_2(OccurrenceSampler::table_t *count_table) {
 			sort_table.insert(std::make_pair(it->second, it->first));
 			nsamples += it->second;
 			if (spanning_trees_no) {
+//				std::cout << "counting sptrees for " << it->first.text_footprint() << std::endl;
 				uint64_t st = stc.num_spanning_trees(it->first, sampler.get_selector());
+//				std::cout << "sptrees are " << st << std::endl;
 				tc_table.insert(std::make_pair(std::string(it->first.text_footprint()), st));
 				normalized_samples += (double) it->second / (double) st;
 			}
