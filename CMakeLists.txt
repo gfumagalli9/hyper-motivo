@@ -14,6 +14,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 set(MOTIVO_BUILD_TYPE CMAKE_BUILD_TYPE)
+message(STATUS "CMAKE_BUILD_TYPE = " ${CMAKE_BUILD_TYPE})
+
 
 option(ENABLE_ASSERTS "Enable asserts (slower)" OFF)
 option(OPTIMIZE_MORE "Optimize for current hardware" OFF)
@@ -24,7 +26,8 @@ option(MOTIVO_DENSE_HASHMAP "Use dense hashmaps" OFF)
 
 set(MOTIVO_FLAGS "")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wconversion -Wall -Wextra -Wpedantic -pedantic-errors -Wdisabled-optimization -Wfloat-equal -Wold-style-cast -Wsign-conversion -Winline -Wzero-as-null-pointer-constant -Wuseless-cast -Wno-zero-as-null-pointer-constant -Wno-unknown-warning-option")
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wconversion -Wall -Wextra -Wpedantic -pedantic-errors -Wdisabled-optimization -Wfloat-equal -Wold-style-cast -Wsign-conversion -Winline -Wzero-as-null-pointer-constant -Wuseless-cast -Wno-zero-as-null-pointer-constant -Wno-unknown-warning-option")
 
 if(ENABLE_ASSERTS)
     message(STATUS "Assertions enabled. Code might be slower.")
@@ -107,16 +110,15 @@ if(MOTIVO_OVERFLOW_SAFE AND NOT MOTIVO_HAS_BUILTIN_MUL_OVERFLOW)
     message(WARNING "No builtin function for checking multiplication overflow. Will use slow implementation.")
 endif()
 
-set(COMMON_SOURCE_FILES src/common/graph/UndirectedGraph.cpp src/common/graph/UndirectedGraph.h src/common/treelets/Treelet.h src/common/graph/GraphColoring.cpp src/common/graph/GraphColoring.h src/common/Random.h src/common/treelets/Treelet.cpp src/common/treelets/TreeletTableCollection.cpp src/common/treelets/TreeletTableCollection.h src/common/treelets/TreeletTable.cpp src/common/treelets/TreeletTable.h src/platform/platform.h src/platform/platform.cpp src/common/AliasMethodSampler.h src/common/OptionsParser.cpp src/common/OptionsParser.h src/common/io/CompressedRecordFile.cpp src/common/io/CompressedRecordFile.h src/common/io/RecordCompressor.cpp src/common/io/RecordCompressor.h src/common/io/BaseRecordSource.h src/common/sequencer/BaseSequencer.h src/common/sequencer/StaticSequencer.h src/common/sequencer/DynamicSequencer.h src/common/io/ConcurrentWriter.cpp src/common/io/ConcurrentWriter.h)
+set(COMMON_SOURCE_FILES src/common/graph/UndirectedGraph.cpp src/common/graph/UndirectedGraph.h src/common/treelets/Treelet.h src/common/graph/GraphColoring.cpp src/common/graph/GraphColoring.h src/common/graph/FullGraphColoring.h src/common/graph/FullGraphColoring.cpp src/common/Random.h src/common/treelets/Treelet.cpp src/common/treelets/TreeletTableCollection.cpp src/common/treelets/TreeletTableCollection.h src/common/treelets/TreeletTable.cpp src/common/treelets/TreeletTable.h src/platform/platform.h src/platform/platform.cpp src/common/AliasMethodSampler.h src/common/OptionsParser.cpp src/common/OptionsParser.h src/common/io/CompressedRecordFile.cpp src/common/io/CompressedRecordFile.h src/common/io/RecordCompressor.cpp src/common/io/RecordCompressor.h src/common/io/BaseRecordSource.h src/common/sequencer/BaseSequencer.h src/common/sequencer/StaticSequencer.h src/common/sequencer/DynamicSequencer.h src/common/io/ConcurrentWriter.cpp src/common/io/ConcurrentWriter.h src/common/treelets/TreeletSelector.h src/common/RangeSampler.h)
 set(MERGER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/merger/merger.cpp)
 set(BUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/builder/TreeletTableBuilder.cpp src/builder/TreeletTableBuilder.h src/common/io/ConcurrentFIFO.h src/builder/builder_main.cpp src/builder/builder.cpp src/builder/builder.h)
-set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp src/sampler/TreeletSampler.h src/sampler/sampler_main.cpp src/sampler/include_nauty.h src/sampler/Occurrence.cpp src/sampler/Occurrence.h src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp src/sampler/OccurrenceSampler.cpp src/sampler/OccurrenceSampler.h)
+set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp src/sampler/TreeletSampler.h src/sampler/sampler_main.cpp src/sampler/include_nauty.h src/sampler/Occurrence.cpp src/sampler/Occurrence.h src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp src/sampler/OccurrenceSampler.cpp src/sampler/OccurrenceSampler.h src/common/SpanningTreeCounter.cpp src/common/SpanningTreeCounter.h src/builder/SimpleTreeletTableBuilder.cpp src/builder/SimpleTreeletTableBuilder.h src/sampler/OccurrenceStarSampler.h src/sampler/OccurrenceStarSampler.cpp src/common/DiscreteDistribution.h)
 set(GRAPH_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/graph.cpp)
 set(DECOMPOSE_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/decompose.cpp)
 set(HOMOMORPHISM_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/homomorphism.cpp)
 
-set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp tests/Treelet.cpp tests/Occurrence.cpp src/sampler/Occurrence.cpp src/sampler/Occurrence.h tests/leftmost_bit_tie.cpp tests/CompressedRecordFile.cpp)
-
+set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp tests/Treelet.cpp tests/Occurrence.cpp src/sampler/Occurrence.cpp src/sampler/Occurrence.h tests/leftmost_bit_tie.cpp tests/CompressedRecordFile.cpp tests/UndirectedGraph.cpp tests/SpanningTreeCounter.cpp src/common/SpanningTreeCounter.cpp src/common/SpanningTreeCounter.h src/builder/SimpleTreeletTableBuilder.cpp src/builder/SimpleTreeletTableBuilder.h)
 
 string(REPLACE ":" ";" LIBRARY_PATH_STR "$ENV{LIBRARY_PATH}")
 set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} ${LIBRARY_PATH_STR})

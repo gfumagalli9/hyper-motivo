@@ -29,6 +29,9 @@ struct sampler_opts
     bool group;
     char seed[MOTIVO_ARG_MAX + 2 + std::numeric_limits<unsigned int>::digits/3]; //Enough space to append one character + 1 integer
     unsigned int threads;
+    char selective_filename[MOTIVO_ARG_MAX];
+    uint128_t tot_treelets; // the total number of colored treelets
+    bool store_only_0; // whether we only counted the k-treelets rooted at the 0-colored vertices
 };
 
 bool parse_sampler_args(const int argc, const char **argv, const std::string &name, sampler_opts *opts);

@@ -9,27 +9,6 @@
 #include "builder.h"
 #include "../common/sequencer/DynamicSequencer.h"
 
-void add_selective_structures(TreeletTableBuilder &builder, const std::string& filename)
-{
-    std::ifstream ifs(filename, std::ifstream::binary);
-    if(!ifs.is_open())
-        throw std::runtime_error("Could not open file " + filename);
-
-    Treelet::treelet_structure_t structure;
-    Treelet::treelet_colors_t  colors;
-    uint64_t read=0;
-    uint64_t added=0;
-    while(ifs >> structure >> colors)
-    {
-        read++;
-        if(builder.add_selective_treelet(Treelet(structure, colors)))
-            added++;
-    }
-
-    std::cout << "Selectively counting " << added << " treelets (out of " << read << " listed treelet(s))" << std::endl;
-}
-
-
 int main(const int argc, const char** argv)
 {
     std::cout << "This is motivo-build. Version: " << MOTIVO_VERSION_STRING << std::endl;
@@ -87,11 +66,15 @@ int main(const int argc, const char** argv)
             sequencer.set_progress_callback( [](UndirectedGraph::vertex_t next) -> void { report_progress(next, opts.from_vertex, opts.to_vertex); }, opts.progress);
         }
 
-        bool selective = strlen(opts.count_only_filename)!=0 && opts.size>1;
-        TreeletTableBuilder builder(&G, coloring.get(), opts.size, &ttc, &out, &sequencer, opts.threads, opts.store0, selective);
-
+        bool selective = *opts.selective_filename!='\0' && opts.size>1;
+        TreeletSelector* selector = nullptr;
         if(selective)
-            add_selective_structures(builder, opts.count_only_filename);
+        {
+            selector = new TreeletSelector(opts.selective_filename, opts.size);
+            std::cout << "Selectively " << ((selector->get_mode()==TreeletSelector::MODE_INCLUDE)?"counting only ":"ignoring ") << selector->get_size() << " treelet(s) of the given size" << std::endl;
+        }
+
+        TreeletTableBuilder builder(&G, coloring.get(), opts.size, &ttc, &out, &sequencer, opts.threads, opts.store0, selector);
 
         std::chrono::time_point<std::chrono::steady_clock>  tstart = std::chrono::steady_clock::now();
         builder.build();
@@ -100,6 +83,14 @@ int main(const int argc, const char** argv)
 
         out.close();
         std::cout << "Output written to " << filename << std::endl;
+
+        // write info for later phases
+        std::ofstream infofile;
+        infofile.open(std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".info", std::ofstream::trunc);
+        infofile << "StoreOnlyOn0 " << std::to_string(opts.store0) << std::endl;
+        infofile.close();
+
+        delete selector;
 
         for(unsigned int i=0; i<opts.size-1; i++)
             delete tables[i];

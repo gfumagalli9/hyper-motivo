@@ -12,40 +12,7 @@
 #include "../common/treelets/TreeletTable.h"
 #include "../common/OptionsParser.h"
 #include "../common/io/CompressedRecordFile.h"
-
-unsigned int bits_needed(uint128_t n)
-{
-    unsigned int needed = 1;
-    for(n>>=1; n!=0; n>>=1)
-        needed++;
-
-    return needed;
-}
-
-std::string to_string(uint128_t n)
-{
-    static const constexpr uint128_t ten_19 = 0x8ac7230489e80000; //10^19;
-    static const constexpr uint128_t ten_38 = ten_19*ten_19; //Maximum power of 10 representable with an uint128_t
-
-    if(n==0)
-        return "0";
-
-    std::string s = "";
-    bool significant_digit_found = false;
-    for (uint128_t max_dec=ten_38; max_dec!=0; max_dec/=10)
-    {
-        unsigned int digit = static_cast<unsigned int>(n / max_dec);
-        n = n%max_dec;
-        assert(digit<=9);
-        if(significant_digit_found || digit!=0)
-        {
-            significant_digit_found = true;
-            s += static_cast<char>('0' + digit);
-        }
-    }
-
-    return s;
-}
+#include "../common/common.h"
 
 struct vertex_info
 {
@@ -196,8 +163,13 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
     std::cout << "Total number of treelet occurrences: ";
     if(num_occ_total_overflow)
         std::cout <<"Overflow!" << std::endl;
-    else
+    else {
         std::cout << to_string(num_occ_total) << " (" << bits_needed(num_occ_total) << " bits)" << std::endl;
+        std::ofstream infofile;
+        infofile.open(output_basename + ".info", std::ofstream::app);
+        infofile << "TotTreelets " << to_string(num_occ_total) << std::endl;
+        infofile.close();
+    }
     std::cout << "Maximum number of occurrences rooted in a single vertex: " << to_string(num_occ_max) << " ("<< bits_needed(num_occ_max) << " bits)" << std::endl;
     std::cout << "Maximum number of occurrences of a single rooted treelet: " << to_string(num_occ_treelet) << " ("<< bits_needed(num_occ_treelet) << " bits)" << std::endl;
     std::cout << "Output written to files: " << output_filename << ", and " << root_sampler_filename << std::endl;

@@ -13,6 +13,8 @@
 #include "../AliasMethodSampler.h"
 #include "../../platform/platform.h"
 #include "../io/CompressedRecordFile.h"
+#include "TreeletSelector.h"
+#include "../RangeSampler.h"
 
 class TreeletTable
 {
@@ -103,16 +105,23 @@ public:
     ///the associated root sampler must be loaded
     UndirectedGraph::vertex_t get_random_root(Random* rng) const;
 
-    ///@returns a Treelet  chosen uniformly at random from all the treelts roote in @param root
+    ///@returns a Treelet  chosen uniformly at random from all the treelts rooted in @param root
+    const Treelet get_treelet_no(UndirectedGraph::vertex_t root, treelet_count_t no);
+
+    ///@returns a Treelet  chosen uniformly at random from all the treelts rooted in @param root
     const Treelet get_random_treelet(UndirectedGraph::vertex_t root, Random *rng);
 
     ///@returns the number of occurrences of @param treelet rooted in @param u, as stored in the table.
     treelet_count_t get_count(const UndirectedGraph::vertex_t u, const Treelet treelet) const;
 
+
+    RangeSampler<treelet_count_t>* build_range_sampler(const UndirectedGraph::vertex_t u, TreeletSelector* selector);
+
     ///@returns a costant iterator that iterates through all the stored treelets for vertex @param u.
     ///The iterator initially points to the first treelet of @param u.
     inline const_iterator begin(const UndirectedGraph::vertex_t u)
     {
+//    	std::cout << u << "\t" << num_vertices << std::endl;
         assert(u<num_vertices);
         return TreeletTable::const_iterator(reader->get_record(u));
     }

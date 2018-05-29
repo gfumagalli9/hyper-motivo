@@ -16,6 +16,7 @@ class OccurrenceCanonicizer;
 class Occurrence
 {
 friend class OccurrenceCanonicizer;
+friend class UndirectedGraph;
 
 public:
     //i,j in {0,...,15}
@@ -60,6 +61,8 @@ public:
     const char* text_footprint() const;
 
     bool is_valid() const { return size!=0; }
+
+    unsigned int get_size() {return size;}
 };
 
 
