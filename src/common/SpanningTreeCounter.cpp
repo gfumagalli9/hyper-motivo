@@ -14,7 +14,6 @@
 #include "../builder/TreeletTableBuilder.h"
 #include "../common/common.h"
 
-
 struct vertex_info {
 	char* ptr;
 	uint64_t count = 0;
@@ -198,8 +197,14 @@ SpanningTreeCounter::~SpanningTreeCounter() {
  * Compute the number of spanning trees of the occurrence
  */
 uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ) {
-	uint64_t c = 0;
 	return occ.number_of_spanning_trees();
+}
+
+/**
+ * Compute the number of spanning trees of the occurrence, excluding stars
+ */
+uint64_t SpanningTreeCounter::num_spanning_trees_nostars(const Occurrence& occ) {
+	return occ.number_of_spanning_trees() - num_spanning_stars(occ);
 }
 
 /**

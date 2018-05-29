@@ -111,9 +111,13 @@ int main(const int argc, const char** argv) {
 		delete[] readers;
 		delete[] tables;
 
+
 		// Time to sample stars
-/*		OccurrenceStarSampler star_sampler(&G, opts.size, opts.number_of_samples, &rng,
+		OccurrenceStarSampler star_sampler(&G, opts.size, opts.number_of_samples, &rng,
 				opts.canonicize, opts.norejection, opts.group);
+
+		std::cout << to_string(opts.tot_treelets) << " " << star_sampler.get_root_sampler()->get_total_weight();
+
 		Occurrence occ;
 		tstart = std::chrono::steady_clock::now();
 		OccurrenceSampler::table_t* table = star_sampler.sample(opts.number_of_samples,
@@ -126,7 +130,7 @@ int main(const int argc, const char** argv) {
 			std::cout << " " << SpanningTreeCounter::num_spanning_stars(it->first) << std::endl;
 			it++;
 		}
-		delete table;*/
+		delete table;
 
 		if (strlen(opts.output_basename) != 0)
 			delete output;

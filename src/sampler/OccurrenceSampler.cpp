@@ -155,13 +155,27 @@ void OccurrenceSampler::write_table_2(OccurrenceSampler::table_t *count_table) {
 	double normalized_samples = 0;
 	SpanningTreeCounter stc;
 	{
+		// we check if the selector is excluding just the stars...
+		TreeletSelector* ts = sampler.get_selector();
+		bool are_all_stars = ts->get_mode() == TreeletSelector::MODE_EXCLUDE;
+		const Treelet* t = ts->get_treelets();
+//		std::cout << "TreeletSelector has mode " << (are_all_stars ? "EXCLUDE" : "INCLUDE")
+//				<< " and " << ts->get_size() << " treelets" << std::endl;
+		for (int i = 0; i < ts->get_size(); i++) {
+//			std::cout << "is star? " << t[i].is_star() << std::endl;
+			are_all_stars &= t[i].is_star();
+		}
+//		std::cout << "excluding only stars? " << are_all_stars << std::endl;
 		table_t::const_iterator it = count_table->begin();
 		while (it != count_table->end()) {
 			sort_table.insert(std::make_pair(it->second, it->first));
 			nsamples += it->second;
 			if (spanning_trees_no) {
 //				std::cout << "counting sptrees for " << it->first.text_footprint() << std::endl;
-				uint64_t st = stc.num_spanning_trees(it->first, sampler.get_selector());
+				uint64_t st =
+						are_all_stars ?
+								stc.num_spanning_trees_nostars(it->first) :
+								stc.num_spanning_trees(it->first, sampler.get_selector());
 //				std::cout << "sptrees are " << st << std::endl;
 				tc_table.insert(std::make_pair(std::string(it->first.text_footprint()), st));
 				normalized_samples += (double) it->second / (double) st;

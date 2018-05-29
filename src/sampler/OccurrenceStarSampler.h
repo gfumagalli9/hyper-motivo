@@ -29,7 +29,7 @@ private:
 	bool no_rejection; // if true, keep all occurrences; if false, use rejection sampling
 	bool group_same; // group by isomorphism class
 //	RangeSampler<UndirectedGraph::vertex_t>* root_sampler;
-	DiscreteDistribution* root_sampler;
+	DiscreteDistribution* root_sampler = nullptr;
 public:
 	OccurrenceStarSampler(UndirectedGraph* g, unsigned int size, uint64_t num_samples, Random* rng,
 			bool canonicize, bool no_rejection, bool group_same);
@@ -38,6 +38,7 @@ public:
 	void sample_many(OccurrenceSampler::table_t* count_table, int nsamples);
 	OccurrenceSampler::table_t* create_table();
 	OccurrenceSampler::table_t* sample(int nsamples, int nthreads);
+	inline DiscreteDistribution* get_root_sampler() const { return root_sampler; }
 };
 
 #endif /* SRC_SAMPLER_OCCURRENCESTARSAMPLER_H_ */
