@@ -54,7 +54,7 @@ private:
 	 * The (integer) offset of v, i.e. the sum of the degrees of nodes 1,...,v-1
 	 */
 	uint64_t get_int_offset(const vertex_t v) const {
-		return ((offset_of(v) - offset_of(0)) / sizeof(vertex_t));
+		return static_cast<uint64_t>(offset_of(v) - offset_of(0)) / sizeof(vertex_t);
 	}
 
 public:

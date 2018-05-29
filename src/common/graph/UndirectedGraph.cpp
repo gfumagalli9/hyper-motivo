@@ -14,7 +14,7 @@
  * Convert a graphlet occurrence into an UndirectedGraph.
  */
 UndirectedGraph::UndirectedGraph(const Occurrence& occ) {
-	edges_fd = offsets_fd = NULL;
+	edges_fd = offsets_fd = nullptr;
 	num_verts = occ.size;
 	num_edges = occ.binary_footprint_bytes;
 	// 1. Compute degrees and offsets of the nodes
@@ -29,7 +29,7 @@ UndirectedGraph::UndirectedGraph(const Occurrence& occ) {
 	}
 	offsets = new char[(num_verts + 1) * sizeof(vertex_t)] { 0 };
 	for (unsigned int i = 1; i <= num_verts; i++)
-		set_offset(i, get_int_offset(i - 1) + degrees[i - 1]);
+		set_offset(i, static_cast<uint32_t>(get_int_offset(i - 1) + degrees[i - 1]));
 	edges = new char[(get_int_offset(num_verts - 1) + degrees[num_verts - 1]) * sizeof(vertex_t)];
 //	for (unsigned int i = 0; i < num_verts; i++)
 //		std::cout << degrees[i] << "\t" << get_int_offset(i) << std::endl;
@@ -50,12 +50,12 @@ UndirectedGraph::UndirectedGraph(const Occurrence& occ) {
 UndirectedGraph::UndirectedGraph(const std::string &basename) {
 	std::string offsets_filename = basename + ".gof";
 	offsets_fd = fopen(offsets_filename.c_str(), "rb");
-	if (offsets_fd == NULL)
+	if (offsets_fd == nullptr)
 		throw std::runtime_error("Could not open file " + offsets_filename);
 
 	std::string edges_filename = basename + ".ged";
 	edges_fd = fopen(edges_filename.c_str(), "rb");
-	if (edges_fd == NULL)
+	if (edges_fd == nullptr)
 		throw std::runtime_error("Could not open file " + edges_filename);
 
 	fread(&num_verts, sizeof(vertex_t), 1, offsets_fd);
@@ -71,13 +71,13 @@ UndirectedGraph::UndirectedGraph(const std::string &basename) {
 }
 
 UndirectedGraph::~UndirectedGraph() {
-	if (offsets_fd != NULL) { // was mmapped
+	if (offsets_fd != nullptr) { // was mmapped
 		motivo_munmap(offsets - 2 * sizeof(vertex_t), (num_verts + 2) * sizeof(vertex_t));
 		fclose(offsets_fd);
 	} else { // was allocated
 		delete[] offsets;
 	}
-	if (edges_fd != NULL) { // was mmapped
+	if (edges_fd != nullptr) { // was mmapped
 		motivo_munmap(edges, 2 * num_edges * sizeof(vertex_t));
 		fclose(edges_fd);
 	} else { // was allocated
