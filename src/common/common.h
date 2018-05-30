@@ -8,6 +8,7 @@
 #ifndef SRC_COMMON_COMMON_H_
 #define SRC_COMMON_COMMON_H_
 #include <unistd.h>
+#include <ostream>
 
 inline unsigned int bits_needed(uint128_t n) {
 	unsigned int needed = 1;
@@ -17,6 +18,9 @@ inline unsigned int bits_needed(uint128_t n) {
 	return needed;
 }
 
+/**
+ * Convert uint128_t to its decimal string representation.
+ */
 inline std::string to_string(uint128_t n) {
 	static const constexpr uint128_t ten_19 = 0x8ac7230489e80000; //10^19;
 	static const constexpr uint128_t ten_38 = ten_19 * ten_19; //Maximum power of 10 representable with an uint128_t
@@ -38,6 +42,12 @@ inline std::string to_string(uint128_t n) {
 
 	return s;
 }
+
+inline std::ostream& operator<<(std::ostream& o, const uint128_t n) {
+	o << to_string(n);
+	return o;
+}
+
 
 /**
  * Convert a string to uint128_t

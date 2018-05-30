@@ -39,13 +39,56 @@ void OccurrenceSampler::sample_one(Occurrence *occurrence) {
 	}
 }
 
-void OccurrenceSampler::sample() {
+OccurrenceSampler::table_t* OccurrenceSampler::sample(int num_samples, int number_of_threads) {
+	number_of_threads = std::min((int) num_samples / 10, number_of_threads);
+
+	if (number_of_threads == 1) {
+		OccurrenceSampler::table_t* count_table = create_table();
+		do_sample_st(count_table, num_samples);
+		return count_table;
+	} else {
+		OccurrenceSampler::table_t** count_tables = nullptr;
+		sequencer_t *sequencer = new sequencer_t(1, num_samples, number_of_threads);
+		ConcurrentWriter* writer = nullptr;
+		count_tables = new OccurrenceSampler::table_t*[number_of_threads];
+		std::thread *worker_threads = new std::thread[number_of_threads];
+		int rem_samples = num_samples;
+		for (unsigned int i = 0; i < number_of_threads; i++) {
+			OccurrenceSampler::table_t* count_table = nullptr;
+			count_table = count_tables[i] = create_table();
+			worker_threads[i] =
+					std::thread(
+							[this, sequencer, writer, count_table, num_samples] {do_sample_mt(sequencer, writer, count_table, num_samples);});
+		}
+		for (unsigned int i = 0; i < number_of_threads; i++)
+			worker_threads[i].join();
+		delete[] worker_threads;
+		// Merge the tables
+		for (unsigned int i = 1; i < number_of_threads; i++) {
+			OccurrenceSampler::table_t::const_iterator it = count_tables[i]->begin();
+			while (it != count_tables[i]->end()) {
+				(*count_tables[0])[it->first] += it->second;
+				it++;
+			}
+			count_tables[i]->clear();
+		}
+		OccurrenceSampler::table_t* t0 = count_tables[0];
+		for (unsigned int i = 1; i < number_of_threads; i++)
+			delete count_tables[i];
+		delete[] count_tables;
+		// Returned the merged table
+		return t0;
+	}
+
+}
+
+void OccurrenceSampler::sample(int num_samples) {
 	if (number_of_threads == 1) {
 		table_t* count_table = nullptr;
 		if (group_same)
 			count_table = create_table();
 
-		do_sample_st(count_table);
+		do_sample_st(count_table, num_samples);
 
 		if (group_same) {
 			write_table_2(count_table);
@@ -69,7 +112,7 @@ void OccurrenceSampler::sample() {
 
 			worker_threads[i] =
 					std::thread(
-							[this, sequencer, writer, count_table] {do_sample_mt(sequencer, writer, count_table);});
+							[this, sequencer, writer, count_table, num_samples] {do_sample_mt(sequencer, writer, count_table, num_samples);});
 		}
 
 		for (unsigned int i = 0; i < number_of_threads; i++)
@@ -157,26 +200,23 @@ void OccurrenceSampler::write_table_2(OccurrenceSampler::table_t *count_table) {
 	{
 		// we check if the selector is excluding just the stars...
 		TreeletSelector* ts = sampler.get_selector();
-		bool are_all_stars = ts->get_mode() == TreeletSelector::MODE_EXCLUDE;
-		const Treelet* t = ts->get_treelets();
-//		std::cout << "TreeletSelector has mode " << (are_all_stars ? "EXCLUDE" : "INCLUDE")
-//				<< " and " << ts->get_size() << " treelets" << std::endl;
-		for (int i = 0; i < ts->get_size(); i++) {
-//			std::cout << "is star? " << t[i].is_star() << std::endl;
-			are_all_stars &= t[i].is_star();
+		bool exclude_only_stars = false;
+		if (ts && ts->get_treelet_size() == size && ts->get_mode() == TreeletSelector::MODE_EXCLUDE
+				&& ts->get_size() == 2) {
+			const Treelet* t = ts->get_treelets();
+			for (int i = 0; i < ts->get_size(); i++) {
+				exclude_only_stars &= t[i].is_star();
+			}
 		}
-//		std::cout << "excluding only stars? " << are_all_stars << std::endl;
 		table_t::const_iterator it = count_table->begin();
 		while (it != count_table->end()) {
 			sort_table.insert(std::make_pair(it->second, it->first));
 			nsamples += it->second;
 			if (spanning_trees_no) {
-//				std::cout << "counting sptrees for " << it->first.text_footprint() << std::endl;
 				uint64_t st =
-						are_all_stars ?
+						exclude_only_stars ?
 								stc.num_spanning_trees_nostars(it->first) :
 								stc.num_spanning_trees(it->first, sampler.get_selector());
-//				std::cout << "sptrees are " << st << std::endl;
 				tc_table.insert(std::make_pair(std::string(it->first.text_footprint()), st));
 				normalized_samples += (double) it->second / (double) st;
 			}
@@ -209,11 +249,6 @@ void OccurrenceSampler::write_table_2(OccurrenceSampler::table_t *count_table) {
 											/ (tc_table[fp] * (store_only_0 ? 1 : size)))
 									/ pcol(size, size);
 				}
-//				*output << "," << nsamples;
-//				*output << "," << pcol(size, size);
-//				*output << "," << size;
-//				*output << "," << to_string(tot_treelets);
-//				*output << "," << ((double)tot_treelets / tc_table[fp]);
 			}
 			*output << "\n";
 		} else {
@@ -230,7 +265,7 @@ void OccurrenceSampler::write_table_2(OccurrenceSampler::table_t *count_table) {
 	}
 }
 
-void OccurrenceSampler::do_sample_st(table_t* count_table) {
+void OccurrenceSampler::do_sample_st(table_t* count_table, int num_samples) {
 	Occurrence occurrence;
 	OccurrenceCanonicizer canonicizer(size);
 
@@ -263,7 +298,7 @@ void OccurrenceSampler::do_sample_st(table_t* count_table) {
 }
 
 void OccurrenceSampler::do_sample_mt(sequencer_t *sequencer, ConcurrentWriter *writer,
-		table_t* count_table) {
+		table_t* count_table, int num_samples) {
 	Occurrence occurrence;
 	OccurrenceCanonicizer canonicizer(size);
 
@@ -346,15 +381,16 @@ char* OccurrenceSampler::write(Occurrence *occurrence, char* buf) {
 }
 
 OccurrenceSampler::OccurrenceSampler(UndirectedGraph *graph, TreeletTableCollection *ttc,
-		unsigned int size, uint64_t num_samples, Random *rng, bool vertices, bool graphlets,
-		bool spanning_trees_no, bool footprints, bool canonicize, bool no_rejection, bool text,
-		bool group_same, std::ostream *out, unsigned int number_of_threads,
-		TreeletSelector* selector, uint128_t tot_treelets, bool store_only_0) :
-		graph(graph), ttc(ttc), size(size), num_samples(num_samples), rng(rng), vertices(vertices), graphlets(
-				graphlets), spanning_trees_no(spanning_trees_no), footprints(footprints), canonicize(
-				canonicize), no_rejection(no_rejection), text(text), group_same(group_same), output(
-				out), number_of_threads(number_of_threads), sampler(graph, ttc, size, rng,
-				selector), tot_treelets(tot_treelets), store_only_0(store_only_0) {
+		unsigned int size, Random *rng, bool vertices, bool graphlets, bool spanning_trees_no,
+		bool footprints, bool canonicize, bool no_rejection, bool text, bool group_same,
+		std::ostream *out, unsigned int number_of_threads, TreeletSelector* selector,
+		uint128_t tot_treelets, bool store_only_0) :
+		graph(graph), ttc(ttc), size(size), rng(rng), vertices(vertices), graphlets(graphlets), spanning_trees_no(
+				spanning_trees_no), footprints(footprints), canonicize(canonicize), no_rejection(
+				no_rejection), text(text), group_same(group_same), output(out), number_of_threads(
+				number_of_threads), sampler(graph, ttc, size, rng, selector), tot_treelets(
+				tot_treelets), store_only_0(store_only_0) {
 	if (number_of_threads == 0)
 		throw std::runtime_error("Invalid number of threads");
 }
+

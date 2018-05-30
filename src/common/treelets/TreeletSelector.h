@@ -27,23 +27,6 @@ private:
 
 
 
-    void add_treelet(Treelet treelet)
-    {
-        if(treelet_size!=0 && treelet.number_of_vertices()!=treelet_size)
-            return;
-
-        if(size==capacity)
-        {
-            capacity=(capacity==0)?2:(capacity*2);
-            Treelet *t = new Treelet[capacity];
-
-            std::copy(treelets, treelets+size, t);
-            delete[] treelets;
-            treelets=t;
-        }
-
-        treelets[size++] = treelet;
-    }
 
 public:
     TreeletSelector(const mode_t mode, const unsigned int treelet_size=0) : mode(mode), treelet_size(treelet_size)
@@ -94,8 +77,29 @@ public:
         return mode;
     }
 
+    void add_treelet(Treelet treelet, bool sort_treelets = false)
+    {
+        if(treelet_size!=0 && treelet.number_of_vertices()!=treelet_size)
+            return;
+
+        if(size==capacity)
+        {
+            capacity=(capacity==0)?2:(capacity*2);
+            Treelet *t = new Treelet[capacity];
+
+            std::copy(treelets, treelets+size, t);
+            delete[] treelets;
+            treelets=t;
+        }
+
+        treelets[size++] = treelet;
+        if (sort_treelets)
+            std::sort(treelets, treelets+size);
+    }
 
     const Treelet* get_treelets() { return treelets; };
+
+    unsigned int get_treelet_size() const { return treelet_size; };
 
     bool is_included(Treelet t) const
     {

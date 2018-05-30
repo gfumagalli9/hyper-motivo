@@ -9,6 +9,7 @@
 #include "sampler_opts.h"
 #include "OccurrenceSampler.h"
 #include "OccurrenceStarSampler.h"
+#include "SampleTable.h"
 #include "../common/SpanningTreeCounter.h"
 #include "../common/common.h"
 
@@ -18,7 +19,6 @@ OccurrenceSampler::table_t *merge_star_and_nostar_tables(OccurrenceSampler::tabl
 		OccurrenceSampler::table_t *t2, int s1, uint128_t nstars, int s2, uint128_t ntreelets) {
 	return nullptr;
 }
-
 
 int main(const int argc, const char** argv) {
 	std::cerr << "This is motivo-sample. Version: " << MOTIVO_VERSION_STRING << std::endl;
@@ -39,7 +39,7 @@ int main(const int argc, const char** argv) {
 		opts.store_only_0 = false;
 		opts.tot_treelets = 0;
 		infofile.open(
-				std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".info");
+				std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".info");
 		while (!infofile.eof()) {
 			std::string key, val;
 			try {
@@ -93,45 +93,76 @@ int main(const int argc, const char** argv) {
 
 		std::cerr << "Sampling using " << opts.threads << " thread(s)" << std::endl;
 
-		OccurrenceSampler sampler(&G, &ttc, opts.size, opts.number_of_samples, &rng, opts.vertices,
-				opts.graphlets, opts.spanning_trees, opts.footprints, opts.canonicize,
-				opts.norejection, opts.text, opts.group, output, opts.threads, selector,
-				opts.tot_treelets, opts.store_only_0);
+		OccurrenceSampler sampler(&G, &ttc, opts.size, &rng, opts.vertices, opts.graphlets,
+				opts.spanning_trees, opts.footprints, opts.canonicize, opts.norejection, opts.text,
+				opts.group, output, opts.threads, selector, opts.tot_treelets, opts.store_only_0);
 
-		std::chrono::time_point < std::chrono::steady_clock > tstart =
-				std::chrono::steady_clock::now();
-		sampler.sample();
-		std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
-		std::cerr << "Sampling time: " << delta_t.count() << " s\n";
-		delete selector;
-
-		for (unsigned int i = 0; i < opts.size; i++)
-			delete tables[i];
-
-		delete[] readers;
-		delete[] tables;
-
-
-		// Time to sample stars
+		// For star-based sampling
 		OccurrenceStarSampler star_sampler(&G, opts.size, opts.number_of_samples, &rng,
 				opts.canonicize, opts.norejection, opts.group);
 
-		std::cout << to_string(opts.tot_treelets) << " " << star_sampler.get_root_sampler()->get_total_weight();
+		// How many stars?
+		double nstars = star_sampler.get_root_sampler()->get_total_weight();
+		double p = pcol(opts.size, opts.size);
+		// estimate fraction of stars among the treelets
+		double sr = p * nstars / (p * nstars + opts.tot_treelets);
+//		sr = 0;
+		std::cout << "estimate star ratio: " << sr << std::endl;
+		uint64_t nsamples_2 = sr * opts.number_of_samples; // samples to be taken via stars
+		uint64_t nsamples_1 = opts.number_of_samples - nsamples_2; // samples to be taken via cc
 
-		Occurrence occ;
-		tstart = std::chrono::steady_clock::now();
-		OccurrenceSampler::table_t* table = star_sampler.sample(opts.number_of_samples,
-				opts.threads);
-		delta_t = std::chrono::steady_clock::now() - tstart;
-		std::cerr << "Star-based sampling time: " << delta_t.count() << " s\n";
-		OccurrenceSampler::table_t::const_iterator it = table->begin();
-		while (it != table->end()) {
-			std::cout << it->first.text_footprint() << " " << it->second;
-			std::cout << " " << SpanningTreeCounter::num_spanning_stars(it->first) << std::endl;
-			it++;
+		std::chrono::time_point < std::chrono::steady_clock > tstart =
+				std::chrono::steady_clock::now();
+//		sampler.sample();
+		OccurrenceSampler::table_t* table0 = sampler.sample(nsamples_1, opts.threads);
+		SampleTable st0;
+		if (table0) {
+			st0 = SampleTable(table0, selector);
+			st0.estimateOccurrences(opts.tot_treelets, opts.store_only_0);
 		}
-		delete table;
+//		std::cout << st0.header() << std::endl;
+//		std::cout << st0 << std::endl;
 
+		std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
+		std::cerr << "Sampling time: " << delta_t.count() << " s\n";
+		for (unsigned int i = 0; i < opts.size; i++)
+			delete tables[i];
+		delete[] readers;
+		delete[] tables;
+
+		SampleTable merged;
+		if (selector && sr > 0) {
+			std::cerr << "Sampling using stars..." << std::endl;
+			TreeletSelector* star_ts = new TreeletSelector(TreeletSelector::MODE_INCLUDE,
+					opts.size);
+			for (int i = 0; i < selector->get_size(); i++)
+				star_ts->add_treelet(selector->get_treelets()[i], true);
+			tstart = std::chrono::steady_clock::now();
+			std::cerr << "Sampling really..." << std::endl;
+			OccurrenceSampler::table_t* table = star_sampler.sample(nsamples_2, opts.threads);
+			delta_t = std::chrono::steady_clock::now() - tstart;
+			std::cerr << "Sampling time: " << delta_t.count() << " s\n";
+			SampleTable st;
+			if (table) {
+				st = SampleTable(table, star_ts);
+				st.estimateOccurrences(p * nstars, opts.store_only_0);
+			}
+//		std::cout << st.header() << std::endl;
+//		std::cout << st << std::endl;
+			delete table;
+
+			merged = SampleTable::merge(st0, st, opts.tot_treelets, nstars);
+//			std::cout << merged.header() << std::endl;
+//			std::cout << merged << std::endl;
+		} else {
+			merged = st0;
+		}
+
+		*output << merged.header() << std::endl;
+		*output << merged << std::endl;
+
+		delete table0;
+		delete selector;
 		if (strlen(opts.output_basename) != 0)
 			delete output;
 	}

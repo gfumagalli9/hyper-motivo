@@ -6,6 +6,7 @@
  */
 
 #include <thread>
+#include <vector>
 #include "OccurrenceStarSampler.h"
 #include "../common/common.h"
 
@@ -110,31 +111,33 @@ OccurrenceSampler::table_t *OccurrenceStarSampler::create_table() {
  * Take a given number of samples using a given number of threads.
  */
 OccurrenceSampler::table_t* OccurrenceStarSampler::sample(int num_samples, int number_of_threads) {
-	number_of_threads = std::min(num_samples / 10, number_of_threads);
-	std::cout << "HERE with nthreads=" << number_of_threads << std::endl;
+	if (num_samples <= 0 || number_of_threads <= 0)
+		return nullptr;
+	number_of_threads = std::min((num_samples + 9) / 10, number_of_threads);
 	if (number_of_threads == 1) {
 		OccurrenceSampler::table_t* count_table = create_table();
-		std::cout << "HERE" << std::endl;
 		sample_many(count_table, num_samples);
 		return count_table;
 	} else {
 		OccurrenceSampler::table_t** count_tables = nullptr;
 		count_tables = new OccurrenceSampler::table_t*[number_of_threads];
-		std::thread *worker_threads = new std::thread[number_of_threads];
+		std::vector<std::thread> worker_threads;
 		int rem_samples = num_samples;
-		for (unsigned int i = 0; i < number_of_threads; i++) {
-			int nsamples = std::min(num_samples / number_of_threads, rem_samples);
+		int id = 0;
+		while (rem_samples > 0) {
+			int nsamples = std::min((num_samples + number_of_threads - 1) / number_of_threads,
+					rem_samples);
 			OccurrenceSampler::table_t* count_table = nullptr;
-			count_table = count_tables[i] = create_table();
-			worker_threads[i] = std::thread(
-					[this, count_table, nsamples] {sample_many(count_table, nsamples);});
+			count_table = count_tables[id++] = create_table();
+			worker_threads.push_back(
+					std::thread(
+							[this, count_table, nsamples] {sample_many(count_table, nsamples);}));
 			rem_samples -= nsamples;
 		}
-		for (unsigned int i = 0; i < number_of_threads; i++)
-			worker_threads[i].join();
-		delete[] worker_threads;
+		for (std::thread& t : worker_threads)
+			t.join();
 		// Merge the tables
-		for (unsigned int i = 1; i < number_of_threads; i++) {
+		for (unsigned int i = 1; i < worker_threads.size(); i++) {
 			OccurrenceSampler::table_t::const_iterator it = count_tables[i]->begin();
 			while (it != count_tables[i]->end()) {
 				(*count_tables[0])[it->first] += it->second;
@@ -143,7 +146,7 @@ OccurrenceSampler::table_t* OccurrenceStarSampler::sample(int num_samples, int n
 			count_tables[i]->clear();
 		}
 		OccurrenceSampler::table_t* t0 = count_tables[0];
-		for (unsigned int i = 1; i < number_of_threads; i++)
+		for (unsigned int i = 1; i < worker_threads.size(); i++)
 			delete count_tables[i];
 		delete[] count_tables;
 		// Returned the merged table
