@@ -86,6 +86,54 @@ std::string SampleTable::header() {
 	return std::string("motif,sample_count,spanning_trees,estim_freq,estim_occur");
 }
 
+/**
+ * Sort entries in nonincreasing order of estimate_graph_occurrences
+ */
+void SampleTable::sort_by_estimate_occ() {
+	std::multimap<double, Entry> sorted;
+	for (Entry e : entries)
+		sorted.insert(std::pair<double, SampleTable::Entry>(e.estimate_graph_occurrences, e));
+	entries.clear();
+	for (auto it = sorted.rbegin(); it != sorted.rend(); it++)
+		entries.push_back(it->second);
+}
+
+/**
+ * Sort entries in nonincreasing order of estimate_graph_frequency
+ */
+void SampleTable::sort_by_estimate_freq() {
+	std::multimap<double, Entry> sorted;
+	for (Entry e : entries)
+		sorted.insert(std::pair<double, SampleTable::Entry>(e.estimate_graph_frequency, e));
+	entries.clear();
+	for (auto it = sorted.rbegin(); it != sorted.rend(); it++)
+		entries.push_back(it->second);
+}
+
+/**
+ * Sort entries in increasing order of fingerprint
+ */
+void SampleTable::sort_by_fingerprint() {
+	std::multimap<std::string, Entry> sorted;
+	for (Entry e : entries)
+		sorted.insert(std::pair<std::string, SampleTable::Entry>(e.fingerprint, e));
+	entries.clear();
+	for (auto it = sorted.rbegin(); it != sorted.rend(); it++)
+		entries.push_back(it->second);
+}
+
+/**
+ * Sort entries in nonincreasing order of sample_count
+ */
+void SampleTable::sort_by_sample_count() {
+	std::multimap<uint64_t, Entry> sorted;
+	for (Entry e : entries)
+		sorted.insert(std::pair<uint64_t, SampleTable::Entry>(e.sample_count, e));
+	entries.clear();
+	for (auto it = sorted.rbegin(); it != sorted.rend(); it++)
+		entries.push_back(it->second);
+}
+
 SampleTable::~SampleTable() {
 // TODO Auto-generated destructor stub
 }

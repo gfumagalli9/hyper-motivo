@@ -31,6 +31,10 @@ public:
 	void addEntry(Entry e);
 	void estimateOccurrences(double num_graph_treelets, bool store_only_0 = false);
 	std::string header();
+	void sort_by_fingerprint();
+	void sort_by_sample_count();
+	void sort_by_estimate_occ();
+	void sort_by_estimate_freq();
 	static SampleTable merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2); // merge two tables (see source for details)
 	friend std::ostream& operator<<(std::ostream& os, const SampleTable& st);
 private:

@@ -111,6 +111,7 @@ int main(const int argc, const char** argv) {
 					opts.threads);
 			SampleTable st = SampleTable(table, selector);
 			st.estimateOccurrences(opts.tot_treelets / p, opts.store_only_0);
+			st.sort_by_estimate_occ();
 			*output << st.header() << std::endl;
 			*output << st << std::endl;
 		}
@@ -142,6 +143,7 @@ int main(const int argc, const char** argv) {
 			SampleTable merged = SampleTable::merge(st0, st, opts.tot_treelets / p, nstars);
 			//			std::cout << merged.header() << std::endl;
 			//			std::cout << merged << std::endl;
+			merged.sort_by_estimate_occ();
 			*output << merged.header() << std::endl;
 			*output << merged << std::endl;
 		}
