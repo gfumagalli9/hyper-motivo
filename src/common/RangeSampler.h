@@ -17,12 +17,13 @@ private:
 		T to_exclusive;
 	};
 
-	const bool compact = true;
 	range* ranges;
 	uint64_t size;
 	uint64_t capacity;
 
 	T total_length;
+
+	const bool compact;
 
 public:
 	RangeSampler(bool compact = true) :

@@ -100,7 +100,7 @@ public:
 	 * From above: a star is always in the form (10)*(00)*
 	 */
 	inline bool is_star() const {
-		bool star = false, zeros = true;
+		bool star = false;
 		treelet_structure_t s = structure;
 		// if the star is rooted at one leaf, we make it rooted at the center (and remove that leaf)
 		if ((s >> (treelet_structure_bits - 2) & 0x3) == 0x3)
@@ -109,10 +109,12 @@ public:
 			int x = s & 0x3;
 			s >>= 2;
 			if (x == 0) // we found a (00)
+			{
 				if (star) // we found a (00) at the left of a (10): not a star
 					return false;
 				else
 					continue; // only (00) found so far
+			}
 			if (x % 2 == 1) // we found (?1): not a star
 				return false;
 			star = true; // we found a (10)
