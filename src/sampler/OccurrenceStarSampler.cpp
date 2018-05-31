@@ -14,21 +14,18 @@ OccurrenceStarSampler::~OccurrenceStarSampler() {
 	delete root_sampler;
 }
 
-OccurrenceStarSampler::OccurrenceStarSampler(UndirectedGraph* g, unsigned int size,
-		uint64_t num_samples, Random* rng, bool canonicize, bool no_rejection, bool group_same) {
+OccurrenceStarSampler::OccurrenceStarSampler(UndirectedGraph* g, unsigned int size, Random* rng,
+		bool canonicize, bool no_rejection, bool group_same) {
 	this->g = g;
 	this->size = size;
-	this->num_samples = num_samples;
 	this->rng = rng;
 	this->canonicize = canonicize;
 	this->no_rejection = no_rejection;
 	this->group_same = group_same;
 	this->root_sampler = new DiscreteDistribution();
 	//new RangeSampler<UndirectedGraph::vertex_t>(false);
-	for (UndirectedGraph::vertex_t v = 0; v < g->number_of_vertices(); v++) {
-		uint64_t b = binomial(g->degree(v), size - 1);
-		this->root_sampler->add_bin(b);
-	}
+	for (UndirectedGraph::vertex_t v = 0; v < g->number_of_vertices(); v++)
+		this->root_sampler->add_bin(binomial(g->degree(v), size - 1));
 }
 
 /**

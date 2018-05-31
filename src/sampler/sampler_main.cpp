@@ -27,6 +27,7 @@ int main(const int argc, const char** argv) {
 	try {
 		if (!parse_sampler_args(argc, argv, "motivo-sample", &opts))
 			return EXIT_SUCCESS;
+		int k = opts.size;
 
 		std::ostream* output = &std::cout;
 		if (strlen(opts.output_basename) != 0)
@@ -38,8 +39,10 @@ int main(const int argc, const char** argv) {
 		std::ifstream infofile;
 		opts.store_only_0 = false;
 		opts.tot_treelets = 0;
-		infofile.open(
-				std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".info");
+		std::string infofile_name = std::string(opts.tables_basename) + "."
+				+ std::to_string(opts.size) + ".info";
+		std::cout << "Reading info file " << infofile_name;
+		infofile.open(infofile_name);
 		while (!infofile.eof()) {
 			std::string key, val;
 			try {
@@ -92,79 +95,68 @@ int main(const int argc, const char** argv) {
 		}
 
 		std::cerr << "Sampling using " << opts.threads << " thread(s)" << std::endl;
-
 		OccurrenceSampler sampler(&G, &ttc, opts.size, &rng, opts.vertices, opts.graphlets,
 				opts.spanning_trees, opts.footprints, opts.canonicize, opts.norejection, opts.text,
 				opts.group, output, opts.threads, selector, opts.tot_treelets, opts.store_only_0);
 
-		// For star-based sampling
-		OccurrenceStarSampler star_sampler(&G, opts.size, opts.number_of_samples, &rng,
-				opts.canonicize, opts.norejection, opts.group);
-
-		// How many stars?
+		OccurrenceStarSampler star_sampler(&G, opts.size, &rng, opts.canonicize, opts.norejection,
+				opts.group);
 		double nstars = star_sampler.get_root_sampler()->get_total_weight();
+//		std::cout << "stars=" << nstars << ", treelets=" << (double) opts.tot_treelets << std::endl;
 		double p = pcol(opts.size, opts.size);
-		// estimate fraction of stars among the treelets
-		double sr = p * nstars / (p * nstars + opts.tot_treelets);
-//		sr = 0;
-		std::cout << "estimate star ratio: " << sr << std::endl;
-		uint64_t nsamples_2 = sr * opts.number_of_samples; // samples to be taken via stars
-		uint64_t nsamples_1 = opts.number_of_samples - nsamples_2; // samples to be taken via cc
-
 		std::chrono::time_point < std::chrono::steady_clock > tstart =
 				std::chrono::steady_clock::now();
-//		sampler.sample();
-		OccurrenceSampler::table_t* table0 = sampler.sample(nsamples_1, opts.threads);
-		SampleTable st0;
-		if (table0) {
-			st0 = SampleTable(table0, selector);
-			st0.estimateOccurrences(opts.tot_treelets, opts.store_only_0);
+		if (!opts.smart_stars || nstars == 0) {
+			OccurrenceSampler::table_t* table = sampler.sample(opts.number_of_samples,
+					opts.threads);
+			SampleTable st = SampleTable(table, selector);
+			st.estimateOccurrences(opts.tot_treelets / p, opts.store_only_0);
+			*output << st.header() << std::endl;
+			*output << st << std::endl;
 		}
-//		std::cout << st0.header() << std::endl;
-//		std::cout << st0 << std::endl;
 
+		if (opts.smart_stars && nstars > 0) {
+			// estimate fraction of stars among the treelets
+			double sr = p * nstars / (p * nstars + opts.tot_treelets);
+//			std::cout << "estimate star ratio: " << sr << std::endl;
+			uint64_t nsamples_1 = (1 - sr) * opts.number_of_samples; // samples to be taken via cc
+			uint64_t nsamples_2 = opts.number_of_samples - nsamples_1; // samples to be taken via stars
+			OccurrenceSampler::table_t* table0 = sampler.sample(nsamples_1, opts.threads);
+			SampleTable st0;
+			st0 = SampleTable(table0, selector);
+			st0.estimateOccurrences(opts.tot_treelets / p, opts.store_only_0);
+//			delete table0;
+//			return 0;
+//			std::cerr << "Sampling time: " << delta_t.count() << " s\n";
+
+			// Star-based sampling
+//			std::cerr << "Sampling using stars..." << std::endl;
+			OccurrenceSampler::table_t* table = star_sampler.sample(nsamples_2, opts.threads);
+			TreeletSelector star_selector = TreeletSelector::get_star_includer(k);
+			SampleTable st = SampleTable(table, &star_selector);
+			st.estimateOccurrences(p * nstars, opts.store_only_0);
+			std::cout << st.header() << std::endl;
+			std::cout << st << std::endl;
+			delete table;
+
+			SampleTable merged = SampleTable::merge(st0, st, opts.tot_treelets / p, nstars);
+			//			std::cout << merged.header() << std::endl;
+			//			std::cout << merged << std::endl;
+			*output << merged.header() << std::endl;
+			*output << merged << std::endl;
+		}
 		std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
 		std::cerr << "Sampling time: " << delta_t.count() << " s\n";
+
 		for (unsigned int i = 0; i < opts.size; i++)
 			delete tables[i];
 		delete[] readers;
 		delete[] tables;
 
-		SampleTable merged;
-		if (selector && sr > 0) {
-			std::cerr << "Sampling using stars..." << std::endl;
-			TreeletSelector* star_ts = new TreeletSelector(TreeletSelector::MODE_INCLUDE,
-					opts.size);
-			for (int i = 0; i < selector->get_size(); i++)
-				star_ts->add_treelet(selector->get_treelets()[i], true);
-			tstart = std::chrono::steady_clock::now();
-			std::cerr << "Sampling really..." << std::endl;
-			OccurrenceSampler::table_t* table = star_sampler.sample(nsamples_2, opts.threads);
-			delta_t = std::chrono::steady_clock::now() - tstart;
-			std::cerr << "Sampling time: " << delta_t.count() << " s\n";
-			SampleTable st;
-			if (table) {
-				st = SampleTable(table, star_ts);
-				st.estimateOccurrences(p * nstars, opts.store_only_0);
-			}
-//		std::cout << st.header() << std::endl;
-//		std::cout << st << std::endl;
-			delete table;
-
-			merged = SampleTable::merge(st0, st, opts.tot_treelets, nstars);
-//			std::cout << merged.header() << std::endl;
-//			std::cout << merged << std::endl;
-		} else {
-			merged = st0;
-		}
-
-		*output << merged.header() << std::endl;
-		*output << merged << std::endl;
-
-		delete table0;
 		delete selector;
 		if (strlen(opts.output_basename) != 0)
 			delete output;
+
 	}
 	catch(std::exception &e) {
 		std::cerr << "Error: " << e.what() << std::endl;

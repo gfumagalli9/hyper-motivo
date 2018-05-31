@@ -12,6 +12,11 @@
 #include <algorithm>
 #include "Random.h"
 
+/**
+ * A discrete distribution sampler.
+ * The distribution is just a set of bins (aka weights) w1,...,ws.
+ * Bin i is sampled with probability wi/(w1+...+ws).
+ */
 class DiscreteDistribution {
 private:
 	double* weights;
@@ -28,10 +33,16 @@ public:
 	~DiscreteDistribution() {
 	}
 
+	/**
+	 * The total weight of the bins.
+	 */
 	double get_total_weight() {
 		return total_weight;
 	}
 
+	/**
+	 * Add a bin.
+	 */
 	void add_bin(double weight) {
 		total_weight += weight;
 		// make space
