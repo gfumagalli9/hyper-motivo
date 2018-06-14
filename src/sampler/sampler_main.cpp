@@ -31,9 +31,8 @@ int main(const int argc, const char** argv) {
 
 		std::ostream* output = &std::cout;
 		if (strlen(opts.output_basename) != 0)
-			output = new std::ofstream(
-					std::string(opts.output_basename) + "." + std::to_string(opts.size)
-							+ ".samples", std::ofstream::binary | std::ofstream::trunc);
+			output = new std::ofstream(std::string(opts.output_basename) + +".csv",
+					std::ofstream::binary | std::ofstream::trunc);
 
 		// Read info from info file
 		std::ifstream infofile;

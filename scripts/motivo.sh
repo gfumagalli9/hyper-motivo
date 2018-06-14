@@ -14,6 +14,7 @@ SMART=NO
 COMPRESS_THRESHOLD=0
 SELECTIVE_FILE=""
 POSITIONAL=()
+THREADS=0
 while [[ $# -gt 0 ]]
 do
     key="$1"
@@ -42,10 +43,15 @@ do
 	    shift # past argument
 	    shift # past value
 	    ;;
-	-t|--selective-treelets)
+	--selective-treelets)
 	    SELECTIVE_FILE=$2
 	    shift # past argument
 	    shift # past value
+	    ;;
+	-t|--threads)
+	    THREADS=$2
+	    shift
+	    shift
 	    ;;
 	-c|--compress)
 	    COMPRESS_THRESHOLD="$2"
@@ -70,6 +76,7 @@ if [ -z ${NSAMPLES+x} ]; then echo "Missing number of samples (-s,--samples)"; p
 if [ -z ${OUTPUT+x} ]; then echo "Missing output basename (-o,--output)"; print_usage; exit 1; fi
 
 LOGFILE="$OUTPUT.log"
+TIMEFILE="$OUTPUT.perf"
 
 get_walltime()
 {
@@ -107,21 +114,16 @@ get_actualtime()
 
 get_nthreads()
 {
-    #echo $(grep -Eo "using [0-9]+ thread\(s\)$" "$1" | cut -d' ' -f 2)
-    echo 1
+    echo $(grep -Eo "using [0-9]+ thread\(s\)$" "$1" | cut -d' ' -f 2)
+    #echo 1
 }
 
 echo "[$(date)] MOTIVO Start" | tee $LOGFILE
-echo "#output,graph,size,colors,compress_threshold,type,ntreelets,nsamples,nthreads,walltime,usertime,systemtime,actualtime" >> $LOGFILE
+echo "output,graph,size,colors,compress_threshold,type,ntreelets,nsamples,nthreads,walltime,usertime,systemtime,actualtime" > $TIMEFILE
 
 echo -e "size\t\tbuild\t\tmerge\t\tsample"
 
 # Smart: exclude stars from the building phase, and sample them separately in the sampling phase
-if [ "$SMART" == "YES" ]; then
-    echo "EXCLUDE" > exclude-star-$SIZE.txt
-    ./motivo-decompose --star $SIZE --size $SIZE >> exclude-star-$SIZE.txt 2>/dev/null
-    SELECTIVE_FILE=exclude-star-$SIZE.txt
-fi
 
 EXTRA_BUILD_OPTS=()
 if [ "$SELECTIVE_FILE" != "" ]; then
@@ -132,13 +134,18 @@ for i in $(seq 1 "$SIZE"); do
     
     if [ $i -eq "$SIZE" ]; then
         EXTRA_BUILD_OPTS+=(--store-on-0-colored-vertices-only)
+	if [ "$SMART" == "YES" ]; then
+	    echo "EXCLUDE" > exclude-star-$SIZE.txt
+	    ./motivo-decompose --star $SIZE --size $SIZE >> exclude-star-$SIZE.txt 2>/dev/null
+	    SELECTIVE_FILE=exclude-star-$SIZE.txt
+	fi
     fi
 
     echo -en "$i  \t\t"
     echo "[$(date)] Building table of size $i" >> $LOGFILE
-    ($TIME ./motivo-build --graph "$GRAPH" --size "$i" --colors "$SIZE" --tables-basename "$OUTPUT" --output "$OUTPUT" --threads 0 ${EXTRA_BUILD_OPTS[@]} > "$OUTPUT.b$i.log" 2>&1) || exit 1  
+    ($TIME ./motivo-build --graph "$GRAPH" --size "$i" --colors "$SIZE" --tables-basename "$OUTPUT" --output "$OUTPUT" --threads "$THREADS" ${EXTRA_BUILD_OPTS[@]} > "$OUTPUT.b$i.log" 2>&1) || exit 1  
     echo -n $(get_walltime "$OUTPUT.b$i.log")
-    echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,build,0,0,$(get_nthreads "$OUTPUT.b$i.log"),$(get_walltime "$OUTPUT.b$i.log"),$(get_usertime "$OUTPUT.b$i.log"),$(get_systemtime "$OUTPUT.b$i.log"),$(get_actualtime "$OUTPUT.b$i.log")" >> $LOGFILE
+    echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,build,0,0,$(get_nthreads "$OUTPUT.b$i.log"),$(get_walltime "$OUTPUT.b$i.log"),$(get_usertime "$OUTPUT.b$i.log"),$(get_systemtime "$OUTPUT.b$i.log"),$(get_actualtime "$OUTPUT.b$i.log")" >> $TIMEFILE
 
     echo -en "\t\t"
     echo "[$(date)] Merging table of size $i" >> $LOGFILE
@@ -148,7 +155,7 @@ for i in $(seq 1 "$SIZE"); do
     else
         echo -n $(get_walltime "$OUTPUT.m$i.log")
     fi
-    echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,merge,$(get_ntreelets "$OUTPUT.m$i.log"),0,0,$(get_walltime "$OUTPUT.m$i.log"),$(get_usertime "$OUTPUT.m$i.log"),$(get_systemtime "$OUTPUT.m$i.log"),$(get_actualtime "$OUTPUT.m$i.log")" >> $LOGFILE
+    echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,merge,$(get_ntreelets "$OUTPUT.m$i.log"),0,0,$(get_walltime "$OUTPUT.m$i.log"),$(get_usertime "$OUTPUT.m$i.log"),$(get_systemtime "$OUTPUT.m$i.log"),$(get_actualtime "$OUTPUT.m$i.log")" >> $TIMEFILE
 
     echo "[$(date)] Done. Removing count file." >> $LOGFILE
     rm "$OUTPUT.$i.cnt"
@@ -168,13 +175,13 @@ fi
 
 echo -en "\t\t"
 echo "[$(date)] Sampling..." >> $LOGFILE
-($TIME ./motivo-sample --graph "$GRAPH" --size "$SIZE" -n "$NSAMPLES" -i "$OUTPUT" -t -c --graphlets -o "$OUTPUT" --spanning-trees-no --footprints --no-rejection --group --threads 0 ${EXTRA_SAMPLE_OPTS[@]} > "$OUTPUT.s$SIZE.log" 2>&1) || exit 1
+($TIME ./motivo-sample --graph "$GRAPH" --size "$SIZE" -n "$NSAMPLES" -i "$OUTPUT" -t -c --graphlets -o "$OUTPUT" --spanning-trees-no --footprints --no-rejection --group --threads "$THREADS" ${EXTRA_SAMPLE_OPTS[@]} > "$OUTPUT.s$SIZE.log" 2>&1) || exit 1
 echo $(get_walltime "$OUTPUT.s${SIZE}.log")
-echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,sample,0,$NSAMPLES,$(get_nthreads "$OUTPUT.s$SIZE.log"),$(get_walltime "$OUTPUT.s$SIZE.log"),$(get_usertime "$OUTPUT.s$SIZE.log"),$(get_systemtime "$OUTPUT.s$SIZE.log"),$(get_actualtime "$OUTPUT.s$SIZE.log")" >> $LOGFILE
+echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,sample,0,$NSAMPLES,$(get_nthreads "$OUTPUT.s$SIZE.log"),$(get_walltime "$OUTPUT.s$SIZE.log"),$(get_usertime "$OUTPUT.s$SIZE.log"),$(get_systemtime "$OUTPUT.s$SIZE.log"),$(get_actualtime "$OUTPUT.s$SIZE.log")" >> $TIMEFILE
 
 echo "[$(date)] Done" | tee -a $LOGFILE
 
-echo "Samples are in $OUTPUT.$SIZE.samples:"
-head -6 $OUTPUT.$SIZE.samples
+echo "Samples are in $OUTPUT.csv:"
+head -6 $OUTPUT.csv
 
 exit 0

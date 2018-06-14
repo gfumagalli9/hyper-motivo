@@ -23,6 +23,7 @@ option(MOTIVO_OVERFLOW_SAFE "Check for overflows during computation" ON)
 option(MOTIVO_MAY_ALIAS "Turn off if compiler does not support the may_alias attribute" ON)
 option(USE_TCMALLOC "Use tcmalloc allocator library" OFF)
 option(MOTIVO_DENSE_HASHMAP "Use dense hashmaps" OFF)
+option(PROFILE "Enable gprof profiling (-pg)" OFF)
 
 set(MOTIVO_FLAGS "")
 
@@ -31,8 +32,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wconversion -Wall -Wextra -Wpedantic -p
 
 if(ENABLE_ASSERTS)
     message(STATUS "Assertions enabled. Code might be slower.")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -UNDEBUG ")
-    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -UNDEBUG ")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -UNDEBUG ")
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O2 -UNDEBUG ")
     set(MOTIVO_FLAGS "${MOTIVO_FLAGS} EA")
 else()
     set(MOTIVO_FLAGS "${MOTIVO_FLAGS} ea")
@@ -61,7 +62,6 @@ else()
     message(STATUS "Using sparse hashmaps")
     set(MOTIVO_FLAGS "${MOTIVO_FLAGS} dh")
 endif()
-
 
 INCLUDE(CheckCXXSourceCompiles)
 check_cxx_source_compiles("int main() { __builtin_popcount(0xFFFFFFFF); return 0; } " MOTIVO_HAS_BUILTIN_POPCOUNT)
@@ -209,6 +209,14 @@ else()
     message(FATAL_ERROR "Could not find sparsehash header files")
 endif()
 
+if(PROFILE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lprofiler" )
+  message(STATUS "profiling enabled")
+endif()
+
 
 set(SAMPLER_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
 set(BUILDER_LIBRARIES ${COMMON_LIBRARIES})
@@ -287,6 +295,11 @@ if(MPI_FOUND)
     add_dependencies(motivo-sample-slave hg_id)
 endif()
 
+if(PROFILE)
+  set_target_properties(motivo-build PROPERTIES LINK_FLAGS "-lprofiler")
+  set_target_properties(motivo-merge PROPERTIES LINK_FLAGS "-lprofiler")
+  set_target_properties(motivo-sample PROPERTIES LINK_FLAGS "-lprofiler")
+endif()
 
 file(COPY scripts/build-and-sample.sh DESTINATION .)
 file(COPY scripts/build-many.sh DESTINATION .)
