@@ -35,6 +35,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *seed_opt = op.add_option(false, true, "seed", '\0', "", "String used to seed the random number generator (default or empty string: seed from system random device)");
     OptionsParser::Option *threads_opt = op.add_option(false, true, "threads", '\0', "1", "Number of threads to use or 0 for to use the number of logical processors (default: 1)");
     OptionsParser::Option *selective_opt = op.add_option(false, true, "selective", '\0', "", "Sample only treelets whose structures are allowed in file ARG");
+    OptionsParser::Option *smart_stars_opt = op.add_option(false, false, "smart-stars", '\0', "", "Sample star treelets separately and then merge the sample results; the number of star samples is proportional to the overall number of stars.");
 
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
@@ -48,7 +49,6 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
 
     if(!op.has_required_options())
         throw std::runtime_error("Required options are missing");
-
 
     int size = std::stoi(size_opt->get_value());
     if (size < 1 || size > 16)
@@ -114,7 +114,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     opts->graphlets = graphlets_opt->is_found();
     opts->norejection = norejection_opt->is_found();
     opts->text = text_opt->is_found();
-
+    opts->smart_stars = smart_stars_opt->is_found();
 
     return true;
 }

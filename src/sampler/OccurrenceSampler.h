@@ -81,7 +81,6 @@ private:
 	UndirectedGraph *graph;
 	TreeletTableCollection *ttc;
 	const unsigned int size;
-	const uint64_t num_samples;
 	const uint128_t tot_treelets;
 	const bool store_only_0;
 	Random *rng;
@@ -100,8 +99,8 @@ private:
 
 	TreeletSampler sampler;
 
-	void do_sample_st [[gnu::hot, gnu::flatten]] (table_t* count_table);
-	void do_sample_mt [[gnu::hot, gnu::flatten]] (sequencer_t *sequencer, ConcurrentWriter *writer, table_t* count_table);
+	void do_sample_st [[gnu::hot, gnu::flatten]] (table_t* count_table, int num_samples);
+	void do_sample_mt [[gnu::hot, gnu::flatten]] (sequencer_t *sequencer, ConcurrentWriter *writer, table_t* count_table, int num_samples);
 	inline void sample_one [[gnu::hot]] (Occurrence *occurrence);
 
 	table_t* create_table();
@@ -112,9 +111,10 @@ private:
 	char* write(Occurrence *occurrence, char* buf);
 
 public:
-	void sample();
+	void sample(int n_samples);
+	table_t* sample(int n_samples, int number_of_threads);
 
-	OccurrenceSampler(UndirectedGraph *graph, TreeletTableCollection* ttc, unsigned int size, uint64_t num_samples, Random *rng,
+	OccurrenceSampler(UndirectedGraph *graph, TreeletTableCollection* ttc, unsigned int size, Random *rng,
 			bool vertices, bool graphlets, bool spanning_trees_no, bool footprints, bool canonicize, bool no_rejection,
 			bool text, bool group_same, std::ostream *out, unsigned int number_of_threads, TreeletSelector* selector = nullptr, uint128_t tot_treelets = 0, bool store_only_0 = false);
 };
