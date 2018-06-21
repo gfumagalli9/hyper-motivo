@@ -117,6 +117,7 @@ set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp s
 set(GRAPH_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/graph.cpp)
 set(DECOMPOSE_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/decompose.cpp)
 set(HOMOMORPHISM_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/homomorphism.cpp)
+set(TREELET_COUNTS_SOURCE_FILES  ${COMMON_SOURCE_FILES} src/tools/treelet-counts.cpp)
 
 set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp tests/Treelet.cpp tests/Occurrence.cpp src/sampler/Occurrence.cpp src/sampler/Occurrence.h tests/leftmost_bit_tie.cpp tests/CompressedRecordFile.cpp tests/UndirectedGraph.cpp tests/SpanningTreeCounter.cpp src/common/SpanningTreeCounter.cpp src/common/SpanningTreeCounter.h src/builder/SimpleTreeletTableBuilder.cpp src/builder/SimpleTreeletTableBuilder.h)
 
@@ -216,7 +217,10 @@ set(MERGER_LIBRARIES ${COMMON_LIBRARIES})
 set(GRAPH_LIBRARIES ${COMMON_LIBRARIES})
 set(DECOMPOSE_LIBRARIES ${COMMON_LIBRARIES})
 set(HOMOMORPHISM_LIBRARIES ${COMMON_LIBRARIES})
+set(TREELET_COUNTS_LIBRARIES ${COMMON_LIBRARIES})
+
 set(TEST_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
+
 
 add_executable(motivo-build ${BUILDER_SOURCE_FILES})
 add_executable(motivo-merge ${MERGER_SOURCE_FILES})
@@ -224,6 +228,8 @@ add_executable(motivo-sample ${SAMPLER_SOURCE_FILES})
 add_executable(motivo-graph ${GRAPH_SOURCE_FILES})
 add_executable(motivo-decompose ${DECOMPOSE_SOURCE_FILES})
 add_executable(motivo-homomorphism ${HOMOMORPHISM_SOURCE_FILES})
+add_executable(motivo-treelet-counts ${TREELET_COUNTS_SOURCE_FILES})
+
 add_executable(motivo-tests ${TEST_SOURCE_FILES})
 
 target_link_libraries(motivo-build ${BUILDER_LIBRARIES})
@@ -232,6 +238,7 @@ target_link_libraries(motivo-sample ${SAMPLER_LIBRARIES})
 target_link_libraries(motivo-graph ${GRAPH_LIBRARIES})
 target_link_libraries(motivo-decompose ${DECOMPOSE_LIBRARIES})
 target_link_libraries(motivo-homomorphism ${HOMOMORPHISM_LIBRARIES})
+target_link_libraries(motivo-treelet-counts ${TREELET_COUNTS_LIBRARIES})
 
 target_link_libraries(motivo-tests ${TEST_LIBRARIES})
 
@@ -240,6 +247,9 @@ add_custom_target(hg_id COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/
 add_dependencies(motivo-build hg_id)
 add_dependencies(motivo-merge hg_id)
 add_dependencies(motivo-sample hg_id)
+add_dependencies(motivo-decompose hg_id)
+add_dependencies(motivo-homomorphism hg_id)
+add_dependencies(motivo-treelet-counts hg_id)
 add_dependencies(motivo-tests hg_id)
 
 
