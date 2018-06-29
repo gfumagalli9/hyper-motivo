@@ -9,41 +9,11 @@
 #include "../common/SpanningTreeCounter.h"
 #include "../common/common.h"
 
-void OccurrenceSampler::sample_one(Occurrence *occurrence) {
-	UndirectedGraph::vertex_t sampled_vertices[16];
-	UndirectedGraph::vertex_t root = sampler.sample_root();
-	assert(root < graph->number_of_vertices());
-	Treelet t = sampler.sample_treelet(root);
-
-	while (true) {
-		if (vertices || graphlets) //If we want treelets but not the occurrence vertices we can skip sampling
-				{
-#ifndef NDEBUG
-			bool success =
-#endif
-					sampler.sample_rooted_occurrence(t, root, sampled_vertices); //FIXME: Handle case in which there are no treelets
-			assert(success);
-		}
-
-		if (graphlets) {
-			new (occurrence) Occurrence(size, graph, sampled_vertices);
-
-			if (!no_rejection
-					&& rng->random_uint<uint64_t>(0, occurrence->number_of_spanning_trees() - 1)
-							!= 0)
-				continue; //Rejection
-		} else
-			new (occurrence) Occurrence(t, sampled_vertices);
-
-		break;
-	}
-}
-
 OccurrenceSampler::table_t* OccurrenceSampler::sample(int num_samples, int number_of_threads) {
 	number_of_threads = std::min((int) num_samples / 10, number_of_threads);
 
 	if (number_of_threads == 1) {
-		OccurrenceSampler::table_t* count_table = create_table();
+		OccurrenceSampler::table_t* count_table = create_table(footprints, vertices);
 		do_sample_st(count_table, num_samples);
 		return count_table;
 	} else {
@@ -55,7 +25,7 @@ OccurrenceSampler::table_t* OccurrenceSampler::sample(int num_samples, int numbe
 		int rem_samples = num_samples;
 		for (unsigned int i = 0; i < number_of_threads; i++) {
 			OccurrenceSampler::table_t* count_table = nullptr;
-			count_table = count_tables[i] = create_table();
+			count_table = count_tables[i] = create_table(footprints, vertices);
 			worker_threads[i] =
 					std::thread(
 							[this, sequencer, writer, count_table, num_samples] {do_sample_mt(sequencer, writer, count_table, num_samples);});
@@ -86,7 +56,7 @@ void OccurrenceSampler::sample(int num_samples) {
 	if (number_of_threads == 1) {
 		table_t* count_table = nullptr;
 		if (group_same)
-			count_table = create_table();
+			count_table = create_table(footprints, vertices);
 
 		do_sample_st(count_table, num_samples);
 
@@ -108,7 +78,7 @@ void OccurrenceSampler::sample(int num_samples) {
 		for (unsigned int i = 0; i < number_of_threads; i++) {
 			table_t* count_table = nullptr;
 			if (group_same)
-				count_table = count_tables[i] = create_table();
+				count_table = count_tables[i] = create_table(footprints, vertices);
 
 			worker_threads[i] =
 					std::thread(
@@ -136,7 +106,8 @@ void OccurrenceSampler::sample(int num_samples) {
 	//std::cerr << "Rejected treelets/graphlets: " << sampled - accepted << std::endl;
 }
 
-OccurrenceSampler::table_t *OccurrenceSampler::create_table() {
+OccurrenceSampler::table_t *OccurrenceSampler::create_table(bool footprints = true, bool vertices =
+		false) {
 	static Occurrence empty_key = Occurrence();
 	static OccurrenceHash hasher = OccurrenceHash(footprints, vertices);
 	static OccurrenceEquality eq = OccurrenceEquality(footprints, vertices);

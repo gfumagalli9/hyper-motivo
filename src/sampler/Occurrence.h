@@ -63,6 +63,26 @@ public:
     bool is_valid() const { return size!=0; }
 
     unsigned int get_size() {return size;}
+
+    /**
+     * A comparator for occurrences. Returns true iff the first occurrence comes before the second (comparing
+     * their binary representations).
+     */
+	struct OccurrenceCompare
+	{
+		bool check_footprints;
+		bool check_vertices;
+		OccurrenceCompare(bool check_footprints = true, bool check_vertices = false) : check_footprints(check_footprints), check_vertices(check_vertices) {};
+
+		inline bool operator() [[gnu::hot,gnu::flatten]] (const Occurrence &occ1, const Occurrence &occ2) const
+		{
+			return (occ1.is_valid()==occ2.is_valid()) &&
+			(!check_footprints || memcmp(occ1.binary_footprint(), occ2.binary_footprint(), Occurrence::binary_footprint_bytes) < 0) &&
+			(!check_vertices|| memcmp(occ1.vertices(), occ2.vertices(), sizeof(UndirectedGraph::vertex_t) * 16) < 0);
+		}
+	};
+
+
 };
 
 

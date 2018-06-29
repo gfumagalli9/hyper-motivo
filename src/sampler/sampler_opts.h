@@ -28,6 +28,7 @@ struct sampler_opts
     bool vertices;
     bool group;
     bool smart_stars;
+    bool adaptive;
     char seed[MOTIVO_ARG_MAX + 2 + std::numeric_limits<unsigned int>::digits/3]; //Enough space to append one character + 1 integer
     unsigned int threads;
     char selective_filename[MOTIVO_ARG_MAX];

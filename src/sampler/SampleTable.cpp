@@ -80,6 +80,19 @@ void SampleTable::estimateOccurrences(double num_graph_treelets, bool store_only
 }
 
 /**
+ * Estimate the relative frequency, from the number of estimated occurrences (i.e. just a normalization)
+ */
+void SampleTable::estimateFrequencies() {
+	double tot_occ = 0;
+	for (Entry &e : entries)
+		tot_occ += e.estimate_graph_occurrences;
+	if (tot_occ)
+		for (Entry &e : entries) {
+			e.estimate_graph_frequency = e.estimate_graph_occurrences / tot_occ;
+		}
+}
+
+/**
  * Returns the table's header.
  */
 std::string SampleTable::header() {

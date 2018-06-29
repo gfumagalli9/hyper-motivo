@@ -9,6 +9,7 @@
 #include "sampler_opts.h"
 #include "OccurrenceSampler.h"
 #include "OccurrenceStarSampler.h"
+#include "AdaptiveSampler.h"
 #include "SampleTable.h"
 #include "../common/SpanningTreeCounter.h"
 #include "../common/common.h"
@@ -28,11 +29,6 @@ int main(const int argc, const char** argv) {
 		if (!parse_sampler_args(argc, argv, "motivo-sample", &opts))
 			return EXIT_SUCCESS;
 		int k = opts.size;
-
-		std::ostream* output = &std::cout;
-		if (strlen(opts.output_basename) != 0)
-			output = new std::ofstream(std::string(opts.output_basename) + +".csv",
-					std::ofstream::binary | std::ofstream::trunc);
 
 		// Read info from info file
 		std::ifstream infofile;
@@ -81,6 +77,7 @@ int main(const int argc, const char** argv) {
 		tables[opts.size - 1]->load_root_sampler(
 				std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".rts");
 
+		double p = pcol(opts.size, opts.size);
 		Random rng(opts.seed);
 		std::cerr << "Using seed " << rng.get_seed() << std::endl;
 
@@ -93,6 +90,26 @@ int main(const int argc, const char** argv) {
 					<< " treelet(s) of the given size" << std::endl;
 		}
 
+		std::ostream* output = &std::cout;
+		if (strlen(opts.output_basename) != 0)
+			output = new std::ofstream(std::string(opts.output_basename) + +".csv",
+					std::ofstream::binary | std::ofstream::trunc);
+
+		if (opts.adaptive) {
+			std::cout << "Using adaptive sampling." << std::endl;
+			AdaptiveSampler ad_sampler(&G,
+					std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".dtz",
+					nullptr, opts.size, &rng, &ttc, opts);
+			Occurrence occ;
+			SampleTable st = ad_sampler.sample(opts.number_of_samples, 1);
+			st.sort_by_estimate_occ();
+			*output << st.header() << std::endl;
+			*output << st << std::endl;
+			std::cout << "time spent on switching treelet: " << ad_sampler.getUpdateTime()
+					<< std::endl;
+			return 0;
+		}
+
 		std::cerr << "Sampling using " << opts.threads << " thread(s)" << std::endl;
 		OccurrenceSampler sampler(&G, &ttc, opts.size, &rng, opts.vertices, opts.graphlets,
 				opts.spanning_trees, opts.footprints, opts.canonicize, opts.norejection, opts.text,
@@ -101,8 +118,7 @@ int main(const int argc, const char** argv) {
 		OccurrenceStarSampler star_sampler(&G, opts.size, &rng, opts.canonicize, opts.norejection,
 				opts.group);
 		double nstars = star_sampler.get_root_sampler()->get_total_weight();
-//		std::cout << "stars=" << nstars << ", treelets=" << (double) opts.tot_treelets << std::endl;
-		double p = pcol(opts.size, opts.size);
+		std::cout << "stars=" << nstars << ", treelets=" << (double) opts.tot_treelets << std::endl;
 		std::chrono::time_point < std::chrono::steady_clock > tstart =
 				std::chrono::steady_clock::now();
 		if (!opts.smart_stars || nstars == 0) {

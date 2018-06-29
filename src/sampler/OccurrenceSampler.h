@@ -101,9 +101,7 @@ private:
 
 	void do_sample_st [[gnu::hot, gnu::flatten]] (table_t* count_table, int num_samples);
 	void do_sample_mt [[gnu::hot, gnu::flatten]] (sequencer_t *sequencer, ConcurrentWriter *writer, table_t* count_table, int num_samples);
-	inline void sample_one [[gnu::hot]] (Occurrence *occurrence);
 
-	table_t* create_table();
 	void merge_tables(table_t **count_tables);
 	void write_table(table_t *count_table);
 	void write_table_2(table_t *count_table);
@@ -111,6 +109,37 @@ private:
 	char* write(Occurrence *occurrence, char* buf);
 
 public:
+	static table_t* create_table(const bool, const bool);
+	inline void sample_one [[gnu::hot]] (Occurrence *occurrence) {
+		UndirectedGraph::vertex_t sampled_vertices[16];
+		UndirectedGraph::vertex_t root = sampler.sample_root();
+		assert(root < graph->number_of_vertices());
+		Treelet t = sampler.sample_treelet(root);
+
+		while (true) {
+			if (vertices || graphlets) //If we want treelets but not the occurrence vertices we can skip sampling
+			{
+#ifndef NDEBUG
+				bool success =
+#endif
+				sampler.sample_rooted_occurrence(t, root, sampled_vertices); //FIXME: Handle case in which there are no treelets
+				assert(success);
+			}
+
+			if (graphlets) {
+				new (occurrence) Occurrence(size, graph, sampled_vertices);
+
+				if (!no_rejection
+						&& rng->random_uint<uint64_t>(0, occurrence->number_of_spanning_trees() - 1)
+						!= 0)
+				continue; //Rejection
+			} else
+			new (occurrence) Occurrence(t, sampled_vertices);
+
+			break;
+		}
+	}
+
 	void sample(int n_samples);
 	table_t* sample(int n_samples, int number_of_threads);
 

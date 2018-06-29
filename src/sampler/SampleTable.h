@@ -30,6 +30,7 @@ public:
 	SampleTable(table_t *t, TreeletSelector *ts = nullptr); // build from an (Occurrence,count) table;
 	void addEntry(Entry e);
 	void estimateOccurrences(double num_graph_treelets, bool store_only_0 = false);
+	void estimateFrequencies();
 	std::string header();
 	void sort_by_fingerprint();
 	void sort_by_sample_count();
