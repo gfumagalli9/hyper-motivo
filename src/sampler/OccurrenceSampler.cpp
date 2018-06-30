@@ -109,8 +109,8 @@ void OccurrenceSampler::sample(int num_samples) {
 OccurrenceSampler::table_t *OccurrenceSampler::create_table(bool footprints = true, bool vertices =
 		false) {
 	static Occurrence empty_key = Occurrence();
-	static OccurrenceHash hasher = OccurrenceHash(footprints, vertices);
-	static OccurrenceEquality eq = OccurrenceEquality(footprints, vertices);
+	static Occurrence::OccurrenceHash hasher = Occurrence::OccurrenceHash(footprints, vertices);
+	static Occurrence::compare_eq eq = Occurrence::compare_eq(footprints, vertices);
 
 	table_t* table = new table_t(0, hasher, eq);
 	table->set_empty_key(empty_key);

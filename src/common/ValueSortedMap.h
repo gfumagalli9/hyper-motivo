@@ -10,6 +10,9 @@
 
 #include <map>
 
+/**
+ * A map that keeps the elements sorted in nondecreasing order of value V.
+ */
 template<typename K, typename V> class ValueSortedMap {
 private:
 	struct pairCompare {

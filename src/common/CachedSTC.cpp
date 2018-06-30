@@ -9,6 +9,7 @@
 
 CachedSTC::CachedSTC() {
 	// TODO Auto-generated constructor stub
+//	table.set_empty_key(Occurrence());
 }
 
 CachedSTC::~CachedSTC() {
@@ -132,8 +133,10 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
 /**
  * Compute the spanning tree table of a graphlet
  */
-std::map<Treelet, uint64_t>* CachedSTC::compute_t_table(const Occurrence &o) {
-	std::map<Treelet, uint64_t>* tab = new std::map<Treelet, uint64_t>();
+CachedSTC::treelet_table_t* CachedSTC::compute_t_table(const Occurrence &o) {
+	std::chrono::time_point < std::chrono::steady_clock > tstart = std::chrono::steady_clock::now();
+	CachedSTC::treelet_table_t* tab = new CachedSTC::treelet_table_t();
+//	tab->set_empty_key(Treelet::invalid_treelet);
 
 	UndirectedGraph h(o);
 	FullGraphColoring *coloring = new FullGraphColoring();
@@ -163,8 +166,7 @@ std::map<Treelet, uint64_t>* CachedSTC::compute_t_table(const Occurrence &o) {
 		ttc.add(tables[i - 2]);
 		const std::string filename = "spantreecount." + std::to_string(i) + ".cnt";
 		std::ofstream out(filename, std::ofstream::binary | std::ofstream::trunc);
-		SimpleTreeletTableBuilder builder(&h, coloring, i, &ttc, &out, false,
-				nullptr);
+		SimpleTreeletTableBuilder builder(&h, coloring, i, &ttc, &out, false, nullptr);
 		builder.build();
 		out.close();
 		std::vector<std::string> vf;
@@ -180,8 +182,10 @@ std::map<Treelet, uint64_t>* CachedSTC::compute_t_table(const Occurrence &o) {
 	TreeletTable finalTable(&reader);
 	for (UndirectedGraph::vertex_t u = 0; u < finalTable.number_of_vertices(); u++)
 		for (TreeletTable::const_iterator it = finalTable.begin(u); !it.is_over(); ++it)
-			tab->operator[](it.treelet()) += it.count();
+			(*tab)[it.treelet()] += it.count();
 	reader.close();
+	std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
+	tot_computing_time += delta_t.count();
 	return tab;
 }
 
@@ -189,8 +193,11 @@ std::map<Treelet, uint64_t>* CachedSTC::compute_t_table(const Occurrence &o) {
  * Return the number of occurrences of t in o
  */
 uint64_t CachedSTC::num_spanning_trees(const Occurrence &o, const Treelet &t) {
-	if (!table.count(o))
-		table.insert(std::pair<Occurrence, std::map<Treelet, uint64_t>*>(o, compute_t_table(o)));
-	return table[o]->count(t) ? table[o]->at(t) : 0;
+	if (table.count(o) == 0) {
+		m_mutex.lock();
+		table[o] = compute_t_table(o);
+		m_mutex.unlock();
+	}
+	return table[o]->count(t) ? (*table[o])[t] : 0;
 }
 

@@ -101,7 +101,7 @@ int main(const int argc, const char** argv) {
 					std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".dtz",
 					nullptr, opts.size, &rng, &ttc, opts);
 			Occurrence occ;
-			SampleTable st = ad_sampler.sample(opts.number_of_samples, 1);
+			SampleTable st = ad_sampler.sample(opts.number_of_samples, opts.threads);
 			st.sort_by_estimate_occ();
 			*output << st.header() << std::endl;
 			*output << st << std::endl;
@@ -118,7 +118,7 @@ int main(const int argc, const char** argv) {
 		OccurrenceStarSampler star_sampler(&G, opts.size, &rng, opts.canonicize, opts.norejection,
 				opts.group);
 		double nstars = star_sampler.get_root_sampler()->get_total_weight();
-		std::cout << "stars=" << nstars << ", treelets=" << (double) opts.tot_treelets << std::endl;
+//		std::cout << "stars=" << nstars << ", treelets=" << (double) opts.tot_treelets << std::endl;
 		std::chrono::time_point < std::chrono::steady_clock > tstart =
 				std::chrono::steady_clock::now();
 		if (!opts.smart_stars || nstars == 0) {
@@ -141,23 +141,15 @@ int main(const int argc, const char** argv) {
 			SampleTable st0;
 			st0 = SampleTable(table0, selector);
 			st0.estimateOccurrences(opts.tot_treelets / p, opts.store_only_0);
-//			delete table0;
-//			return 0;
-//			std::cerr << "Sampling time: " << delta_t.count() << " s\n";
 
 			// Star-based sampling
-//			std::cerr << "Sampling using stars..." << std::endl;
 			OccurrenceSampler::table_t* table = star_sampler.sample(nsamples_2, opts.threads);
 			TreeletSelector star_selector = TreeletSelector::get_star_includer(k);
 			SampleTable st = SampleTable(table, &star_selector);
 			st.estimateOccurrences(p * nstars, opts.store_only_0);
-			std::cout << st.header() << std::endl;
-			std::cout << st << std::endl;
 			delete table;
 
 			SampleTable merged = SampleTable::merge(st0, st, opts.tot_treelets / p, nstars);
-			//			std::cout << merged.header() << std::endl;
-			//			std::cout << merged << std::endl;
 			merged.sort_by_estimate_occ();
 			*output << merged.header() << std::endl;
 			*output << merged << std::endl;

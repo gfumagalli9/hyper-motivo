@@ -153,16 +153,15 @@ SampleTable::~SampleTable() {
 
 /**
  * Merge two tables.
- * In any case, the resulting table has e.sample_count as the sum of the corresponding
- * entries in t1 and t2.
- * The entries in the two tables may have a different number of spanning trees.
+ * tcount1 and tcount2 are the total treelet counts (the number of colorful k-treelets
+ *	the sampling was performed on, for t1 and t2 respectively).
+ * In the output table, e.sample_count is the sum of the corresponding entries in t1 and t2.
+ * If in the two tables the entries have a different number of spanning trees.
  * If this is the case, then in the merged table:
  * 	e.num_spanning_trees = -1
  *	e.estimate_graph_frequency is obtained as an appropriate average of the two tables
  *	e.estimate_graph_occurrences is obtained as an appropriate average of the two tables
  *
- *	tcount1 and tcount2 are the total treelet counts (the number of colorful k-treelets
- *	the sampling was performed on, for t1 and t2 respectively).
  */
 SampleTable SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2) {
 	SampleTable t;

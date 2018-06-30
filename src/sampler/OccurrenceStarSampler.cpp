@@ -95,10 +95,8 @@ void OccurrenceStarSampler::sample_many(OccurrenceSampler::table_t* count_table,
  */
 OccurrenceSampler::table_t *OccurrenceStarSampler::create_table() {
 	static Occurrence empty_key = Occurrence();
-	static OccurrenceSampler::OccurrenceHash hasher = OccurrenceSampler::OccurrenceHash(true,
-			false);
-	static OccurrenceSampler::OccurrenceEquality eq = OccurrenceSampler::OccurrenceEquality(true,
-			false);
+	static Occurrence::OccurrenceHash hasher = Occurrence::OccurrenceHash(true, false);
+	static Occurrence::compare_eq eq = Occurrence::compare_eq(true, false);
 	OccurrenceSampler::table_t* table = new OccurrenceSampler::table_t(0, hasher, eq);
 	table->set_empty_key(empty_key);
 	return table;
