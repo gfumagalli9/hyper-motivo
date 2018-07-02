@@ -38,6 +38,7 @@ private:
 	Random* rng;
 	CachedSTC spTreeCounter;
 	int suffSamples = 1000;
+	int totTreeletSwitches = 0;
 	std::set<Occurrence, Occurrence::compare_less> completedGraphlets; // graphlets sampled at least suffSamples times
 	std::map<Treelet, unsigned int, Treelet::compare_less> treeletSamples; // how many time each treelet has been used
 	std::map<Occurrence, unsigned int, Occurrence::compare_less> graphletCount; // how many times each graphlet has been sampled
@@ -46,7 +47,7 @@ private:
 	TreeletSelector *treeletSelector = nullptr;
 	TreeletTableCollection *ttc;
 	OccurrenceSampler* sampler = nullptr;
-	double totUpdateTime = 0;
+	double totManagementTime = 0;
 	void updateSampler();
 public:
 	/**
@@ -63,7 +64,7 @@ public:
 	void just_sample(int num_samples, std::map<Occurrence, int, Occurrence::compare_less>* counts);
 	SampleTable sample(int n_samples, int number_of_threads);
 	inline double getUpdateTime() {
-		return totUpdateTime;
+		return totManagementTime;
 	}
 };
 

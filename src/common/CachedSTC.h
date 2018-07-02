@@ -63,16 +63,6 @@ public:
 		return table[o];
 	}
 
-	/**
-	 * Compute the spanning tree table of the given graphlet, if not already present.
-	 */
-	void compute_if_missing(const Occurrence& o) {
-		if (!table.count(o)) {
-			m_mutex.lock();
-			table[o] = compute_t_table(o);
-			m_mutex.unlock();
-		}
-	}
 };
 
 #endif /* SRC_COMMON_CACHEDSTC_H_ */

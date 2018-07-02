@@ -105,8 +105,6 @@ int main(const int argc, const char** argv) {
 			st.sort_by_estimate_occ();
 			*output << st.header() << std::endl;
 			*output << st << std::endl;
-			std::cout << "time spent on switching treelet: " << ad_sampler.getUpdateTime()
-					<< std::endl;
 			return 0;
 		}
 

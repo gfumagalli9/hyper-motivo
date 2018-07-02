@@ -185,7 +185,7 @@ CachedSTC::treelet_table_t* CachedSTC::compute_t_table(const Occurrence &o) {
 			(*tab)[it.treelet()] += it.count();
 	reader.close();
 	std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
-	tot_computing_time += delta_t.count();
+	tot_running_time += delta_t.count();
 	return tab;
 }
 
@@ -193,11 +193,15 @@ CachedSTC::treelet_table_t* CachedSTC::compute_t_table(const Occurrence &o) {
  * Return the number of occurrences of t in o
  */
 uint64_t CachedSTC::num_spanning_trees(const Occurrence &o, const Treelet &t) {
+	std::chrono::time_point < std::chrono::steady_clock > tstart = std::chrono::steady_clock::now();
 	if (table.count(o) == 0) {
 		m_mutex.lock();
+		tot_running_time += (std::chrono::steady_clock::now() - tstart).count();
 		table[o] = compute_t_table(o);
+		tstart = std::chrono::steady_clock::now();
 		m_mutex.unlock();
 	}
+	tot_running_time = (std::chrono::steady_clock::now() - tstart).count();
 	return table[o]->count(t) ? (*table[o])[t] : 0;
 }
 
