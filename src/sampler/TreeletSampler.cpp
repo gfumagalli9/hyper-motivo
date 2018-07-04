@@ -2,25 +2,82 @@
 // Created by steven on 11/27/16.
 //
 
+#include <thread>
 #include "TreeletSampler.h"
+#include "../common/sequencer/BaseSequencer.h"
+#include "../common/sequencer/DynamicSequencer.h"
 
-TreeletSampler::TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, const unsigned int size, Random *rng, TreeletSelector *selector)
-        : graph(graph), table_collection(ttc), size(size), rng(rng), selector(selector)
+TreeletSampler::TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, const unsigned int size, Random *rng)
+        : graph(graph), table_collection(ttc), size(size), rng(rng)
 {
-    if(selector)
-    {
-        range_samplers = new RangeSampler<TreeletTable::treelet_count_t>*[graph->number_of_vertices()];
-        root_sampler = new AliasMethodSampler<UndirectedGraph::vertex_t,TreeletTable::treelet_count_t>(graph->number_of_vertices());
-        for(UndirectedGraph::vertex_t u=0; u<graph->number_of_vertices(); u++)
-        {
-            range_samplers[u] = ttc->get_table(size)->build_range_sampler(u, selector);
-            root_sampler->set(u, range_samplers[u]->get_total_length());
-        }
+}
 
-        root_sampler->build();
+void TreeletSampler::set_selector(TreeletSelector *selector, unsigned int nthreads)
+{
+    if(this->selector)
+    {
+        for(UndirectedGraph::vertex_t u=0; u<graph->number_of_vertices(); u++)
+            delete[] range_samplers[u];
+
+        delete range_samplers;
+        delete root_sampler;
+        range_samplers = nullptr;
+        root_sampler = nullptr;
     }
 
+    if(selector == nullptr)
+        return;
+
+    range_samplers = new RangeSampler<TreeletTable::treelet_count_t>*[graph->number_of_vertices()];
+    root_sampler = new AliasMethodSampler<UndirectedGraph::vertex_t,TreeletTable::treelet_count_t>(graph->number_of_vertices());
+
+    if(nthreads<=1)
+    {
+        for (UndirectedGraph::vertex_t u = 0; u < graph->number_of_vertices(); u++)
+        {
+            range_samplers[u] = table_collection->get_table(size)->build_range_sampler(u, selector);
+            root_sampler->set(u, range_samplers[u]->get_total_length());
+        }
+    }
+    else
+    {
+        std::thread *worker_threads = new std::thread[nthreads];
+        auto* sequencer = new DynamicSequencer<UndirectedGraph::vertex_t>(0, graph->number_of_vertices()-1, nthreads);
+        for (unsigned int i = 0; i < nthreads; i++)
+        {
+            worker_threads[i] = std::thread( [this, sequencer] {populate_root_and_range_sampler_mt(sequencer);});
+        }
+
+        for (unsigned int i = 0; i < nthreads; i++)
+            worker_threads[i].join();
+
+        delete[] worker_threads;
+        delete sequencer;
+
+    }
+
+    for (UndirectedGraph::vertex_t u = 0; u < graph->number_of_vertices(); u++)
+        root_sampler->set(u, range_samplers[u]->get_total_length());
+
+    root_sampler->build();
+
 }
+
+void TreeletSampler::populate_root_and_range_sampler_mt(DynamicSequencer<UndirectedGraph::vertex_t>* sequencer)
+{
+    while(true)
+    {
+        DynamicSequencer<UndirectedGraph::vertex_t>::sequence_batch_t batch = sequencer->next_batch();
+        if (batch.from >= batch.to)
+            break;
+
+        for (UndirectedGraph::vertex_t u = batch.from; u < batch.to; u++) {
+            range_samplers[u] = table_collection->get_table(size)->build_range_sampler(u, selector);
+        }
+    }
+}
+
+
 
 TreeletSampler::~TreeletSampler()
 {
@@ -111,6 +168,7 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
     return ( complement.is_singleton() || sample_rooted_occurrence(complement, u, occurrence + child_treelet.number_of_vertices()) ) &&
             sample_rooted_occurrence(child_treelet, child_vertex, occurrence+1);
 }
+
 
 
 

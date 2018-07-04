@@ -8,6 +8,7 @@
 #include "../common/treelets/Treelet.h"
 #include "../common/treelets/TreeletTableCollection.h"
 #include "../common/treelets/TreeletSelector.h"
+#include "../common/sequencer/DynamicSequencer.h"
 
 class TreeletSampler
 {
@@ -21,8 +22,10 @@ private:
     RangeSampler<TreeletTable::treelet_count_t>** range_samplers = nullptr;
     AliasMethodSampler<UndirectedGraph::vertex_t,TreeletTable::treelet_count_t>* root_sampler = nullptr;
 
+    void populate_root_and_range_sampler_mt(DynamicSequencer<UndirectedGraph::vertex_t>* sequencer);
+
 public:
-    TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, const unsigned int size, Random* rng, TreeletSelector* selector = nullptr);
+    TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, const unsigned int size, Random* rng);
     ~TreeletSampler();
 
     ///Samples an occurrence of @param t rooted in @param u
@@ -54,6 +57,8 @@ public:
     }
 
     TreeletSelector *get_selector() {return selector;}
+
+    void set_selector(TreeletSelector *selector, unsigned int nthreads);
 };
 
 

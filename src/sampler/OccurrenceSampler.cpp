@@ -359,9 +359,11 @@ OccurrenceSampler::OccurrenceSampler(UndirectedGraph *graph, TreeletTableCollect
 		graph(graph), ttc(ttc), size(size), rng(rng), vertices(vertices), graphlets(graphlets), spanning_trees_no(
 				spanning_trees_no), footprints(footprints), canonicize(canonicize), no_rejection(
 				no_rejection), text(text), group_same(group_same), output(out), number_of_threads(
-				number_of_threads), sampler(graph, ttc, size, rng, selector), tot_treelets(
+				number_of_threads), sampler(graph, ttc, size, rng), tot_treelets(
 				tot_treelets), store_only_0(store_only_0) {
 	if (number_of_threads == 0)
 		throw std::runtime_error("Invalid number of threads");
+
+	sampler.set_selector(selector, number_of_threads);
 }
 
