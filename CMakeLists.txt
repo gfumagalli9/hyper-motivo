@@ -261,50 +261,6 @@ add_dependencies(motivo-treelet-counts hg_id)
 add_dependencies(motivo-tests hg_id)
 
 
-
-find_package(MPI)
-
-if(MPI_FOUND)
-    set(COMMON_MPI_SOURCE_FILES src/mpi/protocol.h src/mpi/MotivoMPIContext.h src/mpi/MotivoMPIContext.cpp src/mpi/MPISequencer.h src/mpi/MPIRemoteCompressedRecordFile.h)
-
-    set(TABLESERVER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/mpi/tableserver.cpp )
-    set(MASTERBUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/builder/mpi/master_builder.cpp src/builder/builder.h src/builder/builder.cpp)
-    set(SLAVEBUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/builder/mpi/slave_builder.cpp src/builder/builder.h src/builder/builder.cpp src/builder/TreeletTableBuilder.h src/builder/TreeletTableBuilder.cpp)
-    set(MASTERSAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/sampler/mpi/master_sampler.cpp src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp)
-    set(SLAVESAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} ${COMMON_MPI_SOURCE_FILES} src/sampler/mpi/slave_sampler.cpp src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp src/sampler/Occurrence.h src/sampler/Occurrence.cpp src/sampler/TreeletSampler.h src/sampler/TreeletSampler.cpp)
-
-    set(TABLESERVER_LIBRARIES ${COMMON_LIBRARIES} ${MPI_LIBRARIES})
-    set(MASTERBUILDER_LIBRARIES  ${COMMON_LIBRARIES} ${MPI_LIBRARIES})
-    set(SLAVEBUILDER_LIBRARIES  ${BUILDER_LIBRARIES} ${MPI_LIBRARIES})
-    set(MASTERSAMPLER_LIBRARIES  ${COMMON_LIBRARIES} ${MPI_LIBRARIES})
-    set(SLAVESAMPLER_LIBRARIES  ${SAMPLER_LIBRARIES} ${MPI_LIBRARIES})
-
-    add_executable(motivo-tableserver ${TABLESERVER_SOURCE_FILES})
-    add_executable(motivo-build-master ${MASTERBUILDER_SOURCE_FILES})
-    add_executable(motivo-build-slave ${SLAVEBUILDER_SOURCE_FILES})
-    add_executable(motivo-sample-master ${MASTERSAMPLER_SOURCE_FILES})
-    add_executable(motivo-sample-slave ${SLAVESAMPLER_SOURCE_FILES})
-
-    target_link_libraries(motivo-tableserver ${TABLESERVER_LIBRARIES})
-    target_link_libraries(motivo-build-master ${MASTERBUILDER_LIBRARIES})
-    target_link_libraries(motivo-build-slave ${SLAVEBUILDER_LIBRARIES})
-    target_link_libraries(motivo-sample-master ${MASTERSAMPLER_LIBRARIES})
-    target_link_libraries(motivo-sample-slave ${SLAVESAMPLER_LIBRARIES})
-
-    include_directories(SYSTEM ${MPI_INCLUDE_PATH})
-    set_target_properties(motivo-tableserver PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
-    set_target_properties(motivo-build-master  PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
-    set_target_properties(motivo-build-slave PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
-    set_target_properties(motivo-sample-master PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
-    set_target_properties(motivo-sample-slave PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
-
-    add_dependencies(motivo-tableserver hg_id)
-    add_dependencies(motivo-build-master hg_id)
-    add_dependencies(motivo-build-slave hg_id)
-    add_dependencies(motivo-sample-master hg_id)
-    add_dependencies(motivo-sample-slave hg_id)
-endif()
-
 if(PROFILE)
   set_target_properties(motivo-build PROPERTIES LINK_FLAGS "-lprofiler")
   set_target_properties(motivo-merge PROPERTIES LINK_FLAGS "-lprofiler")
@@ -325,13 +281,6 @@ INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/build-many.sh DESTINATION share/motivo
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/build-and-sample.sh DESTINATION share/motivo)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/loe_to_graph.py DESTINATION share/motivo)
 
-if(MPI_FOUND)
-    INSTALL(TARGETS motivo-build-master DESTINATION bin)
-    INSTALL(TARGETS motivo-build-slave DESTINATION bin)
-    INSTALL(TARGETS motivo-sample-master DESTINATION bin)
-    INSTALL(TARGETS motivo-sample-slave DESTINATION bin)
-    INSTALL(TARGETS motivo-tableserver DESTINATION bin)
-endif()
 
 string(STRIP "${MOTIVO_FLAGS}" MOTIVO_FLAGS)
 configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)

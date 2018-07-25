@@ -26,12 +26,11 @@ private:
 
 public:
 	TreeletSelector(const mode_t mode, const unsigned int treelet_size = 0) :
-			mode(mode), treelet_size(treelet_size) {
-	}
+			mode(mode), treelet_size(treelet_size)
+    {}
 
-	TreeletSelector(const std::string& filename, const unsigned int treelet_size = 0) :
-			treelet_size(treelet_size) {
-
+	TreeletSelector(const std::string& filename, const unsigned int treelet_size = 0) : treelet_size(treelet_size)
+    {
 		std::ifstream ifs(filename, std::ifstream::binary);
 		if (!ifs.is_open())
 			throw std::runtime_error("Could not open file " + filename);
@@ -52,27 +51,30 @@ public:
 
 		std::sort(treelets, treelets + size);
 
-		for (unsigned int i = 1; i < size; i++) {
-			if ((treelets[i - 1] == treelets[i])
-					|| (!treelets[i - 1].is_colored()
-							&& treelets[i - 1].get_structure() == treelets[i].get_structure()))
+		for (unsigned int i = 1; i < size; i++)
+		{
+			if ((treelets[i - 1] == treelets[i]) || (!treelets[i - 1].is_colored() && treelets[i - 1].get_structure() == treelets[i].get_structure()))
 				throw std::runtime_error("Duplicate or redudant treelet selection pattern");
 		}
 	}
 
-	~TreeletSelector() {
+	~TreeletSelector()
+    {
 		delete[] treelets;
 	}
 
-	uint64_t get_size() {
+	uint64_t get_size()
+    {
 		return size;
 	}
 
-	mode_t get_mode() {
+	mode_t get_mode()
+    {
 		return mode;
 	}
 
-	void add_treelet(Treelet treelet, bool sort_treelets = false) {
+	void add_treelet(Treelet treelet, bool sort_treelets = false)
+    {
 		if (treelet_size != 0 && treelet.number_of_vertices() != treelet_size)
 			return;
 
@@ -90,10 +92,10 @@ public:
 			std::sort(treelets, treelets + size);
 	}
 
-	const Treelet* get_treelets() {
+	const Treelet* get_treelets() const
+    {
 		return treelets;
-	}
-	;
+	};
 
 	unsigned int get_treelet_size() const {
 		return treelet_size;
@@ -115,32 +117,29 @@ public:
 	}
 
 	/**
-	 * A selector that includes only the stars on k nodes
+	 * A selector that only includes/excludes the stars on k nodes
 	 */
-	static TreeletSelector get_star_includer(int k) {
-		TreeletSelector ts(TreeletSelector::MODE_INCLUDE, k);
-		Treelet::treelet_structure_t s = 0;
+	static TreeletSelector get_star_selector(unsigned int k, TreeletSelector::mode_t mode)
+	{
+		TreeletSelector ts(mode, k);
+		Treelet::treelet_structure_t structure = 0;
+
 		// the k-star rooted at the center
-		for (int i = 0; i < k - 1; i++)
-			s |= Treelet::treelet_structure_highest_bit >> i * 2;
-		ts.add_treelet(Treelet(s, 0), true);
-		if (k > 2) {
-			// the k-star rooted at one leaf
-			s <<= 1;
-			s |= Treelet::treelet_structure_highest_bit;
-			ts.add_treelet(Treelet(s, 0), true);
+		for (unsigned int i = 0; i < k - 1; i++)
+            structure |= (Treelet::treelet_structure_highest_bit >> (i * 2));
+
+		ts.add_treelet(Treelet(structure, 0), true);
+
+        // the k-star rooted at one leaf
+        if (k > 2)
+		{
+            structure = (structure << 1) | Treelet::treelet_structure_highest_bit;
+			ts.add_treelet(Treelet(structure, 0), true);
 		}
+
 		return ts;
 	}
 
-	/**
-	 * A selector that excludes only the stars on k nodes
-	 */
-	static TreeletSelector get_star_excluder(int k) {
-		TreeletSelector ts = get_star_includer(k);
-		ts.mode = TreeletSelector::MODE_EXCLUDE;
-		return ts;
-	}
 
 };
 

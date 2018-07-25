@@ -38,8 +38,6 @@ private:
 	UndirectedGraph *graph;
 	TreeletTableCollection *ttc;
 	const unsigned int size;
-	const uint128_t tot_treelets;
-	const bool store_only_0;
 	Random *rng;
 
 	const bool vertices;
@@ -58,10 +56,6 @@ private:
 
 	void do_sample_st[[gnu::hot, gnu::flatten]] (table_t* count_table, int num_samples);
 	void do_sample_mt [[gnu::hot, gnu::flatten]] (sequencer_t *sequencer, ConcurrentWriter *writer, table_t* count_table, int num_samples);
-
-	void merge_tables(table_t **count_tables);
-	void write_table(table_t *count_table);
-	void write_table_2(table_t *count_table);
 
 	char* write(Occurrence *occurrence, char* buf);
 
@@ -98,12 +92,11 @@ public:
 		}
 	}
 
-	void sample(int n_samples);
-	table_t* sample(int n_samples, int number_of_threads);
+	table_t* sample(const unsigned int n_samples); //FIXME: Type
 
 	OccurrenceSampler(UndirectedGraph *graph, TreeletTableCollection* ttc, unsigned int size, Random *rng,
 			bool vertices, bool graphlets, bool spanning_trees_no, bool footprints, bool canonicize, bool no_rejection,
-			bool text, bool group_same, std::ostream *out, unsigned int number_of_threads, TreeletSelector* selector = nullptr, uint128_t tot_treelets = 0, bool store_only_0 = false);
+			bool text, bool group_same, std::ostream *out, unsigned int number_of_threads, TreeletSelector* selector = nullptr);
 };
 
 #endif //MOTIVO_OCCURRENCESAMPLER_H

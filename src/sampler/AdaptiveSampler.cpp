@@ -53,7 +53,7 @@ AdaptiveSampler::~AdaptiveSampler() {
 }
 
 void AdaptiveSampler::sample_one(Occurrence* occurrence) {
-	sampler->sample_one(occurrence);
+	sampler->sample_one(occurrence); //FIXME: remove and replace usages by definition
 }
 
 /**
@@ -121,8 +121,7 @@ void AdaptiveSampler::updateSampler() {
 	delete sampler;
 	sampler = new OccurrenceSampler(g, ttc, size, rng, opts.vertices, opts.graphlets,
 			opts.spanning_trees, opts.footprints, opts.canonicize, opts.norejection, opts.text,
-			opts.group, nullptr, opts.threads, treeletSelector, opts.tot_treelets,
-			opts.store_only_0);
+			opts.group, nullptr, opts.threads, treeletSelector);
 	std::cout << "using treelet " << currentTreelet.get_structure() << std::endl;
 }
 

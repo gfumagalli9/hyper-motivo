@@ -62,7 +62,7 @@ public:
 	 */
 	uint64_t sample(Random* rng) {
 		assert(total_weight > 0);
-		double x = total_weight * ((double)rng->random_uint(0, RAND_MAX) / RAND_MAX);
+		double x = total_weight * ((double)rng->random_uint(0, RAND_MAX) / RAND_MAX); //FIXME!
 		double* r = weights;
 		while(x >= *r) {
 			x -= *r;

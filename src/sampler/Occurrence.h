@@ -121,8 +121,8 @@ public:
 		bool check_footprints;
 		bool check_vertices;
 		OccurrenceHash(bool check_footprints = true, bool check_vertices = false) :
-		check_footprints(check_footprints), check_vertices(check_vertices) {
-		}
+		check_footprints(check_footprints), check_vertices(check_vertices)
+		{}
 
 		inline size_t operator()[[gnu::hot,gnu::flatten]] (const Occurrence &key) const
 		{
