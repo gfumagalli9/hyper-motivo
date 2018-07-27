@@ -28,7 +28,7 @@ private:
 
 public:
     CompressedRecordFileReader() = default;
-    CompressedRecordFileReader(const std::string& filename)
+    explicit CompressedRecordFileReader(const std::string& filename)
     {
         open(filename);
     }

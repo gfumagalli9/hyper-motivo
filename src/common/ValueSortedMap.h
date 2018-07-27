@@ -13,28 +13,25 @@
 /**
  * A map that keeps the elements sorted in nondecreasing order of value V.
  */
-template<typename K, typename V> class ValueSortedMap {
+template<typename K, typename V> class ValueSortedMap
+{
+
 private:
-	struct pairCompare {
-		inline bool operator()(const std::pair<K, V> &p1, const std::pair<K, V> &p2) {
-			return (p1.second < p2.second) || ((p1.second == p2.second) && (p1.first < p2.first));
+	struct pairCompare
+	{
+		inline bool operator()(const std::pair<K, V> &p1, const std::pair<K, V> &p2)
+		{
+			return (p1.second < p2.second) || ((p1.second <= p2.second) && (p1.first < p2.first)); //Use <= instead of = to silence warning
 		}
 	};
+
 	std::map<K, V> m1;
 	std::map<std::pair<K, V>, bool, pairCompare> m2;
+
 public:
-	ValueSortedMap<K, V>() {
-	}
-
-	~ValueSortedMap<K, V>() {
-	}
-
-	inline int size() {
+	inline uint64_t size()
+	{
 		return m2.size();
-	}
-
-	inline bool empty() {
-		return m1.empty();
 	}
 
 	inline void erase(const K &key) {
@@ -86,12 +83,11 @@ public:
 		return m1[key];
 	}
 
-	friend std::ostream& operator<<(std::ostream& os, const ValueSortedMap<K, V>& st) {
-		for (auto it : st.m2) {
-			os << it.first.first.get_structure();
-			os << "," << it.first.second;
-			os << std::endl;
-		}
+	friend std::ostream& operator<<(std::ostream& os, const ValueSortedMap<K, V>& st)
+    {
+		for (const auto &it : st.m2)
+			os << it.first.first.get_structure() << "," << it.first.second << "\n";
+
 		return os;
 	}
 

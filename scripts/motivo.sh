@@ -174,7 +174,7 @@ if [ "$SMART" == "YES" ]; then
     SELECTIVE_FILE=exclude-star-$SIZE.txt
     EXTRA_SAMPLE_OPTS+=(--smart-stars)
 elif [ "$ADAPTIVE" == "YES" ]; then
-    EXTRA_SAMPLE_OPTS+=(--adaptive)    
+    EXTRA_SAMPLE_OPTS+=(--estimate-occurrences-adaptive)
 fi
 
 if [ "$SELECTIVE_FILE" != "" ]; then
@@ -183,7 +183,7 @@ fi
 
 echo -en "\t\t"
 echo "[$(date)] Sampling..." >> $LOGFILE
-($TIME $BUILDPATH/motivo-sample --graph "$GRAPH" --size "$SIZE" -n "$NSAMPLES" -i "$OUTPUT" -t -c --graphlets -o "$OUTPUT" --spanning-trees-no --footprints --no-rejection --group --threads "$THREADS" ${EXTRA_SAMPLE_OPTS[@]} > "$OUTPUT.s$SIZE.log" 2>&1) || exit 1
+($TIME $BUILDPATH/motivo-sample --graph "$GRAPH" --size "$SIZE" -n "$NSAMPLES" -i "$OUTPUT" -c --graphlets -o "$OUTPUT" --threads "$THREADS" ${EXTRA_SAMPLE_OPTS[@]} > "$OUTPUT.s$SIZE.log" 2>&1) || exit 1
 echo $(get_walltime "$OUTPUT.s${SIZE}.log")
 echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,sample,0,$NSAMPLES,$(get_nthreads "$OUTPUT.s$SIZE.log"),$(get_walltime "$OUTPUT.s$SIZE.log"),$(get_usertime "$OUTPUT.s$SIZE.log"),$(get_systemtime "$OUTPUT.s$SIZE.log"),$(get_actualtime "$OUTPUT.s$SIZE.log")" >> $TIMEFILE
 

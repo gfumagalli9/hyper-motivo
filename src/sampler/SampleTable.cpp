@@ -5,60 +5,62 @@
  *      Author: brix
  */
 
+#include <map>
 #include "SampleTable.h"
 #include "../common/SpanningTreeCounter.h"
 #include "../common/common.h"
 
-SampleTable::SampleTable() {
-}
 
 /**
- * Take an (Occurrence, count) table and calculates spanning trees, estimates frequencies, etc
+ * Take an Occurrence collection and calculates spanning trees, estimates frequencies, etc
  */
-SampleTable::SampleTable(table_t* t, TreeletSelector* ts) {
-	if (t->size() == 0)
+SampleTable::SampleTable(Occurrence *occurrences, uint64_t noccurrences, TreeletSelector *ts)
+{
+    num_samples = noccurrences;
+    if (noccurrences == 0)
 		return;
 
-	table_t::const_iterator it = t->begin();
-	int k = ((Occurrence) t->begin()->first).get_size(); // graphlet size
-	// Let's check if the TreeletSelector is excluding just k-stars...
-	bool exclude_only_stars = ts && ts->get_treelet_size() == k
-			&& ts->get_mode() == TreeletSelector::MODE_EXCLUDE && ts->get_size() == 2;
-	if (exclude_only_stars)
-		for (int i = 0; i < ts->get_size(); i++)
-			exclude_only_stars &= ts->get_treelets()[i].is_star();
-	// Let's check if the TreeletSelector is including just k-stars...
-	bool include_only_stars = ts && ts->get_treelet_size() == k
-			&& ts->get_mode() == TreeletSelector::MODE_INCLUDE && ts->get_size() == 2;
-	if (include_only_stars)
-		for (int i = 0; i < ts->get_size(); i++)
-			include_only_stars &= ts->get_treelets()[i].is_star();
+	unsigned int k = occurrences->get_size(); // graphlet size
 
-	SpanningTreeCounter stc;
-	num_samples = 0;
-	double normalized_samples = 0;
+	// Let's check if the TreeletSelector is excluding just k-stars...
+	bool exclude_only_stars = ts!=nullptr && ts->get_treelet_size() == k && ts->get_mode() == TreeletSelector::MODE_EXCLUDE && ts->get_size() == 2;
+    for (unsigned int i = 0; i < ts->get_size() && exclude_only_stars; i++)
+        exclude_only_stars = exclude_only_stars && ts->get_treelets()[i].is_star();
+
+	// Let's check if the TreeletSelector is including just k-stars...
+    bool include_only_stars = ts!=nullptr && ts->get_treelet_size() == k && ts->get_mode() == TreeletSelector::MODE_INCLUDE && ts->get_size() == 2;
+    for (unsigned int i = 0; i < ts->get_size() && include_only_stars; i++)
+        include_only_stars = include_only_stars && ts->get_treelets()[i].is_star();
+
+    //Aggregate occurrences by footprint /
+    google::dense_hash_map<Occurrence*, uint64_t,OccurrenceFootprintHash, OccurrenceFootprintEquality> ht(noccurrences);
+    for(uint64_t i=0; i<noccurrences; i++)
+        ht[&occurrences[i]]+=1;
+
+    SpanningTreeCounter stc;
+    double normalized_samples = 0;
 	// populate the table
-	while (it != t->end()) {
+	for(const auto& kv : ht) //Not const because we need to invoke Occurrence::text_footprint()
+	{
 		Entry e;
-		e.occ = it->first;
-		e.fingerprint = std::string(e.occ.text_footprint());
-		e.sample_count = it->second;
+		//e.occ = occurrences[i];
+		e.fingerprint =  kv.first->text_footprint();
+		e.sample_count = kv.second;
+
 		if (exclude_only_stars)
-			e.num_spanning_trees = stc.num_spanning_trees_nostars(e.occ);
+			e.num_spanning_trees = stc.num_spanning_trees_nostars(*kv.first);
 		else if (include_only_stars)
-			e.num_spanning_trees = stc.num_spanning_stars(e.occ);
+			e.num_spanning_trees = stc.num_spanning_stars(*kv.first);
 		else
-			e.num_spanning_trees = stc.num_spanning_trees(e.occ, ts);
-		num_samples += e.sample_count;
-		normalized_samples += (double) e.sample_count / e.num_spanning_trees;
+			e.num_spanning_trees = stc.num_spanning_trees(*kv.first, ts);
+
+		normalized_samples += static_cast<double>(e.sample_count) / static_cast<double>(e.num_spanning_trees);
 		entries.push_back(e);
-		it++;
 	}
+
 	// compute the estimate graph frequency
-	for (Entry &e : entries) {
-		e.estimate_graph_frequency = (double) e.sample_count
-				/ (e.num_spanning_trees * normalized_samples);
-	}
+	for (Entry &e : entries)
+		e.estimate_graph_frequency = static_cast<double>(e.sample_count) / (static_cast<double>(e.num_spanning_trees) * normalized_samples);
 }
 
 void SampleTable::addEntry(SampleTable::Entry e) {
@@ -70,26 +72,26 @@ void SampleTable::addEntry(SampleTable::Entry e) {
  * Estimate the total number of occurrences in the graph
  * num_graph_treelets is (an estimate of) the total number of treelets in the graph (not only the colorful ones)
  */
-void SampleTable::estimateOccurrences(double num_graph_treelets, bool store_only_0) {
-	for (Entry &e : entries) {
-		int k = e.occ.get_size();
-		e.estimate_graph_occurrences = (1.0 * e.sample_count / num_samples)
-				* (1.0 * num_graph_treelets / (e.num_spanning_trees * (store_only_0 ? 1 : k)));
-
-	}
+void SampleTable::estimateOccurrences(double num_graph_treelets, unsigned int k, bool store_only_0)
+{
+	for (auto &e : entries)
+		e.estimate_graph_occurrences = (static_cast<double>(e.sample_count) / static_cast<double>(num_samples)) *
+		        (num_graph_treelets / static_cast<double>(e.num_spanning_trees * (store_only_0 ? 1 : k)));
 }
 
 /**
  * Estimate the relative frequency, from the number of estimated occurrences (i.e. just a normalization)
  */
-void SampleTable::estimateFrequencies() {
+void SampleTable::estimateFrequencies()
+{
 	double tot_occ = 0;
+
 	for (Entry &e : entries)
 		tot_occ += e.estimate_graph_occurrences;
-	if (tot_occ)
-		for (Entry &e : entries) {
+
+	if (tot_occ>0)
+		for (Entry &e : entries)
 			e.estimate_graph_frequency = e.estimate_graph_occurrences / tot_occ;
-		}
 }
 
 /**
@@ -102,53 +104,10 @@ std::string SampleTable::header() {
 /**
  * Sort entries in nonincreasing order of estimate_graph_occurrences
  */
-void SampleTable::sort_by_estimate_occ() {
-	std::multimap<double, Entry> sorted;
-	for (Entry e : entries)
-		sorted.insert(std::pair<double, SampleTable::Entry>(e.estimate_graph_occurrences, e));
-	entries.clear();
-	for (auto it = sorted.rbegin(); it != sorted.rend(); it++)
-		entries.push_back(it->second);
-}
-
-/**
- * Sort entries in nonincreasing order of estimate_graph_frequency
- */
-void SampleTable::sort_by_estimate_freq() {
-	std::multimap<double, Entry> sorted;
-	for (Entry e : entries)
-		sorted.insert(std::pair<double, SampleTable::Entry>(e.estimate_graph_frequency, e));
-	entries.clear();
-	for (auto it = sorted.rbegin(); it != sorted.rend(); it++)
-		entries.push_back(it->second);
-}
-
-/**
- * Sort entries in increasing order of fingerprint
- */
-void SampleTable::sort_by_fingerprint() {
-	std::multimap<std::string, Entry> sorted;
-	for (Entry e : entries)
-		sorted.insert(std::pair<std::string, SampleTable::Entry>(e.fingerprint, e));
-	entries.clear();
-	for (auto it = sorted.rbegin(); it != sorted.rend(); it++)
-		entries.push_back(it->second);
-}
-
-/**
- * Sort entries in nonincreasing order of sample_count
- */
-void SampleTable::sort_by_sample_count() {
-	std::multimap<uint64_t, Entry> sorted;
-	for (Entry e : entries)
-		sorted.insert(std::pair<uint64_t, SampleTable::Entry>(e.sample_count, e));
-	entries.clear();
-	for (auto it = sorted.rbegin(); it != sorted.rend(); it++)
-		entries.push_back(it->second);
-}
-
-SampleTable::~SampleTable() {
-// TODO Auto-generated destructor stub
+void SampleTable::sort_by_estimate_occ()
+{
+    std::sort(entries.begin(), entries.end(),
+              [] (const Entry &e1, const Entry &e2) { return e1. estimate_graph_occurrences < e2.estimate_graph_occurrences; }  );
 }
 
 /**
@@ -163,30 +122,39 @@ SampleTable::~SampleTable() {
  *	e.estimate_graph_occurrences is obtained as an appropriate average of the two tables
  *
  */
-SampleTable SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2) {
+SampleTable SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2)
+{
 	SampleTable t;
 	std::map<std::string, SampleTable::Entry> merged;
 	std::map<std::string, double> weights;
-	int s = t.num_samples = t1.get_num_samples() + t2.get_num_samples();
-	double p1 = 1.0 * t1.get_num_samples() / s;
-	double p2 = 1.0 * t2.get_num_samples() / s;
-	for (SampleTable::Entry e : t1.get_entries()) {
+	uint64_t s = t.num_samples = t1.get_num_samples() + t2.get_num_samples();
+	double p1 = static_cast<double>(t1.get_num_samples()) / static_cast<double>(s);
+	double p2 = static_cast<double>(t2.get_num_samples()) / static_cast<double>(s);
+
+	for (SampleTable::Entry e : t1.entries)
+	{
 		merged[e.fingerprint].sample_count += e.sample_count;
-		merged[e.fingerprint].occ = e.occ;
-		weights[e.fingerprint] += p1 * e.num_spanning_trees / tcount1;
+		//merged[e.fingerprint].occ = e.occ;
+		weights[e.fingerprint] += p1 * static_cast<double>(e.num_spanning_trees) / tcount1;
 	}
-	for (SampleTable::Entry e : t2.get_entries()) {
+
+	for (SampleTable::Entry e : t2.entries)
+	{
 		merged[e.fingerprint].sample_count += e.sample_count;
-		merged[e.fingerprint].occ = e.occ;
-		weights[e.fingerprint] += p2 * e.num_spanning_trees / tcount2;
+		//merged[e.fingerprint].occ = e.occ;
+		weights[e.fingerprint] += p2 * static_cast<double>(e.num_spanning_trees) / tcount2;
 	}
+
 	double tot_est_occ = 0;
-	for (auto& kv : merged) {
+	for (auto& kv : merged)
+	{
 		SampleTable::Entry& e = kv.second;
-		e.estimate_graph_occurrences = e.sample_count / (s * weights[kv.first]);
+		e.estimate_graph_occurrences = static_cast<double>(e.sample_count) / (static_cast<double>(s) * weights[kv.first]);
 		tot_est_occ += e.estimate_graph_occurrences;
 	}
-	for (auto& kv : merged) {
+
+	for (auto& kv : merged)
+	{
 		SampleTable::Entry e = kv.second;
 		e.fingerprint = kv.first;
 		e.estimate_graph_frequency = e.estimate_graph_occurrences / tot_est_occ;
@@ -198,14 +166,15 @@ SampleTable SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1,
 /**
  * Prints the table in the natural format.
  */
-std::ostream& operator<<(std::ostream& os, const SampleTable& st) {
-	for (SampleTable::Entry& e : st.get_entries()) {
-		os << e.fingerprint;
-		os << "," << e.sample_count;
-		os << "," << e.num_spanning_trees;
-		os << "," << e.estimate_graph_frequency;
-		os << "," << e.estimate_graph_occurrences;
-		os << std::endl;
+std::ostream& operator<<(std::ostream& os, const SampleTable& st)
+{
+	for (const SampleTable::Entry& e : st.entries) {
+		os << e.fingerprint
+		   << "," << e.sample_count
+           << "," << e.num_spanning_trees
+           << "," << e.estimate_graph_frequency
+           << "," << e.estimate_graph_occurrences
+           << "\n";
 	}
 	return os;
 }

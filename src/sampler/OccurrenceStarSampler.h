@@ -8,38 +8,40 @@
 #ifndef SRC_SAMPLER_OCCURRENCESTARSAMPLER_H_
 #define SRC_SAMPLER_OCCURRENCESTARSAMPLER_H_
 
-#include <google/dense_hash_map>
-#include <map>
-
 #include "../common/graph/UndirectedGraph.h"
-#include "../common/RangeSampler.h"
+#include "../common/AliasMethodSampler.h"
 #include "Occurrence.h"
-#include "OccurrenceSampler.h"
 #include "../common/sequencer/DynamicSequencer.h"
-#include "../common/io/ConcurrentWriter.h"
-#include "../common/DiscreteDistribution.h"
 
-class OccurrenceStarSampler {
-private:
-	UndirectedGraph *g; // the host graph
-	unsigned int size; // k, the size of the stars
-	Random *rng; // random number generator
-	bool canonicize; // whether to canonicalize the occurrences
-	bool no_rejection; // if true, keep all occurrences; if false, use rejection sampling
-	bool group_same; // group by isomorphism class
-//	RangeSampler<UndirectedGraph::vertex_t>* root_sampler;
-	DiscreteDistribution* root_sampler = nullptr;
+class OccurrenceStarSampler
+{
 public:
-	OccurrenceStarSampler(UndirectedGraph* g, unsigned int size, Random* rng, bool canonicize,
-			bool no_rejection, bool group_same);
-	~OccurrenceStarSampler();
-	void sample_one(Occurrence* occurrence, UndirectedGraph::vertex_t root = -1);
-	void sample_many(OccurrenceSampler::table_t* count_table, int nsamples);
-	OccurrenceSampler::table_t* create_table();
-	OccurrenceSampler::table_t* sample(int nsamples, int nthreads);
-	inline DiscreteDistribution* get_root_sampler() const {
-		return root_sampler;
+    typedef DynamicSequencer<uint64_t> sequencer_t;
+
+private:
+    static constexpr UndirectedGraph::vertex_t sampling_vs_shuffling_degree_threshold = 1024;
+
+	const UndirectedGraph *g; // the host graph
+    const unsigned int size; // k, the size of the stars
+	const bool canonicize; // whether to canonicalize the occurrences
+    const unsigned int number_of_threads;
+
+    AliasMethodSampler<UndirectedGraph::vertex_t, uint128_t>* root_sampler = nullptr;
+
+	void sample_one(Occurrence* occurrence, Random* rng);
+    void do_sample_mt(Occurrence* sampled_occurrences, sequencer_t *sequencer, Random *rng);
+
+
+public:
+    OccurrenceStarSampler(const UndirectedGraph *g, unsigned int size, unsigned int number_of_threads, bool canonicize);
+    ~OccurrenceStarSampler();
+
+    uint128_t number_of_stars() const
+	{
+		return root_sampler->get_total_weight();
 	}
+
+    Occurrence* sample(uint64_t num_samples, Random *rng);
 };
 
 #endif /* SRC_SAMPLER_OCCURRENCESTARSAMPLER_H_ */

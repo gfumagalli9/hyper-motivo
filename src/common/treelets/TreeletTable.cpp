@@ -172,12 +172,12 @@ const Treelet TreeletTable::get_treelet_no(UndirectedGraph::vertex_t root, Treel
 }*/
 
 
-RangeSampler<TreeletTable::treelet_count_t>* TreeletTable::build_range_sampler(const UndirectedGraph::vertex_t u, TreeletSelector* selector)
+RangeSampler<TreeletTable::treelet_count_t>* TreeletTable::build_range_sampler(const UndirectedGraph::vertex_t u, const TreeletSelector* selector)
 {
     Record<const treelet_count_pair_maybe_alias> record = reader->get_record(u);
 
     const treelet_count_pair_maybe_alias* next_to_add = record.begin()+1;
-    RangeSampler<TreeletTable::treelet_count_t>* rs = new RangeSampler<TreeletTable::treelet_count_t>();
+    auto* rs = new RangeSampler<TreeletTable::treelet_count_t>();
 
     if(selector)
     {

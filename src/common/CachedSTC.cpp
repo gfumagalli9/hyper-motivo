@@ -7,35 +7,26 @@
 
 #include "CachedSTC.h"
 
-CachedSTC::CachedSTC() {
-	// TODO Auto-generated constructor stub
-//	table.set_empty_key(Occurrence());
-}
 
-CachedSTC::~CachedSTC() {
-	// TODO Auto-generated destructor stub
-}
-
-struct vertex_info {
+struct vertex_info
+        {
 	char* ptr;
 	uint64_t count = 0;
 };
 
-void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices,
-		vertex_info* info) {
+void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices,vertex_info* info)
+{
 	uint64_t num_treelet_count_pairs = 0;
 	TreeletTable::treelet_count_t num_occ_treelet = 0;
 	uint128_t num_occ_total = 0;
 	uint128_t num_occ_max = 0;
-	bool num_occ_total_overflow = false;
 
 	std::string output_filename = output_basename + ".dtz";
 	CompressedRecordFileWriter writer(output_filename, num_vertices);
 
 	for (UndirectedGraph::vertex_t u = 0; u < num_vertices; u++) {
 		num_treelet_count_pairs += info[u].count;
-		TreeletTable::treelet_count_pair *to_write =
-				new TreeletTable::treelet_count_pair[info[u].count + 1];
+		auto *to_write = new TreeletTable::treelet_count_pair[info[u].count + 1];
 		TreeletTable::treelet_count_pair *p = to_write;
 		p->treelet = Treelet::invalid_treelet;
 		p->count = 0;
@@ -49,8 +40,9 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
 		}
 		writer.write_record(reinterpret_cast<char*>(to_write),
 				(info[u].count + 1) * sizeof(TreeletTable::treelet_count_pair), 0);
-		if (add_overflow(num_occ_total, p->count, &num_occ_total))
-			num_occ_total_overflow = true;
+
+		safe_add(num_occ_total, p->count, &num_occ_total);
+
 		if (p->count > num_occ_max)
 			num_occ_max = p->count;
 		delete[] to_write;
@@ -61,18 +53,19 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
 /**
  * Copied from merger.cpp
  */
-void merge(const std::vector<std::string>& count_filenames, const std::string& output_basename) {
+void merge(const std::vector<std::string>& count_filenames, const std::string& output_basename)
+{
 	const unsigned long no_files = count_filenames.size();
 	UndirectedGraph::vertex_t num_vertices = 0;
-	std::pair<char*, size_t>* cnt_map = new std::pair<char*, size_t>[no_files];
-	FILE** count_files = new FILE*[no_files];
+	auto cnt_map = new std::pair<char*, size_t>[no_files];
+	auto count_files = new FILE*[no_files];
 	vertex_info* info = nullptr;
 	std::vector<bool> seen_vertices;
 
 	for (unsigned int i = 0; i < no_files; i++) {
 		const std::string &filename = count_filenames[i];
 		count_files[i] = fopen(filename.c_str(), "rb");
-		if (count_files[i] == NULL)
+		if (count_files[i] == nullptr)
 			throw std::runtime_error("Unable to open file " + filename);
 		UndirectedGraph::vertex_t nv;
 		fread(&nv, sizeof(UndirectedGraph::vertex_t), 1, count_files[i]);
@@ -192,7 +185,8 @@ CachedSTC::treelet_table_t* CachedSTC::compute_t_table(const Occurrence &o) {
 /**
  * Return the number of occurrences of t in o
  */
-uint64_t CachedSTC::num_spanning_trees(const Occurrence &o, const Treelet &t) {
+uint64_t CachedSTC::num_spanning_trees(const Occurrence &o, const Treelet &t)
+{
 	std::chrono::time_point < std::chrono::steady_clock > tstart = std::chrono::steady_clock::now();
 	if (table.count(o) == 0) {
 		m_mutex.lock();

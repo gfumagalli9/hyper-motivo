@@ -6,6 +6,10 @@
 
 #include "Occurrence.h"
 
+constexpr unsigned int Occurrence::binary_footprint_bits;
+constexpr unsigned int Occurrence::binary_footprint_bytes;
+constexpr unsigned int Occurrence::text_footprint_bytes;
+
 Occurrence::Occurrence(const unsigned int size, const UndirectedGraph *graph, const UndirectedGraph::vertex_t *occ) : size(size)
 {
     for(unsigned int i=0; i<size; i++)
@@ -51,8 +55,8 @@ const char* Occurrence::text_footprint() const
     {
         for(unsigned int i=0; i<binary_footprint_bytes; i++)
         {
-            text_footprint_buffer[2*i]= static_cast<char>('A'+ (edges[i]>>4));
-            text_footprint_buffer[2*i+1]= static_cast<char>('A'+ (edges[i] & 0x0F));
+            text_footprint_buffer[2*i]= static_cast<char>('A'+ (edges[i]>>4u));
+            text_footprint_buffer[2*i+1]= static_cast<char>('A'+ (edges[i] & 0x0Fu));
         }
     }
 
@@ -77,7 +81,7 @@ uint64_t Occurrence::number_of_spanning_trees() const
         return spanning_trees=1;
     }
 
-    double* matrix = new double[(size-1)*(size-1)];
+    auto matrix = new double[(size-1)*(size-1)];
 
     //Compute the num_vertices-1 x num_vertices-1 submatrix of the Laplacian matrix of the subgraph of G induced by "subgraph"
     unsigned int nedges=0;

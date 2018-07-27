@@ -130,12 +130,14 @@ public:
 	 * Return TRUE iff the treelet is a star
 	 * From above: a star is always in the form (10)*(00)*
 	 */
-	inline bool is_star() const {
+	inline bool is_star() const
+	{
 		bool star = false;
 		treelet_structure_t s = structure;
 		// if the star is rooted at one leaf, we make it rooted at the center (and remove that leaf)
 		if ((s >> (treelet_structure_bits - 2) & 0x3) == 0x3)
-		s <<= 1;
+			s <<= 1;
+
 		for (int i = 0; i < treelet_structure_bits / 2; i++) {
 			int x = s & 0x3;
 			s >>= 2;
@@ -153,16 +155,18 @@ public:
 		return star;
 	}
 
-	inline bool operator==(const Treelet& other) const {
+	inline bool operator==(const Treelet& other) const
+	{
 		return structure == other.structure && colors == other.colors;
 	}
-	inline bool operator<(const Treelet& other) const {
-		return (structure > other.structure)
-		|| (structure == other.structure && colors < other.colors);
+
+	inline bool operator<(const Treelet& other) const
+	{
+		return (structure > other.structure) || (structure == other.structure && colors < other.colors);
 	}
-	inline bool operator<=(const Treelet& other) const {
-		return (structure > other.structure)
-		|| (structure == other.structure && colors <= other.colors);
+	inline bool operator<=(const Treelet& other) const
+	{
+		return (structure > other.structure) || (structure == other.structure && colors <= other.colors);
 	}
 };
 

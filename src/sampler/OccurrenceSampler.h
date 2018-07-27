@@ -5,98 +5,82 @@
 #ifndef MOTIVO_OCCURRENCESAMPLER_H
 #define MOTIVO_OCCURRENCESAMPLER_H
 
-#include <google/dense_hash_map>
-#include <map>
-
 #include "../common/graph/UndirectedGraph.h"
 #include "TreeletSampler.h"
 #include "Occurrence.h"
 #include "../common/sequencer/DynamicSequencer.h"
-#include "../common/io/ConcurrentWriter.h"
 
 class OccurrenceSampler {
 public:
 	typedef DynamicSequencer<uint64_t> sequencer_t;
-	typedef google::dense_hash_map<Occurrence, uint64_t, Occurrence::OccurrenceHash,
-			Occurrence::compare_eq> table_t;
-
-	static constexpr size_t buffer_size = 1024 * 1024; //1MiB
-
-	static constexpr unsigned int count_digits_ub = 1 + std::numeric_limits<uint64_t>::digits / 3;
-	static constexpr unsigned int vertex_no_digits_ub = 1
-			+ std::numeric_limits<uint64_t>::digits / 3;
-	static constexpr unsigned int spanning_tree_no_digits_ub = 1
-			+ std::numeric_limits<UndirectedGraph::vertex_t>::digits / 3;
-
-	static constexpr unsigned int max_occurrence_size = count_digits_ub + 1 // count
-			+ Occurrence::text_footprint_bytes + 1 //text footprint
-			+ spanning_tree_no_digits_ub + 1 //spanning trees
-			+ 16 * (vertex_no_digits_ub + 1) //verices
-			+ 1; //newline
 
 private:
-	UndirectedGraph *graph;
+	const UndirectedGraph *graph;
 	TreeletTableCollection *ttc;
 	const unsigned int size;
-	Random *rng;
 
 	const bool vertices;
 	const bool graphlets;
-	const bool spanning_trees_no;
-	const bool footprints;
 	const bool canonicize;
 	const bool no_rejection;
-	const bool text;
-	const bool group_same;
-
-	std::ostream *output;
-	const unsigned int number_of_threads;
 
 	TreeletSampler sampler;
 
-	void do_sample_st[[gnu::hot, gnu::flatten]] (table_t* count_table, int num_samples);
-	void do_sample_mt [[gnu::hot, gnu::flatten]] (sequencer_t *sequencer, ConcurrentWriter *writer, table_t* count_table, int num_samples);
-
-	char* write(Occurrence *occurrence, char* buf);
+	void do_sample_mt [[gnu::hot, gnu::flatten]] (Occurrence* sampled_occurrences, sequencer_t *sequencer, Random *rng);
 
 public:
-	static table_t* create_table(const bool, const bool);
+	inline void sample_one [[gnu::hot]] (Occurrence *occurrence, Random *rng);
 
-	inline void sample_one [[gnu::hot]] (Occurrence *occurrence) {
-		UndirectedGraph::vertex_t sampled_vertices[16];
-		UndirectedGraph::vertex_t root = sampler.sample_root();
-		assert(root < graph->number_of_vertices());
-		Treelet t = sampler.sample_treelet(root);
+	Occurrence * sample(const uint64_t n_samples, unsigned int number_of_threads, Random *rng);
 
-		while (true) {
-			if (vertices || graphlets) //If we want treelets but not the occurrence vertices we can skip sampling
-			{
-#ifndef NDEBUG
-				bool success =
-#endif
-				sampler.sample_rooted_occurrence(t, root, sampled_vertices); //FIXME: Handle case in which there are no treelets
-				assert(success);
-			}
+    OccurrenceSampler(const UndirectedGraph *graph, TreeletTableCollection* ttc, unsigned int size,
+                                         bool vertices, bool graphlets, bool canonicize, bool no_rejection) :
+            graph(graph), ttc(ttc), size(size), vertices(vertices), graphlets(graphlets), canonicize(canonicize),
+            no_rejection(no_rejection), sampler(graph, ttc, size)
+    {}
 
-			if (graphlets) {
-				new (occurrence) Occurrence(size, graph, sampled_vertices);
 
-				if (!no_rejection
-						&& rng->random_uint<uint64_t>(0, occurrence->number_of_spanning_trees() - 1)
-						!= 0)
-				continue; //Rejection
-			} else
-			new (occurrence) Occurrence(t, sampled_vertices);
-
-			break;
-		}
-	}
-
-	table_t* sample(const unsigned int n_samples); //FIXME: Type
-
-	OccurrenceSampler(UndirectedGraph *graph, TreeletTableCollection* ttc, unsigned int size, Random *rng,
-			bool vertices, bool graphlets, bool spanning_trees_no, bool footprints, bool canonicize, bool no_rejection,
-			bool text, bool group_same, std::ostream *out, unsigned int number_of_threads, TreeletSelector* selector = nullptr);
+    void set_selector(const TreeletSelector *selector, unsigned int number_of_threads);
 };
+
+
+
+void OccurrenceSampler::sample_one(Occurrence *occurrence, Random *rng)
+{
+    UndirectedGraph::vertex_t sampled_vertices[16];
+    UndirectedGraph::vertex_t root = sampler.sample_root(rng);
+    assert(root < graph->number_of_vertices());
+    Treelet t = sampler.sample_treelet(root, rng);
+
+    static thread_local OccurrenceCanonicizer canonicizer(size);
+
+
+    while (true)
+    {
+        if (vertices || graphlets) //If we want treelets but not the occurrence vertices we can skip sampling
+        {
+#ifndef NDEBUG
+            bool success =
+#endif
+                    sampler.sample_rooted_occurrence(t, root, sampled_vertices, rng); //FIXME: Handle case in which there are no treelets
+            assert(success);
+        }
+
+        if (graphlets)
+        {
+            new(occurrence) Occurrence(size, graph, sampled_vertices);
+
+            if (!no_rejection && rng->random_uint<uint64_t>(0, occurrence->number_of_spanning_trees() - 1) != 0)
+                continue; //Rejection
+        }
+        else
+            new(occurrence) Occurrence(t, sampled_vertices);
+
+        if(canonicize)
+            canonicizer.canonicize(occurrence);
+
+        break;
+    }
+}
 
 #endif //MOTIVO_OCCURRENCESAMPLER_H

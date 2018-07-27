@@ -24,14 +24,24 @@
 #include "../common/common.h"
 #include "../sampler/OccurrenceSampler.h"
 
-class CachedSTC {
-//	OccurrenceSampler::OccurrenceHash hasher = OccurrenceSampler::OccurrenceHash(true, false);
+class CachedSTC
+{
 public:
+
+	struct OcurrenceFootprintLess
+	{
+		inline bool operator()[[gnu::hot,gnu::flatten]] (const Occurrence &occ1, const Occurrence &occ2) const
+		{
+			return (occ1.is_valid()==occ2.is_valid()) && (memcmp(occ1.binary_footprint(), occ2.binary_footprint(), Occurrence::binary_footprint_bytes) < 0);
+		}
+	};
+
 //	typedef google::dense_hash_map<Treelet, uint64_t, Treelet::TreeletHash, Treelet::compare_eq> treelet_table_t;
 //	typedef google::dense_hash_map<Occurrence, treelet_table_t*, Occurrence::OccurrenceHash,
 //			Occurrence::compare_eq> occurrence_treelet_table_t;
 	typedef std::map<Treelet, uint64_t, Treelet::compare_less> treelet_table_t;
-	typedef std::map<Occurrence, treelet_table_t*, Occurrence::compare_less> occurrence_treelet_table_t;
+	typedef std::map<Occurrence, treelet_table_t*, OcurrenceFootprintLess> occurrence_treelet_table_t;
+
 private:
 	occurrence_treelet_table_t table;
 	treelet_table_t* compute_t_table(const Occurrence &o);
@@ -39,8 +49,6 @@ private:
 	double tot_running_time = 0;
 	double tot_computing_time = 0;
 public:
-	CachedSTC();
-	~CachedSTC();
 	uint64_t num_spanning_trees(const Occurrence &o, const Treelet &t);
 
 	double running_time() {

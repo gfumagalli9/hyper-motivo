@@ -52,11 +52,13 @@ inline std::ostream& operator<<(std::ostream& o, const uint128_t n) {
 /**
  * Convert a string to uint128_t
  */
-inline uint128_t atoi128(std::string const s) {
+inline uint128_t atoi128(std::string const s)
+{
 	uint128_t x = 0;
-	for (int i = 0; i < s.size(); i++) {
+	for (unsigned int i = 0; i < s.size(); i++)
+	{
 		x *= 10;
-		x += s[i] - '0';
+		x += static_cast<unsigned char>(s[i] - '0');
 	}
 	return x;
 }
@@ -64,29 +66,35 @@ inline uint128_t atoi128(std::string const s) {
 /**
  * The probability that a coloring with c colors makes k <= c nodes colorful
  */
-inline double pcol(int k, int c) {
-	if (k > c || k < 0 || c < 0)
+inline double pcol(unsigned int k, unsigned int c)
+{
+	if (k > c)
 		return 0;
-	else {
-		double p = 1;
-		for (int i = 0; i < k; i++)
-			p *= (1 - 1.0 * i / c);
-		return p;
-	}
+
+    double p = 1;
+    for (unsigned int i = 0; i < k; i++)
+        p *= (1 - 1.0 * i / c);
+
+    return p;
 }
 
 /**
  * Binomial coefficient with *some* care for numeric stability.
  */
-inline double binomial(unsigned long n, unsigned long m) {
+inline double binomial(unsigned long n, unsigned long m) //FIXME: types?
+{
 	if (n < m)
 		return 0;
+
 	double b = 1;
 	m = std::max(m, n - m);
+
 	for (unsigned long i = m + 1; i <= n; i++)
-		b *= i;
+		b *= static_cast<double>(i);
+
 	for (unsigned long i = 2; i <= n - m; i++)
-		b /= i;
+		b /= static_cast<double>(i);
+
 	return b;
 }
 

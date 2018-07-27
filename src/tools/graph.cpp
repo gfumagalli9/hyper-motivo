@@ -12,14 +12,15 @@
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/OptionsParser.h"
 
-typedef enum {
+enum TEXT_GRAPH_FORMAT
+{
 	ARC, // each line is in the form "U V"
 	NODE, // each line is in the form "U V1 V2 V3 ...", lines and edges in arbitrary order
 	NODE_DEGREE // line U is in the form "d(U) V1 V2 V3 ..."
-} TEXT_GRAPH_FORMAT;
+} ;
 
-void graph2bin(const std::string &graph_filename, const std::string &output_basename,
-		TEXT_GRAPH_FORMAT fm = NODE_DEGREE) {
+void graph2bin(const std::string &graph_filename, const std::string &output_basename, TEXT_GRAPH_FORMAT fm = NODE_DEGREE)
+{
 	UndirectedGraph::vertex_t num_verts;
 	uint32_t num_edges;
 
@@ -31,63 +32,65 @@ void graph2bin(const std::string &graph_filename, const std::string &output_base
 	std::ofstream edges(output_basename + ".ged", std::ofstream::binary | std::ofstream::trunc);
 
 	UndirectedGraph::vertex_t processed_edges = 0;
-	switch (fm) {
-	case NODE: {
-		stream >> num_verts >> num_edges;
-		offsets.write(reinterpret_cast<const char*>(&num_verts), sizeof(UndirectedGraph::vertex_t));
-		offsets.write(reinterpret_cast<const char*>(&num_edges), sizeof(UndirectedGraph::vertex_t));
-		std::vector<UndirectedGraph::vertex_t>* adj =
-				new std::vector<UndirectedGraph::vertex_t>[num_verts];
-		// Read edges
-		while (!stream.eof()) {
-			UndirectedGraph::vertex_t u;
-			stream >> u;
-			assert(u < num_verts);
-			std::string s;
-			std::getline(stream, s);
-			std::stringstream ss(s);
-			UndirectedGraph::vertex_t v;
-			while (ss >> v) {
-				assert(v < num_verts);
-				adj[u].push_back(v);
-			}
-		}
-		// Write edges
-		processed_edges = 0;
-		for (UndirectedGraph::vertex_t u = 0; u < num_verts; u++) {
-			offsets.write(reinterpret_cast<const char*>(&processed_edges),
-					sizeof(UndirectedGraph::vertex_t));
-			UndirectedGraph::vertex_t v;
-			for (auto v : adj[u]) {
-				edges.write(reinterpret_cast<const char*>(&v), sizeof(UndirectedGraph::vertex_t));
-			}
-			processed_edges += adj[u].size();
-		}
-	}
-		break;
-	case ARC:
-		break;
-	default: {
-		stream >> num_verts >> num_edges;
-		offsets.write(reinterpret_cast<const char*>(&num_verts), sizeof(UndirectedGraph::vertex_t));
-		offsets.write(reinterpret_cast<const char*>(&num_edges), sizeof(UndirectedGraph::vertex_t));
-		for (UndirectedGraph::vertex_t u = 0; u < num_verts; u++) {
-			offsets.write(reinterpret_cast<const char*>(&processed_edges),
-					sizeof(UndirectedGraph::vertex_t));
+	switch (fm)
+    {
+        case NODE:
+        {
+            stream >> num_verts >> num_edges;
+            offsets.write(reinterpret_cast<const char*>(&num_verts), sizeof(UndirectedGraph::vertex_t));
+            offsets.write(reinterpret_cast<const char*>(&num_edges), sizeof(UndirectedGraph::vertex_t));
+            std::vector<UndirectedGraph::vertex_t>* adj =
+                    new std::vector<UndirectedGraph::vertex_t>[num_verts];
+            // Read edges
+            while (!stream.eof()) {
+                UndirectedGraph::vertex_t u;
+                stream >> u;
+                assert(u < num_verts);
+                std::string s;
+                std::getline(stream, s);
+                std::stringstream ss(s);
+                UndirectedGraph::vertex_t v;
+                while (ss >> v) {
+                    assert(v < num_verts);
+                    adj[u].push_back(v);
+                }
+            }
+            // Write edges
+            processed_edges = 0;
+            for (UndirectedGraph::vertex_t u = 0; u < num_verts; u++) {
+                offsets.write(reinterpret_cast<const char*>(&processed_edges),
+                        sizeof(UndirectedGraph::vertex_t));
+                for (auto v : adj[u]) {
+                    edges.write(reinterpret_cast<const char*>(&v), sizeof(UndirectedGraph::vertex_t));
+                }
+                processed_edges += adj[u].size();
+            }
+            break;
+        }
+		case ARC: //FIXME: ???
+			break;
+		default:
+        {
+			stream >> num_verts >> num_edges;
+			offsets.write(reinterpret_cast<const char*>(&num_verts), sizeof(UndirectedGraph::vertex_t));
+			offsets.write(reinterpret_cast<const char*>(&num_edges), sizeof(UndirectedGraph::vertex_t));
+			for (UndirectedGraph::vertex_t u = 0; u < num_verts; u++) {
+				offsets.write(reinterpret_cast<const char*>(&processed_edges),
+						sizeof(UndirectedGraph::vertex_t));
 
-			UndirectedGraph::vertex_t degree;
-			stream >> degree;
-			processed_edges += degree;
+				UndirectedGraph::vertex_t degree;
+				stream >> degree;
+				processed_edges += degree;
 
-			UndirectedGraph::vertex_t v;
-			for (UndirectedGraph::vertex_t i = 0; i < degree; i++) {
-				stream >> v;
-				assert(v < num_verts);
-				edges.write(reinterpret_cast<const char*>(&v), sizeof(UndirectedGraph::vertex_t));
+				UndirectedGraph::vertex_t v;
+				for (UndirectedGraph::vertex_t i = 0; i < degree; i++) {
+					stream >> v;
+					assert(v < num_verts);
+					edges.write(reinterpret_cast<const char*>(&v), sizeof(UndirectedGraph::vertex_t));
+				}
 			}
+			break;
 		}
-		break;
-	}
 	}
 	offsets.write(reinterpret_cast<const char*>(&processed_edges),
 			sizeof(UndirectedGraph::vertex_t));
@@ -100,39 +103,42 @@ void graph2bin(const std::string &graph_filename, const std::string &output_base
 	offsets.close();
 }
 
-void bin2graph(const std::string &graph_basename, const std::string &output, TEXT_GRAPH_FORMAT fm =
-		NODE_DEGREE) {
+void bin2graph(const std::string &graph_basename, const std::string &output, TEXT_GRAPH_FORMAT fm = NODE_DEGREE)
+{
 	UndirectedGraph G(graph_basename);
 	std::ofstream out(output, std::ofstream::trunc);
 	out << G.number_of_vertices() << " " << G.number_of_edges() << std::endl;
-	switch (fm) {
-	case (ARC): {
-		for (UndirectedGraph::vertex_t u = 0; u < G.number_of_vertices(); u++) {
-			UndirectedGraph::vertex_t degree = G.degree(u);
-			std::vector<UndirectedGraph::vertex_t> neighs;
-			for (UndirectedGraph::vertex_t d = 0; d < degree; d++)
-//				if (G.neighbor(u, d) > u)
-				neighs.push_back(G.neighbor(u, d));
-			std::sort(neighs.begin(), neighs.end());
-			for (auto v : neighs)
-				out << u << " " << v << std::endl;
-		}
-		break;
-	}
-	default: {
-		for (UndirectedGraph::vertex_t u = 0; u < G.number_of_vertices(); u++) {
-			UndirectedGraph::vertex_t degree = G.degree(u);
-			out << degree;
+	switch (fm)
+    {
+        case (ARC):
+        {
+            for (UndirectedGraph::vertex_t u = 0; u < G.number_of_vertices(); u++)
+            {
+                UndirectedGraph::vertex_t degree = G.degree(u);
+                std::vector<UndirectedGraph::vertex_t> neighs;
+                for (UndirectedGraph::vertex_t d = 0; d < degree; d++)
+                    neighs.push_back(G.neighbor(u, d));
+                std::sort(neighs.begin(), neighs.end());
+                for (auto v : neighs)
+                    out << u << " " << v << std::endl;
+            }
+            break;
+        }
+        default: //FIXME: What happens with NODE format??
+        {
+            for (UndirectedGraph::vertex_t u = 0; u < G.number_of_vertices(); u++) {
+                UndirectedGraph::vertex_t degree = G.degree(u);
+                out << degree;
 
-			for (UndirectedGraph::vertex_t d = 0; d < degree; d++) {
-				const UndirectedGraph::vertex_t v = G.neighbor(u, d);
-				assert(v < G.number_of_vertices());
-				out << " " << v;
-			}
-			out << std::endl;
-		}
-	}
-		break;
+                for (UndirectedGraph::vertex_t d = 0; d < degree; d++) {
+                    const UndirectedGraph::vertex_t v = G.neighbor(u, d);
+                    assert(v < G.number_of_vertices());
+                    out << " " << v;
+                }
+                out << std::endl;
+            }
+            break;
+        }
 	}
 	out.close();
 }

@@ -18,7 +18,8 @@ int main(const int argc, const char** argv)
 {
 	std::cerr << "This is motivo-sample. Version: " << MOTIVO_VERSION_STRING << std::endl;
 
-	try {
+	try
+    {
         sampler_opts opts;
         if (!parse_sampler_args(argc, argv, "motivo-sample", &opts))
             return EXIT_SUCCESS;
@@ -68,7 +69,6 @@ int main(const int argc, const char** argv)
         tables[opts.size - 1]->load_root_sampler(
                 std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".rts");
 
-        double p = pcol(opts.size, opts.size);
         Random rng(opts.seed);
         std::cerr << "Using seed " << rng.get_seed() << std::endl;
 
@@ -90,9 +90,9 @@ int main(const int argc, const char** argv)
         {
             std::cout << "Using adaptive sampling." << std::endl;
             AdaptiveSampler ad_sampler(&G, std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".dtz",
-                                       nullptr, opts.size, &rng, &ttc, opts);
+                                       nullptr, opts.size, &ttc);
             Occurrence occ;
-            SampleTable st = ad_sampler.sample(opts.number_of_samples, opts.threads);
+            SampleTable st = ad_sampler.sample(opts.number_of_samples, opts.threads, &rng);
             st.sort_by_estimate_occ();
             *output << st.header() << std::endl;
             *output << st << std::endl;
@@ -101,41 +101,58 @@ int main(const int argc, const char** argv)
         else
         {
             std::cerr << "Sampling using " << opts.threads << " thread(s)" << std::endl;
-            OccurrenceSampler sampler(&G, &ttc, opts.size, &rng, opts.vertices, opts.graphlets,
-                                      opts.spanning_trees, opts.footprints, opts.canonicize, opts.norejection, opts.text,
-                                      opts.group, output, opts.threads, selector);
+            OccurrenceSampler sampler(&G, &ttc, opts.size, opts.vertices, opts.graphlets, opts.canonicize, opts.norejection);
+            sampler.set_selector(selector, opts.threads);
 
-            OccurrenceStarSampler star_sampler(&G, opts.size, &rng, opts.canonicize, opts.norejection, opts.group);
-            double nstars = star_sampler.get_root_sampler()->get_total_weight();
-            if (!opts.smart_stars || nstars == 0) {
-                OccurrenceSampler::table_t *table = sampler.sample(opts.number_of_samples);
-                SampleTable st = SampleTable(table, selector);
+            double p = pcol(opts.size, opts.size);
+
+            if (!opts.smart_stars)
+            {
+                Occurrence*table = sampler.sample(opts.number_of_samples, opts.threads, &rng);
+                SampleTable st = SampleTable(table, opts.number_of_samples, selector);
+                delete[] table;
                 st.estimateOccurrences(tot_treelets / p, store_only_on_0);
                 st.sort_by_estimate_occ();
                 *output << st.header() << st << std::endl;
             }
+            else
+            {
+                OccurrenceStarSampler star_sampler(&G, opts.size, opts.threads, opts.canonicize);
+                const double nstars = star_sampler.number_of_stars();
 
-            if (opts.smart_stars && nstars > 0) {
-                // estimate fraction of stars among the treelets
-                double sr = p * nstars / (p * nstars + tot_treelets);
-                uint64_t nsamples_1 = (1 - sr) * opts.number_of_samples; // samples to be taken via cc
-                uint64_t nsamples_2 = opts.number_of_samples - nsamples_1; // samples to be taken via stars
-                OccurrenceSampler::table_t *table0 = sampler.sample(nsamples_1);
-                SampleTable st0;
-                st0 = SampleTable(table0, selector);
+                //FIXME: Throw binomial rv
+                uint64_t star_nsamples = static_cast<uint64_t>(opts.number_of_samples * (1 - tot_treelets/(p * nstars + tot_treelets)) + 0.5);
+                uint64_t nonstar_nsamples = opts.number_of_samples - star_nsamples;
+
+
+                Occurrence *occurrences = sampler.sample(nonstar_nsamples, opts.threads, &rng);
+                SampleTable st0(occurrences, nonstar_nsamples, selector);
+                delete[] occurrences;
+
                 st0.estimateOccurrences(tot_treelets / p, store_only_on_0);
 
-                // Star-based sampling
-                OccurrenceSampler::table_t *table = star_sampler.sample(nsamples_2, opts.threads);
-                TreeletSelector star_selector = TreeletSelector::get_star_selector(opts.size,
-                                                                                   TreeletSelector::MODE_INCLUDE);
-                SampleTable st = SampleTable(table, &star_selector);
-                st.estimateOccurrences(p * nstars, store_only_on_0);
-                delete table;
+                if(star_nsamples!=0)
+                {
+                    Occurrence *star_occurrences = star_sampler.sample(star_nsamples, &rng);
 
-                SampleTable merged = SampleTable::merge(st0, st, tot_treelets / p, nstars);
-                merged.sort_by_estimate_occ();
-                *output << merged.header() << "\n" << merged << std::endl;
+                    TreeletSelector star_selector = TreeletSelector::get_star_selector(opts.size, TreeletSelector::MODE_INCLUDE);
+                    SampleTable st(star_occurrences, star_nsamples, &star_selector);
+                    delete[] star_occurrences;
+
+                    //FIXME:!!! This seemed wrong!!! Is p*nstars just nstars?
+                    //Notice also that the second argument was an (implicitly converted) bool. Probably not intended
+                    //It was st.estimateOccurrences(p * nstars, store_only_on_0);
+                    st.estimateOccurrences(nstars, opts.size, store_only_on_0);
+
+                    SampleTable merged = SampleTable::merge(st0, st, tot_treelets / p, nstars);
+                    merged.sort_by_estimate_occ();
+                    *output << merged.header() << "\n" << merged << std::endl;
+                }
+                else
+                {
+                    st0.sort_by_estimate_occ();
+                    *output << st0.header() << "\n" << st0 << std::endl;
+                }
             }
         }
 

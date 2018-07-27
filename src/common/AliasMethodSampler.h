@@ -31,11 +31,12 @@ private:
     FILE* elements_fd;
     bool readonly;
 
+public:
+
     AliasMethodSampler(const AliasMethodSampler&) = delete;
     void operator=(const AliasMethodSampler&) = delete;
 
-public:
-    AliasMethodSampler(const std::string& filename)
+    explicit AliasMethodSampler(const std::string& filename)
     {
         elements_fd = fopen(filename.c_str(), "rb");
 
@@ -55,7 +56,7 @@ public:
         readonly=true;
     }
 
-    AliasMethodSampler(E n) : num_elements(n), total_weight(0), elements_fd(nullptr), readonly(false)
+    explicit AliasMethodSampler(E n) : num_elements(n), total_weight(0), elements_fd(nullptr), readonly(false)
     {
         elements = new entry[num_elements];
         memset(elements, 0, num_elements*sizeof(entry));
@@ -70,6 +71,11 @@ public:
         }
         else
             delete[] elements;
+    }
+
+    W get_total_weight() const
+    {
+        return total_weight;
     }
 
     void set(const E n, const W weight)

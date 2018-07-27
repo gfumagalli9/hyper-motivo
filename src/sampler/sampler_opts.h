@@ -19,15 +19,14 @@ struct sampler_opts
     uint64_t number_of_samples;
     char tables_basename[MOTIVO_ARG_MAX];
     char output_basename[MOTIVO_ARG_MAX];
-    bool text;
     bool canonicize;
     bool graphlets;
     bool norejection;
     bool footprints;
     bool spanning_trees;
     bool vertices;
-    bool group;
     bool smart_stars;
+    bool estimate_occurrences;
     bool adaptive;
     char seed[MOTIVO_ARG_MAX + 2 + std::numeric_limits<unsigned int>::digits/3]; //Enough space to append one character + 1 integer
     unsigned int threads;

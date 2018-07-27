@@ -16,7 +16,6 @@ private:
     const UndirectedGraph* graph;
     const TreeletTableCollection* table_collection;
     const unsigned int size;
-    Random* rng;
 
     TreeletSelector* selector = nullptr;
     RangeSampler<TreeletTable::treelet_count_t>** range_samplers = nullptr;
@@ -25,13 +24,13 @@ private:
     void populate_root_and_range_sampler_mt(DynamicSequencer<UndirectedGraph::vertex_t>* sequencer);
 
 public:
-    TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, const unsigned int size, Random* rng);
+    TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, const unsigned int size);
     ~TreeletSampler();
 
     ///Samples an occurrence of @param t rooted in @param u
-    bool sample_rooted_occurrence [[gnu::hot]] (const Treelet& t, const UndirectedGraph::vertex_t u, UndirectedGraph::vertex_t* occurrence);
+    bool sample_rooted_occurrence [[gnu::hot]] (const Treelet& t, const UndirectedGraph::vertex_t u, UndirectedGraph::vertex_t* occurrence, Random *rng);
 
-    UndirectedGraph::vertex_t sample_root [[gnu::hot]] ()
+    UndirectedGraph::vertex_t sample_root [[gnu::hot]] (Random* rng)
     {
         if(!selector)
             return table_collection->get_table(size)->get_random_root(rng);
@@ -39,7 +38,7 @@ public:
             return root_sampler->sample(rng);
     }
 
-    Treelet sample_treelet [[gnu::hot]] (UndirectedGraph::vertex_t root)
+    Treelet sample_treelet [[gnu::hot]] (UndirectedGraph::vertex_t root, Random* rng)
     {
         if(!selector)
         {
@@ -58,7 +57,7 @@ public:
 
     TreeletSelector *get_selector() {return selector;}
 
-    void set_selector(TreeletSelector *selector, unsigned int nthreads);
+    void set_selector(const TreeletSelector *selector, unsigned int nthreads);
 };
 
 

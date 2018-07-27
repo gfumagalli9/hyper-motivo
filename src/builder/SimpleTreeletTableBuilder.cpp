@@ -17,9 +17,6 @@ SimpleTreeletTableBuilder::SimpleTreeletTableBuilder(const UndirectedGraph* grap
 		throw std::runtime_error("Invalid size");
 }
 
-SimpleTreeletTableBuilder::~SimpleTreeletTableBuilder() {
-	// TODO Auto-generated destructor stub
-}
 
 void SimpleTreeletTableBuilder::build() {
 	UndirectedGraph::vertex_t num_verts = graph->number_of_vertices();
@@ -34,8 +31,8 @@ void SimpleTreeletTableBuilder::build() {
  * Build the table of 1-graphlets (singletons).
  * This is a simplified version of TreeletTableBuilder::do_build_1_st().
  */
-void SimpleTreeletTableBuilder::do_build_1_st() {
-	UndirectedGraph::vertex_t num_verts = graph->number_of_vertices();
+void SimpleTreeletTableBuilder::do_build_1_st()
+{
 	constexpr std::streamsize buf_size = sizeof(UndirectedGraph::vertex_t) + sizeof(uint64_t)
 			+ sizeof(TreeletTable::treelet_count_pair);
 	char buffer[buf_size];

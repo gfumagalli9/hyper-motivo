@@ -63,12 +63,12 @@ public:
 		delete[] treelets;
 	}
 
-	uint64_t get_size()
+	uint64_t get_size() const
     {
 		return size;
 	}
 
-	mode_t get_mode()
+	mode_t get_mode() const
     {
 		return mode;
 	}
@@ -97,7 +97,8 @@ public:
 		return treelets;
 	};
 
-	unsigned int get_treelet_size() const {
+	unsigned int get_treelet_size() const
+	{
 		return treelet_size;
 	}
 	;
@@ -119,6 +120,7 @@ public:
 	/**
 	 * A selector that only includes/excludes the stars on k nodes
 	 */
+	 //FIXME: Returning a copy
 	static TreeletSelector get_star_selector(unsigned int k, TreeletSelector::mode_t mode)
 	{
 		TreeletSelector ts(mode, k);

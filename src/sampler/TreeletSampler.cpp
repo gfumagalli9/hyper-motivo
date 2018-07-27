@@ -7,12 +7,12 @@
 #include "../common/sequencer/BaseSequencer.h"
 #include "../common/sequencer/DynamicSequencer.h"
 
-TreeletSampler::TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, const unsigned int size, Random *rng)
-        : graph(graph), table_collection(ttc), size(size), rng(rng)
+TreeletSampler::TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, const unsigned int size)
+        : graph(graph), table_collection(ttc), size(size)
 {
 }
 
-void TreeletSampler::set_selector(TreeletSelector *selector, unsigned int nthreads)
+void TreeletSampler::set_selector(const TreeletSelector *selector, unsigned int nthreads)
 {
     if(this->selector)
     {
@@ -92,7 +92,7 @@ TreeletSampler::~TreeletSampler()
 }
 
 
-bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const UndirectedGraph::vertex_t u, UndirectedGraph::vertex_t* occurrence)
+bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const UndirectedGraph::vertex_t u, UndirectedGraph::vertex_t* occurrence, Random *rng)
 {
     assert(t.is_valid());
 
@@ -165,8 +165,8 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
 
     Treelet complement = t.complement(child_treelet);
 
-    return ( complement.is_singleton() || sample_rooted_occurrence(complement, u, occurrence + child_treelet.number_of_vertices()) ) &&
-            sample_rooted_occurrence(child_treelet, child_vertex, occurrence+1);
+    return ( complement.is_singleton() || sample_rooted_occurrence(complement, u, occurrence + child_treelet.number_of_vertices(), rng) ) &&
+            sample_rooted_occurrence(child_treelet, child_vertex, occurrence+1, rng);
 }
 
 

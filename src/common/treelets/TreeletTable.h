@@ -115,7 +115,7 @@ public:
     treelet_count_t get_count(const UndirectedGraph::vertex_t u, const Treelet treelet) const;
 
 
-    RangeSampler<treelet_count_t>* build_range_sampler(const UndirectedGraph::vertex_t u, TreeletSelector* selector);
+    RangeSampler<treelet_count_t>* build_range_sampler(const UndirectedGraph::vertex_t u, const TreeletSelector* selector);
 
     ///@returns a costant iterator that iterates through all the stored treelets for vertex @param u.
     ///The iterator initially points to the first treelet of @param u.

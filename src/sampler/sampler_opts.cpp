@@ -24,19 +24,19 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *numsamples_opt = op.add_option(false, true, "num-samples", 'n', "", "Stop after this number of samples (default: unlimited)");
     OptionsParser::Option *input_opt = op.add_option(true, true, "tables-basename", 'i', "", "Input tables basename (required)");
     OptionsParser::Option *output_opt = op.add_option(false, true, "output", 'o', "", "Output file (default: stdout)");
-    OptionsParser::Option *text_opt = op.add_option(false, false, "text", 't', "", "Output occurrences in text format");
     OptionsParser::Option *canonicize_opt = op.add_option(false, false, "canonicize", 'c', "", "Output occurrences in canonical format");
     OptionsParser::Option *graphlets_opt = op.add_option(false, false, "graphlets", '\0', "", "Sample graphlets occurrences (instead of treelets)");
     OptionsParser::Option *norejection_opt = op.add_option(false, false, "no-rejection", '\0', "", "Do not perform rejection on the sampled graphlets");
     OptionsParser::Option *footprints_opt = op.add_option(false, false, "footprints", '\0', "", "Output the graphlet/treelet footprints");
     OptionsParser::Option *spanning_opt = op.add_option(false, false, "spanning-trees-no", '\0', "", "Output the number of spanning trees in the sampels treelet/graphlet");
     OptionsParser::Option *vertices_opt = op.add_option(false, false, "vertices", '\0', "", "Output the IDs of the sampled vertices");
-    OptionsParser::Option *group_opt = op.add_option(false, false, "group", '\0', "", "Group and count identical samples");
     OptionsParser::Option *seed_opt = op.add_option(false, true, "seed", '\0', "", "String used to seed the random number generator (default or empty string: seed from system random device)");
     OptionsParser::Option *threads_opt = op.add_option(false, true, "threads", '\0', "1", "Number of threads to use or 0 for to use the number of logical processors (default: 1)");
     OptionsParser::Option *selective_opt = op.add_option(false, true, "selective", '\0', "", "Sample only treelets whose structures are allowed in file ARG");
-    OptionsParser::Option *smart_stars_opt = op.add_option(false, false, "smart-stars", '\0', "", "Sample star treelets separately and then merge the sample results; the number of star samples is proportional to the overall number of stars.");
-    OptionsParser::Option *adaptive_opt = op.add_option(false, false, "adaptive", '\0', "", "Use adaptive sampling.");
+    OptionsParser::Option *smart_stars_opt = op.add_option(false, false, "smart-stars", '\0', "", "Sample star treelets separately and then merge the sample results");
+    OptionsParser::Option *estimate_occurrences_opt = op.add_option(false, false, "estimate-occurrences", '\0', "", "Estimate the number of occurrences of graphlets in the graph (implies: --graphlets, --norejection)"); //FIXME: Can this be used with treelets?
+    OptionsParser::Option *adaptive_opt = op.add_option(false, false, "estimate-occurrences-adaptive", '\0', "", "Estimate the number of occurrences of graphlets in the graph using adaptive sampling (implies: --graphlets, --norejection, and --canonicize)");
+
 
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
@@ -68,10 +68,8 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     opts->footprints = footprints_opt->is_found();
     opts->spanning_trees = spanning_opt->is_found();
     opts->vertices = vertices_opt->is_found();
-    if(!opts->footprints  && !opts->spanning_trees && !opts->vertices)
-        throw std::runtime_error("Nothing to output. Please specify at least one of --footprints, --spanning-trees-no, --vertices");
 
-    opts->group=group_opt->is_found();
+    opts->estimate_occurrences=estimate_occurrences_opt->is_found();
 
     if(input_opt->get_value().size()>=MOTIVO_ARG_MAX)
         throw std::runtime_error("'tables-basename' option is too long");
@@ -114,9 +112,27 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     opts->canonicize = canonicize_opt->is_found();
     opts->graphlets = graphlets_opt->is_found();
     opts->norejection = norejection_opt->is_found();
-    opts->text = text_opt->is_found();
     opts->smart_stars = smart_stars_opt->is_found();
     opts->adaptive = adaptive_opt->is_found();
+
+    if(opts->adaptive)
+        opts->canonicize = true;
+
+    if(opts->adaptive || opts->estimate_occurrences)
+    {
+        opts->norejection = true;
+        opts->graphlets = true;
+    }
+
+    if(opts->adaptive && selective_opt->is_found())
+        throw std::runtime_error("option 'estimate-occurrences-adaptive' cannot be used with 'selective'");
+
+    if((opts->adaptive || opts->estimate_occurrences) && (opts->footprints || opts->spanning_trees || opts->vertices))
+        throw std::runtime_error("options 'estimate-occurrences' and 'estimate-occurrences-adaptive' cannot be used with 'footprints', 'spanning-trees', or 'vertices'");
+
+    if(!opts->footprints  && !opts->spanning_trees && !opts->vertices && !opts->estimate_occurrences && !opts->adaptive)
+        throw std::runtime_error("Nothing to output. Please specify at least one of --footprints, --spanning-trees-no, --vertices, --estimate_occurrences, --estimate_occurrences-adaptive");
+
 
     return true;
 }

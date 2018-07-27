@@ -40,7 +40,7 @@ public:
 
 	SimpleTreeletTableBuilder(const UndirectedGraph* graph, const GraphColoring* coloring, const unsigned int size,
 			const TreeletTableCollection* lower, std::ostream* output, const bool store_0_only=false, TreeletSelector* selector=nullptr);
-	~SimpleTreeletTableBuilder();
+
 	void build();
 	/// Fills a size-1 table
 	void do_build_1_st[[gnu::hot,gnu::flatten]]();

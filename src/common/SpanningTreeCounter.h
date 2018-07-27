@@ -16,11 +16,11 @@
  */
 class SpanningTreeCounter {
 public:
-	SpanningTreeCounter();
-	~SpanningTreeCounter();
+	SpanningTreeCounter() = default;
+
 	static uint64_t num_spanning_trees(const Occurrence &occ);
-	static uint64_t num_spanning_trees(const Occurrence &occ, TreeletSelector *ts);
-	static uint64_t num_spanning_stars(const Occurrence &occ);
+	static uint64_t  num_spanning_trees(const Occurrence &occ, TreeletSelector *ts);
+	static unsigned int  num_spanning_stars(const Occurrence &occ);
 	static uint64_t num_spanning_trees_nostars(const Occurrence &occ);
 };
 

@@ -19,13 +19,11 @@ struct vertex_info {
 	uint64_t count = 0;
 };
 
-void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices,
-		vertex_info* info, double compression_threshold) {
+void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, vertex_info* info, double compression_threshold) {
 	uint64_t num_treelet_count_pairs = 0;
 	TreeletTable::treelet_count_t num_occ_treelet = 0;
 	uint128_t num_occ_total = 0;
 	uint128_t num_occ_max = 0;
-	bool num_occ_total_overflow = false;
 
 	std::string output_filename = output_basename + ".dtz";
 	CompressedRecordFileWriter writer(output_filename, num_vertices);
@@ -35,8 +33,7 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
 
 	for (UndirectedGraph::vertex_t u = 0; u < num_vertices; u++) {
 		num_treelet_count_pairs += info[u].count;
-		TreeletTable::treelet_count_pair *to_write =
-				new TreeletTable::treelet_count_pair[info[u].count + 1];
+		auto to_write = new TreeletTable::treelet_count_pair[info[u].count + 1];
 		TreeletTable::treelet_count_pair *p = to_write;
 		p->treelet = Treelet::invalid_treelet;
 		p->count = 0;
@@ -51,11 +48,9 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
 			info[u].ptr += sizeof(TreeletTable::treelet_count_pair);
 		}
 		writer.write_record(reinterpret_cast<char*>(to_write),
-				(info[u].count + 1) * sizeof(TreeletTable::treelet_count_pair),
-				compression_threshold);
+							(info[u].count + 1) * sizeof(TreeletTable::treelet_count_pair), compression_threshold);
 
-		if (add_overflow(num_occ_total, p->count, &num_occ_total))
-			num_occ_total_overflow = true;
+		safe_add(num_occ_total, p->count, &num_occ_total);
 
 		if (p->count > num_occ_max)
 			num_occ_max = p->count;
@@ -185,14 +180,6 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
 	delete[] count_files;
 }
 
-SpanningTreeCounter::SpanningTreeCounter() {
-	// TODO Auto-generated constructor stub
-}
-
-SpanningTreeCounter::~SpanningTreeCounter() {
-	// TODO Auto-generated destructor stub
-}
-
 /**
  * Compute the number of spanning trees of the occurrence
  */
@@ -215,7 +202,7 @@ uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, TreeletS
 		return occ.number_of_spanning_trees();
 
 	UndirectedGraph h(occ);
-	FullGraphColoring *coloring = new FullGraphColoring();
+	FullGraphColoring coloring;
 	TreeletTableCollection ttc;
 	TreeletTable** tables = nullptr;
 
@@ -224,7 +211,7 @@ uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, TreeletS
 	std::ofstream out(filename, std::ofstream::binary | std::ofstream::trunc);
 	if (out.bad())
 		throw std::runtime_error("Could not open output file for writing");
-	SimpleTreeletTableBuilder builder(&h, coloring, 1, &ttc, &out, false, ts);
+	SimpleTreeletTableBuilder builder(&h, &coloring, 1, &ttc, &out, false, ts);
 	builder.build();
 	out.close();
 	std::vector<std::string> vf;
@@ -243,8 +230,7 @@ uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, TreeletS
 		ttc.add(tables[i - 2]);
 		const std::string filename = "spantreecount." + std::to_string(i) + ".cnt";
 		std::ofstream out(filename, std::ofstream::binary | std::ofstream::trunc);
-		SimpleTreeletTableBuilder builder(&h, coloring, i, &ttc, &out, i == h.number_of_vertices(),
-				ts);
+		SimpleTreeletTableBuilder builder(&h, &coloring, i, &ttc, &out, i == h.number_of_vertices(), ts);
 		builder.build();
 		out.close();
 		std::vector<std::string> vf;
@@ -258,11 +244,12 @@ uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, TreeletS
 	reader.open("spantreecount." + std::to_string(h.number_of_vertices()) + ".dtz");
 	reader.prefault(0, h.number_of_vertices() - 1);
 	TreeletTable finalTable(&reader);
+
 	uint64_t cnt = 0;
 	for (UndirectedGraph::vertex_t u = 0; u < h.number_of_vertices(); u++)
-		for (TreeletTable::const_iterator u_it = finalTable.begin(u); !u_it.is_over(); ++u_it) {
-			cnt += u_it.count();
-		}
+		for (TreeletTable::const_iterator u_it = finalTable.begin(u); !u_it.is_over(); ++u_it)
+			cnt += static_cast<uint64_t>(u_it.count());
+
 	reader.close();
 	return cnt;
 
@@ -271,10 +258,12 @@ uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, TreeletS
 /**
  * Return the number of spanning stars
  */
-uint64_t SpanningTreeCounter::num_spanning_stars(const Occurrence& occ) {
+unsigned int SpanningTreeCounter::num_spanning_stars(const Occurrence& occ)
+{
 	UndirectedGraph h(occ);
-	int count = 0;
+	unsigned int count = 0;
 	for (UndirectedGraph::vertex_t v = 0; v < h.number_of_vertices(); v++)
-		count += h.degree(v) == h.number_of_vertices() - 1 ? 1 : 0;
+		count += (h.degree(v) == h.number_of_vertices() - 1) ? 1u : 0u;
+
 	return count;
 }
