@@ -9,12 +9,14 @@
 #define SRC_SAMPLER_SPANNINGTREECOUNTER_H_
 
 #include "../common/treelets/TreeletSelector.h"
+//FIXME WTH?? How can a class under common include something under ../sampler? We are lucky this even compiles :(
 #include "../sampler/Occurrence.h"
 
 /**
  * Counts the spanning trees of an occurrence via color-coding
  */
-class SpanningTreeCounter {
+class SpanningTreeCounter
+{
 public:
 	SpanningTreeCounter() = default;
 

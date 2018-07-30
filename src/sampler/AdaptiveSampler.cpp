@@ -11,6 +11,7 @@
 #include <vector>
 #include <google/dense_hash_set>
 #include "../common/common.h"
+#include "ColorCodingSpanningTreeCounter.h"
 
 constexpr unsigned int AdaptiveSampler::suffSamples;
 

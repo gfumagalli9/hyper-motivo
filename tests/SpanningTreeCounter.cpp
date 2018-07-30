@@ -20,7 +20,8 @@
  * A paw on vertices 52-55 (4 edges)
  */
 
-void test_stc(unsigned int from, unsigned int size) {
+void test_stc(unsigned int from, unsigned int size)
+{
 	UndirectedGraph test_graph("test-graph");
 	UndirectedGraph::vertex_t* subgraph = new UndirectedGraph::vertex_t[size];
 	for (unsigned int i = 0; i < size; i++)

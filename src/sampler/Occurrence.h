@@ -40,41 +40,45 @@ private:
 		edges[pos / 8] |= static_cast<uint8_t>(0b10000000 >> (pos % 8));
 	}
 
-	inline bool has_edge(unsigned int i, unsigned int j) const
-    {
-		assert(i > j);
-		unsigned int pos = (i - 1) * i / 2 + j;
-		return (edges[pos / 8] & (0b10000000 >> (pos % 8))) != 0;
-	}
 
 public:
 	constexpr Occurrence() : size(0)
-    {}; //Empty constructor to take advantage of Stack allocation
+    {} //Empty constructor to take advantage of Stack allocation
 
 	Occurrence(const Treelet& treelet, const UndirectedGraph::vertex_t* occ);
 	Occurrence(const unsigned int size, const UndirectedGraph* graph,
 			const UndirectedGraph::vertex_t* occ);
 
+	inline bool has_edge(unsigned int i, unsigned int j) const //FIXME: Could be invoked with j>=i
+	{
+		assert(i > j);
+		unsigned int pos = (i - 1) * i / 2 + j;
+		return (edges[pos / 8] & (0b10000000u >> (pos % 8))) != 0;
+	}
+
 	///@returns the number of spanning trees of this occurrence
 	uint64_t number_of_spanning_trees() const;
 
-	const UndirectedGraph::vertex_t* vertices() const {
+	const UndirectedGraph::vertex_t* vertices() const
+    {
 		return verts;
 	}
-	;
-	const char* binary_footprint() const {
+
+	const char* binary_footprint() const
+    {
 		return reinterpret_cast<const char*>(edges);
 	}
-	;
 
 	//Lazily computes the text footprint. Const is fine because the footprint is mutable
 	const char* text_footprint() const;
 
-	bool is_valid() const {
+	bool is_valid() const
+    {
 		return size != 0;
 	}
 
-	unsigned int get_size() const {
+	unsigned int get_size() const
+    {
 		return size;
 	}
 
