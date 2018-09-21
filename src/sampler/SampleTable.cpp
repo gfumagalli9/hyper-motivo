@@ -22,18 +22,22 @@ SampleTable::SampleTable(Occurrence *occurrences, uint64_t noccurrences, Treelet
 
 	unsigned int k = occurrences->get_size(); // graphlet size
 
-	// Let's check if the TreeletSelector is excluding just k-stars...
-	bool exclude_only_stars = ts!=nullptr && ts->get_treelet_size() == k && ts->get_mode() == TreeletSelector::MODE_EXCLUDE && ts->get_size() == 2;
-    for (unsigned int i = 0; i < ts->get_size() && exclude_only_stars; i++)
-        exclude_only_stars = exclude_only_stars && ts->get_treelets()[i].is_star();
+    //	// Let's check if the TreeletSelector is including/excluding just k-stars...
+    bool include_only_stars = false;
+    bool exclude_only_stars = false;
+    if(ts!=nullptr && ts->get_treelet_size() == k && ts->get_size() == 2 && ts->get_treelets()[0].is_star() && ts->get_treelets()[1].is_star())
+    {
+        if(ts->get_mode() == TreeletSelector::MODE_INCLUDE)
+            include_only_stars = true;
+        else
+            exclude_only_stars = true;
+    }
 
-	// Let's check if the TreeletSelector is including just k-stars...
-    bool include_only_stars = ts!=nullptr && ts->get_treelet_size() == k && ts->get_mode() == TreeletSelector::MODE_INCLUDE && ts->get_size() == 2;
-    for (unsigned int i = 0; i < ts->get_size() && include_only_stars; i++)
-        include_only_stars = include_only_stars && ts->get_treelets()[i].is_star();
 
     //Aggregate occurrences by footprint /
-    google::dense_hash_map<Occurrence*, uint64_t,OccurrenceFootprintHash, OccurrenceFootprintEquality> ht(noccurrences);
+    google::dense_hash_map<Occurrence*, uint64_t, OccurrenceFootprintHash, OccurrenceFootprintEquality> ht(noccurrences);
+    Occurrence empty; //FIXME?
+    ht.set_empty_key(&empty);
     for(uint64_t i=0; i<noccurrences; i++)
         ht[&occurrences[i]]+=1;
 

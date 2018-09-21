@@ -29,7 +29,7 @@ int main(const int argc, const char** argv)
         uint128_t tot_treelets = 0; // the total number of colored treelets
         std::ifstream infofile;
         std::string infofile_name = std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".info";
-        std::cout << "Reading info file " << infofile_name;
+        std::cout << "Reading info file " << infofile_name << std::endl;
         infofile.open(infofile_name);
         while (!infofile.eof()) {
             std::string key, val;

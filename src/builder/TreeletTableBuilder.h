@@ -20,9 +20,6 @@
 #include "../common/io/ConcurrentWriter.h"
 #include "../common/treelets/TreeletSelector.h"
 
-#ifdef MOTIVO_MULTITHREAD
-#include <mutex>
-#endif
 
 class TreeletTableBuilder {
 public:
