@@ -9,7 +9,6 @@
 #include "../common/graph/SimpleGraph.h"
 #include "../common/treelets/Treelet.h"
 #include "../common/OptionsParser.h"
-#include "decompose.h"
 
 int main(const int argc, const char** argv)
 {
