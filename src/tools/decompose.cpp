@@ -9,27 +9,29 @@
 #include "../common/treelets/Treelet.h"
 #include "../common/OptionsParser.h"
 
+typedef struct {
 unsigned int nverts=0;
 unsigned int  degrees[16] = {0};
 unsigned int  adj_lists[16][16] = {0};
+} simple_graph;
 
-Treelet dfs(unsigned int u, unsigned int parent, bool *visited, std::set<Treelet> *treelets)
+Treelet dfs(simple_graph g, unsigned int u, unsigned int parent, bool *visited, std::set<Treelet> *treelets)
 {
     visited[u]=true;
 
     int nchild_treelets=0;
     Treelet child_treelets[15];
 
-    for(unsigned int i=0; i<degrees[u]; i++)
+    for(unsigned int i=0; i<g.degrees[u]; i++)
     {
-        unsigned int v = adj_lists[u][i];
+        unsigned int v = g.adj_lists[u][i];
         if(parent==v)
             continue;
 
         if(visited[v])
             throw std::runtime_error("Graph is not a tree");
 
-        child_treelets[nchild_treelets++] = dfs(v, u, visited, treelets);
+        child_treelets[nchild_treelets++] = dfs(g, v, u, visited, treelets);
     }
 
     std::sort(child_treelets, child_treelets+nchild_treelets);
@@ -45,7 +47,7 @@ Treelet dfs(unsigned int u, unsigned int parent, bool *visited, std::set<Treelet
     return t;
 }
 
-void decompose(std::set<Treelet> *treelets, int root)
+void decompose(simple_graph g, std::set<Treelet> *treelets, int root)
 {
     bool visited[16];
 
@@ -54,18 +56,19 @@ void decompose(std::set<Treelet> *treelets, int root)
         for(UndirectedGraph::vertex_t u=0; u<16; u++)
         {
             memset(visited, 0, sizeof(bool)*16);
-            dfs(u, u, visited, treelets);
+            dfs(g, u, u, visited, treelets);
         }
     }
     else
     {
         memset(visited, 0, sizeof(bool)*16);
-        dfs(0, 0, visited, treelets);
+        dfs(g, 0, 0, visited, treelets);
     }
 }
 
-void read_graph()
+simple_graph read_graph()
 {
+	simple_graph g;
     bool seen[16]={0};
     unsigned int nedges=0;
 
@@ -79,8 +82,8 @@ void read_graph()
         }
 
         bool existing=false;
-        for(unsigned int j=0; j<=degrees[u]; j++)
-            existing |= (adj_lists[u][j]==v);
+        for(unsigned int j=0; j<=g.degrees[u]; j++)
+            existing |= (g.adj_lists[u][j]==v);
 
         if(existing)
         {
@@ -91,48 +94,52 @@ void read_graph()
         if(!seen[u])
         {
             seen[u]=true;
-            nverts++;
+            g.nverts++;
         }
 
         if(!seen[v])
         {
             seen[v]=true;
-            nverts++;
+            g.nverts++;
         }
 
-        adj_lists[u][degrees[u]++]=v;
-        adj_lists[v][degrees[v]++]=u;
+        g.adj_lists[u][g.degrees[u]++]=v;
+        g.adj_lists[v][g.degrees[v]++]=u;
         nedges++;
     }
 
-    for(unsigned int i=0; i<nverts; i++)
+    for(unsigned int i=0; i<g.nverts; i++)
     {
         if(!seen[i])
             throw std::runtime_error("Vertex IDs are not contiguous");
     }
 
-    if(nedges!=nverts-1)
+    if(nedges!=g.nverts-1)
         throw std::runtime_error("Graph is not a tree");
 }
 
-void path(unsigned int size)
+simple_graph path(unsigned int size)
 {
-    nverts=size;
+	simple_graph g;
+    g.nverts=size;
     for(unsigned int i=1; i<size; i++)
     {
-        adj_lists[i-1][degrees[i-1]++]=i;
-        adj_lists[i][degrees[i]++]=i-1;
+        g.adj_lists[i-1][g.degrees[i-1]++]=i;
+        g.adj_lists[i][g.degrees[i]++]=i-1;
     }
+    return g;
 }
 
-void star(unsigned int size)
+simple_graph star(unsigned int size)
 {
-    nverts=size;
+	simple_graph g;
+    g.nverts=size;
     for(unsigned int i=1; i<size; i++)
     {
-        adj_lists[0][degrees[0]++]=i;
-        adj_lists[i][degrees[i]++]=0;
+        g.adj_lists[0][g.degrees[0]++]=i;
+        g.adj_lists[i][g.degrees[i]++]=0;
     }
+    return g;
 }
 
 int main(const int argc, const char** argv)
@@ -165,6 +172,7 @@ int main(const int argc, const char** argv)
 
     try
     {
+    	simple_graph g;
         unsigned int size=0;
         if(size_opt->is_found())
         {
@@ -192,18 +200,18 @@ int main(const int argc, const char** argv)
             star(static_cast<unsigned int>(s));
         }
         else
-            read_graph();
+            g = read_graph();
 
         int root=-1;
         if(root_opt->is_found())
         {
             root = std::stoi(root_opt->get_value());
-            if(root<0 || static_cast<unsigned int>(root)>=nverts)
+            if(root<0 || static_cast<unsigned int>(root)>=g.nverts)
                 throw std::runtime_error("Invalid root");
         }
 
         std::set<Treelet> treelets;
-        decompose(&treelets, root);
+        decompose(g, &treelets, root);
 
 //        std::cout << "INCLUDE\n";
 
