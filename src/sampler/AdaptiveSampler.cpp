@@ -104,15 +104,21 @@ void AdaptiveSampler::sample_st(int num_samples, std::map<Occurrence, std::pair<
 void AdaptiveSampler::updateSampler()
 {
 	totTreeletSwitches++;
-	currentTreelet = treeletPriority.last_key();
 	delete treeletSelector;
 	treeletSelector = new TreeletSelector(TreeletSelector::MODE_INCLUDE, size);
-	treeletSelector->add_treelet(currentTreelet, false);
+	currentTreelet = treeletPriority.last_key();
+	SimpleGraph sg = SimpleGraph::from_treelet(currentTreelet);
+	std::set<Treelet> ts;
+	sg.decompose(&ts, -1, true);
+//	std::cout << ts.size() << " treelets selected " << std::endl;
+	for (std::set<Treelet>::iterator it = ts.begin(); it != ts.end(); it++) {
+		treeletSelector->add_treelet(*it, false);
+	}
+//	treeletSelector->add_treelet(currentTreelet, false);
 	delete sampler;
 	sampler = new OccurrenceSampler(g, ttc, size, false, true, true, true);
 	sampler->set_selector(treeletSelector, 1); //FIXME: Number of threads
 	std::cout << "using treelet " << currentTreelet.get_structure() << std::endl;
-	SimpleGraph g = SimpleGraph::from_treelet(currentTreelet);
 }
 
 /**

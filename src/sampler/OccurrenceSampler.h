@@ -51,8 +51,6 @@ void OccurrenceSampler::sample_one(Occurrence *occurrence, Random *rng)
     UndirectedGraph::vertex_t root = sampler.sample_root(rng);
     assert(root < graph->number_of_vertices());
     Treelet t = sampler.sample_treelet(root, rng);
-    if (!(this->sampler.get_selector()->is_included(t)))
-    	std::cerr << "SAMPLED AN EXCLUDED TREELET" << std::endl;
 
     static thread_local OccurrenceCanonicizer canonicizer(size);
 

@@ -49,9 +49,11 @@ Treelet SimpleGraph::dfs(unsigned int u, unsigned int parent, bool *visited, std
 }
 
 /**
- * Returns a set of treelets
+ * Return all (sub)treelets found by DFS from the different nodes of the graph, of different sizes.
+ * If the graph is a tree, this returns all possible rootings of the tree itself.
+ * If moreover unique=true, then only the distinct rootings are stored, only of maximal size (i.e. spanning trees).
  */
-void SimpleGraph::decompose(std::set<Treelet> *treelets, int root)
+void SimpleGraph::decompose(std::set<Treelet> *treelets, int root, bool unique)
 {
     bool visited[16];
 
@@ -67,6 +69,20 @@ void SimpleGraph::decompose(std::set<Treelet> *treelets, int root)
     {
         memset(visited, 0, sizeof(bool)*16);
         dfs(0, 0, visited, treelets);
+    }
+
+    if (unique) { // deduplicate
+    	std::set<Treelet> ts(*treelets);
+    	treelets->clear();
+		Treelet::treelet_structure_t previous_structure = Treelet::invalid_structure;
+		for(std::set<Treelet>::iterator it=ts.begin(); it!=ts.end(); it++) {
+//			std::cout << it->get_structure() << std::endl;
+			if (it->get_structure() == previous_structure || it->number_of_vertices() < nverts)
+				continue;
+			else
+				treelets->insert(*it);
+			previous_structure = it->get_structure();
+		}
     }
 }
 
@@ -128,16 +144,17 @@ SimpleGraph SimpleGraph::from_treelet(Treelet& t) {
 	SimpleGraph g;
 	Treelet::treelet_structure_t tst = t.get_structure();
 	g.nverts = t.number_of_vertices();
-	std::stack<int> s;
-	int maxu = 0;
+	std::stack<unsigned int> s;
+	unsigned int maxu = 0;
 	s.push(maxu);
-	for (int i = 0; i < t.number_of_vertices(); i++) {
-		if (tst & 0x1) {
+	while (!s.empty()) {
+		if (tst & Treelet::treelet_structure_highest_bit) {
 			g.adj_lists[s.top()][g.degrees[s.top()]++] = ++maxu;
+			g.adj_lists[maxu][g.degrees[maxu]++] = s.top();
 			s.push(maxu);
 		} else
 			s.pop();
-		tst >>= 1;
+		tst <<= 1;
 	}
 	return g;
 }

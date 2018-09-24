@@ -67,5 +67,4 @@ Occurrence* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int n
 void OccurrenceSampler::set_selector(const TreeletSelector *selector, unsigned int number_of_threads)
 {
     sampler.set_selector(selector, number_of_threads);
-    std::cerr<< "treelet selector set to " << sampler.get_selector() << std::endl;
 }

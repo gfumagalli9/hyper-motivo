@@ -28,7 +28,7 @@ public:
 	~SimpleGraph();
 	unsigned int n() { return nverts; };
 	Treelet dfs(unsigned int u, unsigned int parent, bool *visited, std::set<Treelet> *treelets);
-	void decompose(std::set<Treelet> *treelets, int root);
+	void decompose(std::set<Treelet> *treelets, int root, bool unique = false);
 
 	static SimpleGraph from_stdin();
 
