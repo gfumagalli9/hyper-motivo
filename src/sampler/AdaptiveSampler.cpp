@@ -7,6 +7,7 @@
 
 #include "AdaptiveSampler.h"
 #include "OccurrenceSampler.h"
+#include "../common/graph/SimpleGraph.h"
 #include <thread>
 #include <vector>
 #include <google/dense_hash_set>
@@ -111,6 +112,7 @@ void AdaptiveSampler::updateSampler()
 	sampler = new OccurrenceSampler(g, ttc, size, false, true, true, true);
 	sampler->set_selector(treeletSelector, 1); //FIXME: Number of threads
 	std::cout << "using treelet " << currentTreelet.get_structure() << std::endl;
+	SimpleGraph g = SimpleGraph::from_treelet(currentTreelet);
 }
 
 /**

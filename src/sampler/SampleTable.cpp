@@ -111,7 +111,7 @@ std::string SampleTable::header() {
 void SampleTable::sort_by_estimate_occ()
 {
     std::sort(entries.begin(), entries.end(),
-              [] (const Entry &e1, const Entry &e2) { return e1. estimate_graph_occurrences < e2.estimate_graph_occurrences; }  );
+              [] (const Entry &e1, const Entry &e2) { return e1. estimate_graph_occurrences > e2.estimate_graph_occurrences; }  );
 }
 
 /**

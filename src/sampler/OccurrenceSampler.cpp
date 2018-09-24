@@ -36,6 +36,7 @@ Occurrence* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int n
 
     if (nthreads <= 1)
     {
+        std::cout << "OccurrenceSampler::sample || sampling " << num_samples << " graphlet occurrences" << std::endl;
         OccurrenceCanonicizer canonicizer(size);
 
         for (uint64_t  i=0; i<num_samples; i++)
@@ -66,4 +67,5 @@ Occurrence* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int n
 void OccurrenceSampler::set_selector(const TreeletSelector *selector, unsigned int number_of_threads)
 {
     sampler.set_selector(selector, number_of_threads);
+    std::cerr<< "treelet selector set to " << sampler.get_selector() << std::endl;
 }

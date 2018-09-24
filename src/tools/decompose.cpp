@@ -6,141 +6,10 @@
 #include <set>
 #include <algorithm>
 #include "../common/graph/UndirectedGraph.h"
+#include "../common/graph/SimpleGraph.h"
 #include "../common/treelets/Treelet.h"
 #include "../common/OptionsParser.h"
-
-typedef struct {
-unsigned int nverts=0;
-unsigned int  degrees[16] = {0};
-unsigned int  adj_lists[16][16] = {0};
-} simple_graph;
-
-Treelet dfs(simple_graph g, unsigned int u, unsigned int parent, bool *visited, std::set<Treelet> *treelets)
-{
-    visited[u]=true;
-
-    int nchild_treelets=0;
-    Treelet child_treelets[15];
-
-    for(unsigned int i=0; i<g.degrees[u]; i++)
-    {
-        unsigned int v = g.adj_lists[u][i];
-        if(parent==v)
-            continue;
-
-        if(visited[v])
-            throw std::runtime_error("Graph is not a tree");
-
-        child_treelets[nchild_treelets++] = dfs(g, v, u, visited, treelets);
-    }
-
-    std::sort(child_treelets, child_treelets+nchild_treelets);
-
-    Treelet t = Treelet::singleton(static_cast<uint8_t>(u));
-    while(nchild_treelets!=0)
-    {
-        t=t.merge(child_treelets[--nchild_treelets]);
-        assert(t.is_valid());
-        treelets->insert(t);
-    }
-
-    return t;
-}
-
-void decompose(simple_graph g, std::set<Treelet> *treelets, int root)
-{
-    bool visited[16];
-
-    if(root==-1)
-    {
-        for(UndirectedGraph::vertex_t u=0; u<16; u++)
-        {
-            memset(visited, 0, sizeof(bool)*16);
-            dfs(g, u, u, visited, treelets);
-        }
-    }
-    else
-    {
-        memset(visited, 0, sizeof(bool)*16);
-        dfs(g, 0, 0, visited, treelets);
-    }
-}
-
-simple_graph read_graph()
-{
-	simple_graph g;
-    bool seen[16]={0};
-    unsigned int nedges=0;
-
-    unsigned int  u,v;
-    while(std::cin >> u >> v)
-    {
-        if(u>=16 || v>=16 || u==v)
-        {
-            std::cerr << "Invalid edge" << std::endl;
-            continue;
-        }
-
-        bool existing=false;
-        for(unsigned int j=0; j<=g.degrees[u]; j++)
-            existing |= (g.adj_lists[u][j]==v);
-
-        if(existing)
-        {
-            std::cerr << "Duplicate edge" << std::endl;
-            continue;
-        }
-
-        if(!seen[u])
-        {
-            seen[u]=true;
-            g.nverts++;
-        }
-
-        if(!seen[v])
-        {
-            seen[v]=true;
-            g.nverts++;
-        }
-
-        g.adj_lists[u][g.degrees[u]++]=v;
-        g.adj_lists[v][g.degrees[v]++]=u;
-        nedges++;
-    }
-
-    for(unsigned int i=0; i<g.nverts; i++)
-    {
-        if(!seen[i])
-            throw std::runtime_error("Vertex IDs are not contiguous");
-    }
-
-    if(nedges!=g.nverts-1)
-        throw std::runtime_error("Graph is not a tree");
-}
-
-simple_graph path(unsigned int size)
-{
-	simple_graph g;
-    g.nverts=size;
-    for(unsigned int i=1; i<size; i++)
-    {
-        g.adj_lists[i-1][g.degrees[i-1]++]=i;
-        g.adj_lists[i][g.degrees[i]++]=i-1;
-    }
-    return g;
-}
-
-simple_graph star(unsigned int size)
-{
-	simple_graph g;
-    g.nverts=size;
-    for(unsigned int i=1; i<size; i++)
-    {
-        g.adj_lists[0][g.degrees[0]++]=i;
-        g.adj_lists[i][g.degrees[i]++]=0;
-    }
-    return g;
-}
+#include "decompose.h"
 
 int main(const int argc, const char** argv)
 {
@@ -172,7 +41,7 @@ int main(const int argc, const char** argv)
 
     try
     {
-    	simple_graph g;
+    	SimpleGraph g;
         unsigned int size=0;
         if(size_opt->is_found())
         {
@@ -190,28 +59,28 @@ int main(const int argc, const char** argv)
             int s = std::stoi(path_opt->get_value());
             if(s<=0 || s>16)
                 throw std::runtime_error("Invalid path size");
-            path(static_cast<unsigned int>(s));
+            g = SimpleGraph::path(static_cast<unsigned int>(s));
         }
         else if(star_opt->is_found())
         {
             int s = std::stoi(star_opt->get_value());
             if(s<=0 || s>16)
                 throw std::runtime_error("Invalid star size");
-            star(static_cast<unsigned int>(s));
+            g = SimpleGraph::star(static_cast<unsigned int>(s));
         }
         else
-            g = read_graph();
+            g = SimpleGraph::from_stdin();
 
         int root=-1;
         if(root_opt->is_found())
         {
             root = std::stoi(root_opt->get_value());
-            if(root<0 || static_cast<unsigned int>(root)>=g.nverts)
+            if(root<0 || static_cast<unsigned int>(root)>=g.n())
                 throw std::runtime_error("Invalid root");
         }
 
         std::set<Treelet> treelets;
-        decompose(g, &treelets, root);
+        g.decompose(&treelets, root);
 
 //        std::cout << "INCLUDE\n";
 

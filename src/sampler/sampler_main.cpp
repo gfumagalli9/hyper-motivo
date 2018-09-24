@@ -88,7 +88,7 @@ int main(const int argc, const char** argv)
         std::chrono::time_point<std::chrono::steady_clock> tstart = std::chrono::steady_clock::now();
         if (opts.adaptive)
         {
-            std::cout << "Using adaptive sampling." << std::endl;
+        	std::cout << "sampler: adaptive" << std::endl;
             AdaptiveSampler ad_sampler(&G, std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".dtz",
                                        nullptr, opts.size, &ttc);
             Occurrence occ;
@@ -108,6 +108,7 @@ int main(const int argc, const char** argv)
 
             if (!opts.smart_stars)
             {
+            	std::cout << "sampler: standard" << std::endl;
                 Occurrence*table = sampler.sample(opts.number_of_samples, opts.threads, &rng);
                 SampleTable st = SampleTable(table, opts.number_of_samples, selector);
                 delete[] table;
@@ -117,6 +118,7 @@ int main(const int argc, const char** argv)
             }
             else
             {
+            	std::cout << "sampler: fast stars" << std::endl;
                 OccurrenceStarSampler star_sampler(&G, opts.size, opts.threads, opts.canonicize);
                 const double nstars = star_sampler.number_of_stars();
 

@@ -9,6 +9,9 @@
 #define SRC_COMMON_COMMON_H_
 #include <unistd.h>
 #include <ostream>
+#include <set>
+
+class Treelet; // forward declaration
 
 inline unsigned int bits_needed(uint128_t n) {
 	unsigned int needed = 1;
