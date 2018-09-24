@@ -44,7 +44,7 @@ SampleTable::SampleTable(Occurrence *occurrences, uint64_t noccurrences, Treelet
     SpanningTreeCounter stc;
     double normalized_samples = 0;
 	// populate the table
-	for(const auto& kv : ht) //Not const because we need to invoke Occurrence::text_footprint()
+	for(const auto& kv : ht)
 	{
 		Entry e;
 		//e.occ = occurrences[i];

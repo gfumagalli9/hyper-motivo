@@ -17,7 +17,7 @@ private:
     const TreeletTableCollection* table_collection;
     const unsigned int size;
 
-    TreeletSelector* selector = nullptr;
+    const TreeletSelector* selector = nullptr;
     RangeSampler<TreeletTable::treelet_count_t>** range_samplers = nullptr;
     AliasMethodSampler<UndirectedGraph::vertex_t,TreeletTable::treelet_count_t>* root_sampler = nullptr;
 

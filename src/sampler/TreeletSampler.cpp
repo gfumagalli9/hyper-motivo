@@ -25,6 +25,8 @@ void TreeletSampler::set_selector(const TreeletSelector *selector, unsigned int 
         root_sampler = nullptr;
     }
 
+    this->selector = selector;
+    
     if(selector == nullptr)
         return;
 
