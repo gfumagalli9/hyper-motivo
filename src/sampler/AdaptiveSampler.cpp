@@ -13,22 +13,25 @@
 #include <google/dense_hash_set>
 #include "../common/common.h"
 #include "ColorCodingSpanningTreeCounter.h"
+#include <queue>
 
 constexpr unsigned int AdaptiveSampler::suffSamples;
 
 
-AdaptiveSampler::AdaptiveSampler(UndirectedGraph* g, std::string dtzFile, std::map<Treelet, TreeletTable::treelet_count_t, Treelet::compare_less> *tc, unsigned int size, TreeletTableCollection* ttc)
+AdaptiveSampler::AdaptiveSampler(UndirectedGraph* g, std::string dtzFile, std::map<Treelet, TreeletTable::treelet_count_t, Treelet::compare_less> *tc, unsigned int size, TreeletTableCollection* ttc, bool store_only_on_0)
 {
 	this->g = g;
 	this->size = size;
 	this->totSamples = 0;
 	this->ttc = ttc;
+	this->store_only_on_0 = store_only_on_0;
+	std::map<Treelet, TreeletTable::treelet_count_t, Treelet::compare_less> numTreelets2;
 
 	// copy, or read, the treelet counts
 	if (tc)
 	{
 		for(const auto &it : *tc)
-			numTreelets[it.first] = it.second;
+			numTreelets2[it.first] = it.second;
 	}
 	else
     {
@@ -37,12 +40,24 @@ AdaptiveSampler::AdaptiveSampler(UndirectedGraph* g, std::string dtzFile, std::m
 		std::map<Treelet, TreeletTable::treelet_count_t, Treelet::compare_less> counts;
 		for(UndirectedGraph::vertex_t u = 0; u < table.number_of_vertices(); u++)
 			for(TreeletTable::const_iterator it = table.begin(u); !it.is_over(); ++it)
-				numTreelets[it.treelet()] += it.count(); //FIXME: Replace std::map ?
+				numTreelets2[it.treelet()] += it.count(); //FIXME: Replace std::map ?
+	}
+
+	for (const auto &it : numTreelets2) { // cumulate each treelet's count to its representant's count
+		if (!treeletToRepresentant.count(it.first)) { // this treelet will be the representant of its class
+			treeletClassMap[it.first] = TreeletClass(it.first);
+			for (const Treelet &t : treeletClassMap[it.first].get_all())
+				treeletToRepresentant[t] = it.first;
+		}
+		numTreelets[treeletToRepresentant[it.first]] += numTreelets2[it.first]; // put the count on the representant
 	}
 
 	// init the residuals and the priorities -- the most frequent treelet comes first
 	for (const auto &it : numTreelets)
+		totTreelets += it.second;
+	for (const auto &it : numTreelets)
 		treeletPriority.insert(it.first, 100.0 + 1.0 * numTreelets[it.first] / totTreelets);
+//	std::cout << treeletPriority << std::endl;
 	updateSampler();
 }
 
@@ -98,8 +113,9 @@ void AdaptiveSampler::sample_st(int num_samples, std::map<Occurrence, std::pair<
         (*count_table)[it.first] = std::pair<int, double>(it.second, graphletWeight[it.first]);
 }
 
+
 /**
- * Pick the most efficient treelet and rebuild the underlying sampler.
+ * Pick the most efficient treelet(s) and rebuild the underlying sampler.
  */
 void AdaptiveSampler::updateSampler()
 {
@@ -107,19 +123,15 @@ void AdaptiveSampler::updateSampler()
 	delete treeletSelector;
 	treeletSelector = new TreeletSelector(TreeletSelector::MODE_INCLUDE, size);
 	currentTreelet = treeletPriority.last_key();
-	SimpleGraph sg = SimpleGraph::from_treelet(currentTreelet);
-	std::set<Treelet> ts;
-	sg.decompose(&ts, -1, true);
-//	std::cout << ts.size() << " treelets selected " << std::endl;
-	for (std::set<Treelet>::iterator it = ts.begin(); it != ts.end(); it++) {
-		treeletSelector->add_treelet(*it, false);
-	}
-//	treeletSelector->add_treelet(currentTreelet, false);
+	TreeletClass tc(currentTreelet);
+	for (const Treelet &t : tc.get_all())
+		treeletSelector->add_treelet(t, false);
 	delete sampler;
 	sampler = new OccurrenceSampler(g, ttc, size, false, true, true, true);
 	sampler->set_selector(treeletSelector, 1); //FIXME: Number of threads
 	std::cout << "using treelet " << currentTreelet.get_structure() << std::endl;
 }
+
 
 /**
  * Single-threaded (non-adaptive) sampling.
@@ -160,7 +172,7 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 		// these tables are one per thread, and hold the graphlet counts
 		auto* count_tabs = new std::map<Occurrence, int, OcurrenceFootprintLess>[number_of_threads];
 		auto worker_threads = new std::thread[number_of_threads];
-		unsigned int samples_rem = n_samples;
+		int samples_rem = n_samples;
 
 		google::dense_hash_set<Occurrence, OccurrenceFootprintHash, OccurrenceFootprintEquality> seen_now;
 		seen_now.set_empty_key(Occurrence());
@@ -174,41 +186,42 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 		// MAIN CYCLE, LAUNCHES THREADS
 		while (samples_rem > 0) // take suffSamples more samples, in parallel
 		{
+			std::queue<std::thread> thread_q;
+			std::cout << std::endl << "new sample round, treelet priorities are:" << std::endl << treeletPriority << std::endl;
 			// 1. SET UP AND RUN THREADS
 			seen_now.clear();
 			completed_now.clear();
 			//FIXME: Types
-			unsigned int round_samples = std::min(std::max(number_of_threads * 50, suffSamples), samples_rem);
-			unsigned int round_samples_rem = round_samples;
-//			std::cout << "Taking " << rem_samples_1 << " samples " << std::endl;
-			unsigned int thread_samples = std::min((round_samples_rem + number_of_threads - 1) / number_of_threads, round_samples_rem);
-			for (unsigned int id = 0; id < number_of_threads; id++)
-			{
+			int round_samples = std::min((int)std::max(number_of_threads * 50, suffSamples), samples_rem);
+			int round_samples_rem = round_samples;
+//			std::cout << "Taking " << round_samples_rem << " samples " << std::endl;
+			int thread_samples = std::min((int)std::ceil(1.0 * round_samples_rem / number_of_threads), round_samples_rem);
+			int id = 0;
+			while (id < number_of_threads && round_samples_rem > 0) {
 				thread_samples = std::min(thread_samples, round_samples_rem);
-				if (thread_samples == 0)
-					break;
-
 				auto ct = &count_tabs[id];
-//				std::cout << "Thread " << id << " samples " << nsamples << std::endl;
+//				std::cout << "Thread " << id << " samples " << thread_samples << std::endl;
 			    Random *r = rng->derived_rng();
-				worker_threads[id] = std::thread([this, thread_samples, ct, r] { do_sample_mt(thread_samples, ct, r);}); //FIXME: One random for each thread
+//				worker_threads[id] = std::thread([this, thread_samples, ct, r] { do_sample_mt(thread_samples, ct, r);}); //FIXME: One random for each thread
+				thread_q.push(std::thread([this, thread_samples, ct, r] {do_sample_mt(thread_samples, ct, r);})); //FIXME: One random for each thread
 				round_samples_rem -= thread_samples;
 				samples_rem -= thread_samples;
+				id++;
 			}
-
+//			std::cout << "samples_rem = " << samples_rem << std::endl;
+//			number_of_threads = id;
 			treeletSamples[currentTreelet] += round_samples;
-//			std::cout << "Joining " << worker_threads.size() << " threads " << std::endl;
 
             //FIXME: What is joinTime supposed to be?
             //It can be anything between 0 and the length of the time interval between the termination time of the first and last thread
-            worker_threads[0].join();
+//            worker_threads[0].join();
 			std::chrono::time_point < std::chrono::steady_clock > tstart_join = std::chrono::steady_clock::now();
-
-			for (unsigned int id = 1; id < number_of_threads; id++)
-				worker_threads[id].join();
-
+//			std::cout << "joining threads..." << std::endl;
+			while (!thread_q.empty()) {
+				thread_q.front().join();
+				thread_q.pop();
+			}
 			joinTime += (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - tstart_join)).count();
-
 
 			// 2. MERGE COUNTS
 //			std::cout << "Done, merging counts..." << std::endl;
@@ -239,22 +252,24 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 
 			mergeTime += (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - tstart_merge)).count();
 
-			// UPDATE WEIGHTS: occTab[o].second will hold the correct weight w[o]
-//			std::cout << "Updating weights... " << std::endl;
+			// 3. UPDATE WEIGHTS: occTab[o].second will hold the correct weight w[o]
+			std::cout << "Updating weights... " << std::endl;
 			std::chrono::time_point < std::chrono::steady_clock > tstart_w =
 					std::chrono::steady_clock::now();
 			for (Occurrence j : seen) {
 				occTab[j].second = 0;
 				CachedSTC::treelet_table_t* spanTable = spTreeCounter.get_t_table(j);
-				for (auto itr_i : *(spanTable))
-					occTab[j].second += treeletSamples[itr_i.first] * itr_i.second * 1.0
-							/ numTreelets[itr_i.first];
+				for (auto itr_i : *(spanTable)) {
+					Treelet repr = treeletToRepresentant[itr_i.first];
+					occTab[j].second += treeletSamples[repr] * itr_i.second * 1.0
+							/ numTreelets[repr];
+				}
 			}
 			weightsTime += (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - tstart_w)).count();
 
-			// recompute treelet efficiencies
+			// 4. RECOMPUTE TREELET PRIORITY
 			if (recomputeTreelet) {
-//				std::cout << "Recomputing treelet priorities..." << std::endl;
+				std::cout << "Recomputing treelet priorities..." << std::endl;
 				std::chrono::time_point < std::chrono::steady_clock > tstart =
 						std::chrono::steady_clock::now();
 				google::dense_hash_set<Treelet, Treelet::TreeletHash, Treelet::compare_eq> touchedTreelets;
@@ -268,9 +283,10 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 					double wj = occTab[j].second;
 					for (auto t_itr : (*spanTable)) {
 						Treelet i = t_itr.first;
-						touchedTreelets.insert(i);
-						treeletInefficiency[i] += (1.0 * (*spanTable)[i] * cj)
-								/ (wj * numTreelets[i]);
+						Treelet repr = treeletToRepresentant[i];
+						touchedTreelets.insert(repr);
+						treeletInefficiency[repr] += (1.0 * (*spanTable)[i] * cj)
+								/ (wj * numTreelets[repr]);
 					}
 				}
 				effTime +=
@@ -306,6 +322,8 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 								- tstart)).count();
 			}
 		}
+
+
 		delete[] count_tabs;
 		std::cout << "time spent in joining threads: " << joinTime << std::endl;
 		std::cout << "time spent in count merge: " << mergeTime << std::endl;
@@ -324,7 +342,7 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 		e.fingerprint = (it.first.text_footprint() );
 		e.num_spanning_trees = 0;
 		e.sample_count = it.second.first;
-		e.estimate_graph_occurrences = it.second.first * size / (it.second.second * p);
+		e.estimate_graph_occurrences = it.second.first * (store_only_on_0 ? size : 1) / (it.second.second * p);
 		table.addEntry(e);
 	}
 	std::cout << "total management time: " << totManagementTime << std::endl;

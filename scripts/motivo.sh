@@ -11,7 +11,7 @@ else
 TIME="$TIME --verbose"
 fi
 
-ADAPTIVE=YES
+ADAPTIVE=NO
 SMART=NO
 COMPRESS_THRESHOLD=0
 SELECTIVE_FILE=""
@@ -62,7 +62,7 @@ do
 	    ;;
 	-a|--adaptive)
 	    ADAPTIVE=YES
-	    shift # past argument
+	    shift # past 0argument
 	    ;;
 	*)    # unknown option
 	    POSITIONAL+=("$1") # save it in an array for later
@@ -139,7 +139,9 @@ fi
 for i in $(seq 1 "$SIZE"); do
     
     if [ $i -eq "$SIZE" ]; then
-        EXTRA_BUILD_OPTS+=(--store-on-0-colored-vertices-only)
+#	if [ "$ADAPTIVE" == "NO" ]; then
+            EXTRA_BUILD_OPTS+=(--store-on-0-colored-vertices-only)
+#	fi
 	if [ "$SMART" == "YES" ]; then
 	    echo "EXCLUDE" > exclude-star-$SIZE.txt
 	    $BUILDPATH/motivo-decompose --star $SIZE --size $SIZE >> exclude-star-$SIZE.txt 2>/dev/null

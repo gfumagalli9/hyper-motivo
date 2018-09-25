@@ -90,7 +90,7 @@ int main(const int argc, const char** argv)
         {
         	std::cout << "sampler: adaptive" << std::endl;
             AdaptiveSampler ad_sampler(&G, std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".dtz",
-                                       nullptr, opts.size, &ttc);
+                                       nullptr, opts.size, &ttc, store_only_on_0);
             Occurrence occ;
             SampleTable st = ad_sampler.sample(opts.number_of_samples, opts.threads, &rng);
             st.sort_by_estimate_occ();
@@ -114,7 +114,7 @@ int main(const int argc, const char** argv)
                 delete[] table;
                 st.estimateOccurrences(tot_treelets / p, store_only_on_0);
                 st.sort_by_estimate_occ();
-                *output << st.header() << st << std::endl;
+                *output << st.header() << std::endl << st << std::endl;
             }
             else
             {

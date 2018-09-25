@@ -17,6 +17,7 @@
 #include "OccurrenceSampler.h"
 #include "sampler_opts.h"
 #include "../common/graph/UndirectedGraph.h"
+#include "../common/graph/SimpleGraph.h"
 #include "../common/RangeSampler.h"
 #include "../common/ValueSortedMap.h"
 #include "../common/treelets/Treelet.h"
@@ -28,6 +29,27 @@
 class AdaptiveSampler
 {
 public:
+
+	/**
+	 * It represents a treelet with all its possible rootings.
+	 */
+	class TreeletClass {
+		Treelet representant = Treelet::invalid_treelet;
+		std::set<Treelet> all;
+	public:
+		TreeletClass() {
+		}
+		TreeletClass(Treelet repr) {
+			representant = repr;
+			SimpleGraph::from_treelet(repr).decompose(&all, -1, true);
+		}
+		std::set<Treelet> get_all() {
+			return all;
+		}
+		size_t size() {
+			return all.size();
+		}
+	};
 
     //FIXME: Can these classes be merged with the ones used by SampleTable? Can also we use pointers?
     struct OccurrenceFootprintHash
@@ -70,6 +92,8 @@ private:
 	std::map<Treelet, double, Treelet::compare_less> treeletInefficiency; // estimated probability of yielding a graphlet in completedGraphlets
 	ValueSortedMap<Treelet, double> treeletPriority; // function of efficiency, we always take the highest value
 	Treelet currentTreelet; // the treelet in use for sampling
+	std::map<Treelet, TreeletClass, Treelet::compare_less> treeletClassMap; // each treelet has many rooted versions, here in a class mapped by a representant
+	std::map<Treelet, Treelet, Treelet::compare_less> treeletToRepresentant; // each treelet mapped to its representant, so treeletClassMap[treeletToRepresentant[t]].all() contains t
 	unsigned int size;
 	UndirectedGraph* g;
 	CachedSTC spTreeCounter;
@@ -83,7 +107,7 @@ private:
 	TreeletTableCollection *ttc;
 	OccurrenceSampler* sampler = nullptr;
 	double totManagementTime = 0;
-
+	bool store_only_on_0 = false;
 
     void sample_st(int num_samples, std::map<Occurrence, std::pair<int, double>, OcurrenceFootprintLess>* count_table, Random* rng);
     void do_sample_mt(int num_samples, std::map<Occurrence, int, OcurrenceFootprintLess> *counts, Random *rng);
@@ -94,7 +118,7 @@ public:
 	/**
 	 * Build an adaptive sampler.
 	 */
-	AdaptiveSampler(UndirectedGraph* g, std::string dtzFile, std::map<Treelet, TreeletTable::treelet_count_t, Treelet::compare_less> *counts, unsigned int size, TreeletTableCollection* ttc);
+	AdaptiveSampler(UndirectedGraph* g, std::string dtzFile, std::map<Treelet, TreeletTable::treelet_count_t, Treelet::compare_less> *counts, unsigned int size, TreeletTableCollection* ttc, bool store_only_on_0);
 
 	SampleTable sample(unsigned int n_samples, unsigned int number_of_threads, Random* rng);
 
