@@ -126,7 +126,6 @@ int main(const int argc, const char** argv)
                 uint64_t star_nsamples = static_cast<uint64_t>(opts.number_of_samples * (1 - tot_treelets/(p * nstars + tot_treelets)) + 0.5);
                 uint64_t nonstar_nsamples = opts.number_of_samples - star_nsamples;
 
-
                 Occurrence *occurrences = sampler.sample(nonstar_nsamples, opts.threads, &rng);
                 SampleTable st0(occurrences, nonstar_nsamples, selector);
                 delete[] occurrences;

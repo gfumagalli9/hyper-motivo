@@ -33,9 +33,8 @@ SampleTable::SampleTable(Occurrence *occurrences, uint64_t noccurrences, Treelet
             exclude_only_stars = true;
     }
 
-
     //Aggregate occurrences by footprint /
-    google::dense_hash_map<Occurrence*, uint64_t, OccurrenceFootprintHash, OccurrenceFootprintEquality> ht(noccurrences);
+    google::dense_hash_map<Occurrence*, uint64_t, Occurrence::OccurrenceFootprintHash, Occurrence::OccurrenceFootprintEquality> ht(noccurrences);
     Occurrence empty; //FIXME?
     ht.set_empty_key(&empty);
     for(uint64_t i=0; i<noccurrences; i++)

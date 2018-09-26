@@ -26,6 +26,56 @@ public:
 	constexpr static unsigned int binary_footprint_bytes = (binary_footprint_bits + CHAR_BIT - 1) / CHAR_BIT; //round up (to 15 bytes)
 	constexpr static unsigned int text_footprint_bytes = binary_footprint_bytes * 2;
 
+    struct OccurrenceFootprintHash
+    {
+        inline size_t operator()[[gnu::hot,gnu::flatten]] (const Occurrence *key) const
+        {
+            size_t seed;
+            seed = key->is_valid()?0xcb7fedb03a45866f:0xb896186490f1c8e9;
+
+            const char* p = key->binary_footprint();
+            for (unsigned int i = 0; i < Occurrence::binary_footprint_bytes; i++)
+                seed ^= static_cast<unsigned char>(p[i])*0xff51afd7ed558ccd +0x9e3779b9 + (seed << 6) + (seed >> 2);
+
+            return seed;
+        }
+        inline size_t operator()[[gnu::hot,gnu::flatten]] (const Occurrence &key) const
+        {
+            size_t seed;
+            seed = key.is_valid()?0xcb7fedb03a45866f:0xb896186490f1c8e9;
+
+            const char* p = key.binary_footprint();
+            for (unsigned int i = 0; i < Occurrence::binary_footprint_bytes; i++)
+                seed ^= static_cast<unsigned char>(p[i])*0xff51afd7ed558ccd +0x9e3779b9 + (seed << 6) + (seed >> 2);
+
+            return seed;
+        }
+    };
+
+    struct OccurrenceFootprintEquality
+    {
+        inline bool operator() [[gnu::hot,gnu::flatten]] (const Occurrence *occ1, const Occurrence *occ2) const
+        {
+            return (occ1->is_valid()==occ2->is_valid()) && !memcmp(occ1->binary_footprint(), occ2->binary_footprint(), Occurrence::binary_footprint_bytes);
+        }
+        inline bool operator() [[gnu::hot,gnu::flatten]] (const Occurrence &occ1, const Occurrence &occ2) const
+        {
+            return (occ1.is_valid()==occ2.is_valid()) && !memcmp(occ1.binary_footprint(), occ2.binary_footprint(), Occurrence::binary_footprint_bytes);
+        }
+    };
+
+    struct OccurrenceFootprintLess
+    {
+        inline bool operator()[[gnu::hot,gnu::flatten]] (const Occurrence *occ1, const Occurrence *occ2) const
+        {
+            return (occ1->is_valid()==occ2->is_valid()) && (memcmp(occ1->binary_footprint(), occ2->binary_footprint(), Occurrence::binary_footprint_bytes) < 0);
+        }
+        inline bool operator()[[gnu::hot,gnu::flatten]] (const Occurrence &occ1, const Occurrence &occ2) const
+        {
+            return (occ1.is_valid()==occ2.is_valid()) && (memcmp(occ1.binary_footprint(), occ2.binary_footprint(), Occurrence::binary_footprint_bytes) < 0);
+        }
+    };
+
 private:
 	unsigned int size;
 	UndirectedGraph::vertex_t verts[16] = { 0 };

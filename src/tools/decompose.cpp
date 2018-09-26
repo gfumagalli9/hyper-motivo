@@ -78,22 +78,23 @@ int main(const int argc, const char** argv)
                 throw std::runtime_error("Invalid root");
         }
 
-        std::set<Treelet> treelets;
+        SimpleGraph::treelet_set_t treelets;
+        treelets.set_empty_key(Treelet::invalid_treelet);
         g.decompose(&treelets, root);
 
 //        std::cout << "INCLUDE\n";
 
         Treelet::treelet_structure_t previous_structure = Treelet::invalid_structure;
-        for(std::set<Treelet>::iterator it=treelets.begin(); it!=treelets.end(); it++)
+        for(const Treelet& t : treelets)
         {
-            if(!colored_opt->is_found() && it->get_structure()==previous_structure)
+            if(!colored_opt->is_found() && t.get_structure()==previous_structure)
                 continue;
 
-            if(size!=0 && it->number_of_vertices()!=size)
+            if(size!=0 && t.number_of_vertices()!=size)
                 continue;
 
-            std::cout << it->get_structure() << " " << (colored_opt->is_found() ? it->get_colors() : 0) << "\n";
-            previous_structure = it->get_structure();
+            std::cout << t.get_structure() << " " << (colored_opt->is_found() ? t.get_colors() : 0) << "\n";
+            previous_structure = t.get_structure();
         }
     }
     catch(std::exception &e)

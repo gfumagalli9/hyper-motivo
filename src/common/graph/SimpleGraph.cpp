@@ -6,6 +6,7 @@
  */
 
 #include "SimpleGraph.h"
+#include "../../sampler/AdaptiveSampler.h"
 #include <stack>
 
 SimpleGraph::SimpleGraph() {
@@ -16,7 +17,7 @@ SimpleGraph::~SimpleGraph() {
 	// TODO Auto-generated destructor stub
 }
 
-Treelet SimpleGraph::dfs(unsigned int u, unsigned int parent, bool *visited, std::set<Treelet> *treelets)
+Treelet SimpleGraph::dfs(unsigned int u, unsigned int parent, bool *visited, treelet_set_t *treelets)
 {
     visited[u]=true;
 
@@ -53,8 +54,9 @@ Treelet SimpleGraph::dfs(unsigned int u, unsigned int parent, bool *visited, std
  * If the graph is a tree, this returns all possible rootings of the tree itself.
  * If moreover unique=true, then only the distinct rootings are stored, only of maximal size (i.e. spanning trees).
  */
-void SimpleGraph::decompose(std::set<Treelet> *treelets, int root, bool unique)
+void SimpleGraph::decompose(treelet_set_t *treelets, int root, bool unique)
 {
+	treelets->set_empty_key(Treelet::invalid_treelet);
     bool visited[16];
 
     if(root==-1)
@@ -72,16 +74,16 @@ void SimpleGraph::decompose(std::set<Treelet> *treelets, int root, bool unique)
     }
 
     if (unique) { // deduplicate
-    	std::set<Treelet> ts(*treelets);
+    	treelet_set_t ts(*treelets);
     	treelets->clear();
 		Treelet::treelet_structure_t previous_structure = Treelet::invalid_structure;
-		for(std::set<Treelet>::iterator it=ts.begin(); it!=ts.end(); it++) {
+		for(const auto &it : ts) {
 //			std::cout << it->get_structure() << std::endl;
-			if (it->get_structure() == previous_structure || it->number_of_vertices() < nverts)
+			if (it.get_structure() == previous_structure || it.number_of_vertices() < nverts)
 				continue;
 			else
-				treelets->insert(*it);
-			previous_structure = it->get_structure();
+				treelets->insert(it);
+			previous_structure = it.get_structure();
 		}
     }
 }

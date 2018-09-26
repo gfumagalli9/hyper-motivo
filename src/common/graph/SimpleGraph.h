@@ -8,10 +8,12 @@
 #ifndef SRC_COMMON_GRAPH_SIMPLEGRAPH_H_
 #define SRC_COMMON_GRAPH_SIMPLEGRAPH_H_
 
-#include "../treelets/Treelet.h"
 #include <set>
+#include <google/dense_hash_set>
 #include <algorithm>
 #include "UndirectedGraph.h"
+#include "../treelets/Treelet.h"
+//#include "../../sampler/AdaptiveSampler.h"
 
 class SimpleGraph;
 
@@ -24,11 +26,12 @@ protected:
 	unsigned int degrees[16] = {0};
 	unsigned int adj_lists[16][16] = {0};
 public:
+	typedef google::dense_hash_set<Treelet, Treelet::TreeletHash, Treelet::compare_eq> treelet_set_t;
 	SimpleGraph();
 	~SimpleGraph();
 	unsigned int n() { return nverts; };
-	Treelet dfs(unsigned int u, unsigned int parent, bool *visited, std::set<Treelet> *treelets);
-	void decompose(std::set<Treelet> *treelets, int root, bool unique = false);
+	Treelet dfs(unsigned int u, unsigned int parent, bool *visited, treelet_set_t *treelets);
+	void decompose(treelet_set_t *treelets, int root, bool unique = false);
 
 	static SimpleGraph from_stdin();
 

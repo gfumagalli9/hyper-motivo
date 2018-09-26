@@ -27,29 +27,26 @@
 class CachedSTC
 {
 public:
-
-	struct OcurrenceFootprintLess
-	{
-		inline bool operator()[[gnu::hot,gnu::flatten]] (const Occurrence &occ1, const Occurrence &occ2) const
-		{
-			return (occ1.is_valid()==occ2.is_valid()) && (memcmp(occ1.binary_footprint(), occ2.binary_footprint(), Occurrence::binary_footprint_bytes) < 0);
-		}
-	};
-
-//	typedef google::dense_hash_map<Treelet, uint64_t, Treelet::TreeletHash, Treelet::compare_eq> treelet_table_t;
-//	typedef google::dense_hash_map<Occurrence, treelet_table_t*, Occurrence::OccurrenceHash,
-//			Occurrence::compare_eq> occurrence_treelet_table_t;
-	typedef std::map<Treelet, uint64_t, Treelet::compare_less> treelet_table_t;
-	typedef std::map<Occurrence, treelet_table_t*, OcurrenceFootprintLess> occurrence_treelet_table_t;
+	typedef google::dense_hash_map<Treelet, uint64_t, Treelet::TreeletHash, Treelet::compare_eq> treelet_table_t;
+	typedef google::dense_hash_map<Occurrence, uint64_t, Occurrence::OccurrenceFootprintHash, Occurrence::OccurrenceFootprintEquality> occ_table_t;
+    typedef google::dense_hash_map<Treelet, occ_table_t*, Treelet::TreeletHash, Treelet::compare_eq> treelet_occurrence_table_t;
+    typedef google::dense_hash_map<Occurrence, treelet_table_t*, Occurrence::OccurrenceFootprintHash, Occurrence::OccurrenceFootprintEquality> occurrence_treelet_table_t;
+//	typedef std::map<Treelet, uint64_t, Treelet::compare_less> treelet_table_t;
+//	typedef std::map<Occurrence, treelet_table_t*, OcurrenceFootprintLess> occurrence_treelet_table_t;
 
 private:
 	occurrence_treelet_table_t table;
+	treelet_occurrence_table_t reverse_table;
 	treelet_table_t* compute_t_table(const Occurrence &o);
 	std::mutex m_mutex;
 	double tot_running_time = 0;
 	double tot_computing_time = 0;
+
 public:
-	uint64_t num_spanning_trees(const Occurrence &o, const Treelet &t);
+	CachedSTC() {
+		table.set_empty_key(Occurrence());
+		reverse_table.set_empty_key(Treelet::invalid_treelet);
+	}
 
 	double running_time() {
 		return tot_running_time;
@@ -64,12 +61,22 @@ public:
 	 */
 	treelet_table_t* const get_t_table(const Occurrence &o) {
 		if (!table.count(o)) {
+			auto tb = compute_t_table(o);
 			m_mutex.lock();
-			table[o] = compute_t_table(o);
+			table[o] = tb;
 			m_mutex.unlock();
 		}
 		return table[o];
 	}
+
+	/**
+	 * Return the graphlets present in the table and spanned by the given tree, with spanning counts.
+	 */
+	occ_table_t* const get_reverse_table(const Treelet &t) {
+		return reverse_table[t];
+	}
+
+	uint64_t num_spanning_trees(const Occurrence &o, const Treelet &t);
 
 };
 
