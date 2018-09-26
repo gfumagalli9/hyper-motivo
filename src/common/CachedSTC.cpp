@@ -6,7 +6,7 @@
  */
 
 #include "CachedSTC.h"
-
+#include "../sampler/ColorCodingSpanningTreeCounter.h"
 
 struct vertex_info
         {
@@ -129,54 +129,9 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
 CachedSTC::treelet_table_t* CachedSTC::compute_t_table(const Occurrence &o) {
 	std::chrono::time_point < std::chrono::steady_clock > tstart = std::chrono::steady_clock::now();
 	CachedSTC::treelet_table_t* tab = new CachedSTC::treelet_table_t();
-//	tab->set_empty_key(Treelet::invalid_treelet);
-
-	UndirectedGraph h(o);
-	FullGraphColoring *coloring = new FullGraphColoring();
-	TreeletTableCollection ttc;
-	TreeletTable** tables = nullptr;
-
-	// the table for 1-graphlets
-	const std::string filename = "spantreecount.1.cnt";
-	std::ofstream out(filename, std::ofstream::binary | std::ofstream::trunc);
-	if (out.bad())
-		throw std::runtime_error("Could not open output file for writing");
-	SimpleTreeletTableBuilder builder(&h, coloring, 1, &ttc, &out, false, nullptr);
-	builder.build();
-	out.close();
-	std::vector<std::string> vf;
-	vf.push_back(filename);
-	merge(vf, "spantreecount.1");
-	CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,
-			TreeletTable::may_alias>* readers = nullptr;
-	readers = new CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,
-			TreeletTable::may_alias> [h.number_of_vertices() - 1];
-	tables = new TreeletTable*[h.number_of_vertices() - 1];
-	for (unsigned int i = 2; i <= h.number_of_vertices(); i++) {
-		readers[i - 2].open("spantreecount." + std::to_string(i - 1) + ".dtz");
-		readers[i - 2].prefault(0, h.number_of_vertices() - 1);
-		tables[i - 2] = new TreeletTable(&readers[i - 2]);
-		ttc.add(tables[i - 2]);
-		const std::string filename = "spantreecount." + std::to_string(i) + ".cnt";
-		std::ofstream out(filename, std::ofstream::binary | std::ofstream::trunc);
-		SimpleTreeletTableBuilder builder(&h, coloring, i, &ttc, &out, false, nullptr);
-		builder.build();
-		out.close();
-		std::vector<std::string> vf;
-		vf.push_back(filename);
-		merge(vf, "spantreecount." + std::to_string(i));
-	}
-	delete[] readers;
-	delete[] tables;
-	CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,
-			TreeletTable::may_alias> reader;
-	reader.open("spantreecount." + std::to_string(h.number_of_vertices()) + ".dtz");
-	reader.prefault(0, h.number_of_vertices() - 1);
-	TreeletTable finalTable(&reader);
-	for (UndirectedGraph::vertex_t u = 0; u < finalTable.number_of_vertices(); u++)
-		for (TreeletTable::const_iterator it = finalTable.begin(u); !it.is_over(); ++it)
-			(*tab)[it.treelet()] += it.count();
-	reader.close();
+	ColorCodingSpanningTreeCounter ccstc(&o, nullptr);
+	ccstc.count();
+	ccstc.get_table(tab);
 	std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
 	tot_running_time += delta_t.count();
 	return tab;
