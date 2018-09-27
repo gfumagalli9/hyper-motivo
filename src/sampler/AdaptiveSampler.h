@@ -49,8 +49,10 @@ public:
 		treelet_set_t all;
 	public:
 		TreeletClass() {
+			all.set_empty_key(Treelet::invalid_treelet);
 		}
 		TreeletClass(Treelet repr) {
+			all.set_empty_key(Treelet::invalid_treelet);
 			representant = repr;
 			SimpleGraph::from_treelet(repr).decompose(&all, -1, true);
 		}

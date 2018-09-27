@@ -74,7 +74,7 @@ void AdaptiveSampler::updateSampler() {
 	delete sampler;
 	sampler = new OccurrenceSampler(g, ttc, size, false, true, true, true);
 	sampler->set_selector(treeletSelector, 1); //FIXME: Number of threads
-	std::cout << "using treelet " << currentTreelet.get_structure() << std::endl;
+//	std::cout << "using treelet " << currentTreelet.get_structure() << std::endl;
 }
 
 /**
@@ -88,7 +88,7 @@ void AdaptiveSampler::do_sample_mt(int num_samples, occ_count_table_t *counts, R
 	Occurrence h;
 	for (uint64_t i = 0; i < num_samples; i++) {
 		sampler->sample_one(&h, rng);
-		stc->get_t_table(h);
+		stc->update_tables(h);
 		(*counts)[h]++;
 	}
 
@@ -128,8 +128,7 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 	while (samples_rem > 0) // take suffSamples more samples, in parallel
 	{
 		std::queue<std::thread> thread_q;
-		std::cout << std::endl << "new sample round, treelet priorities are:" << std::endl
-				<< treeletPriority << std::endl;
+//		std::cout << std::endl << "new sample round, treelet priorities are:" << std::endl	<< treeletPriority << std::endl;
 		// 1. SET UP AND RUN THREADS
 		seen_now.clear();
 		completed_now.clear();
@@ -189,7 +188,7 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 				if (occTab[o].first < suffSamples && occTab[o].first + cnt >= suffSamples) {
 					completedGraphlets.insert(o);
 					completed_now.insert(o);
-					std::cout << "graphlet " << o.text_footprint() << " done" << std::endl;
+//					std::cout << "graphlet " << o.text_footprint() << " done" << std::endl;
 					recomputeTreelet = true;
 				}
 				occTab[o].first += cnt;
@@ -202,10 +201,9 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 				- tstart_merge)).count();
 
 		// 3. UPDATE WEIGHTS: occTab[o].second will hold the correct weight w[o]
-		std::cout << "Updating weights... " << std::endl;
+//		std::cout << "Updating graphlet weights... " << std::endl;
 		std::chrono::time_point < std::chrono::steady_clock > tstart_w =
 				std::chrono::steady_clock::now();
-		std::cout << spTreeCounter.get_reverse_table(currentTreelet)->size() << std::endl;
 		for (const Treelet & t : treeletClassMap[currentTreelet].get_all()) {
 			for (const std::pair<Occurrence, uint64_t> &it : *(spTreeCounter.get_reverse_table(t))) {
 				occTab[it.first].second += round_samples * it.second * 1.0
@@ -213,22 +211,12 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 			}
 		}
 
-		/*
-		 for (Occurrence j : seen) {
-		 occTab[j].second = 0;
-		 CachedSTC::treelet_table_t* spanTable = spTreeCounter.get_t_table(j);
-		 for (auto itr_i : *spanTable) {
-		 Treelet repr = treeletToRepresentant[itr_i.first];
-		 occTab[j].second += treeletSamples[repr] * itr_i.second * 1.0 / numTreelets[repr];
-		 }
-		 }
-		 */
 		weightsTime += (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
 				- tstart_w)).count();
 
 		// 4. RECOMPUTE TREELET PRIORITY
 		if (recomputeTreelet) {
-			std::cout << "Recomputing treelet priorities..." << std::endl;
+//			std::cout << "Recomputing treelet priorities..." << std::endl;
 			std::chrono::time_point < std::chrono::steady_clock > tstart =
 					std::chrono::steady_clock::now();
 			google::dense_hash_set<Treelet, Treelet::TreeletHash, Treelet::compare_eq> touchedTreelets;
@@ -242,6 +230,8 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 				double wj = occTab[j].second;
 				for (auto t_itr : (*spanTable)) {
 					Treelet i = t_itr.first;
+					if (!numTreelets.count(i)) // treelet spanning j, but excluded from building
+						continue;
 					Treelet repr = treeletToRepresentant[i];
 					touchedTreelets.insert(repr);
 					treeletInefficiency[repr] += (1.0 * (*spanTable)[i] * cj)

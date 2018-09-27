@@ -117,7 +117,7 @@ Occurrence* OccurrenceStarSampler::sample(uint64_t num_samples, Random *rng)
 		return nullptr;
 
     unsigned int nthreads = number_of_threads;
-    if(nthreads < num_samples / 10)
+    if (num_samples / nthreads < 10)
         nthreads = static_cast<unsigned int>(num_samples / 10);
 
     auto sampled_occurrences = new Occurrence[num_samples];
@@ -138,8 +138,9 @@ Occurrence* OccurrenceStarSampler::sample(uint64_t num_samples, Random *rng)
 			worker_threads[i] = std::thread([this, sampled_occurrences, sequencer, r] { do_sample_mt(sampled_occurrences, sequencer, r); });
 		}
 
-		for (unsigned int i=0; i<nthreads; i++)
+		for (unsigned int i=0; i<nthreads; i++) {
 			worker_threads[i].join();
+		}
 
         delete[] worker_threads;
         delete sequencer;

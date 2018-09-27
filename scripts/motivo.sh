@@ -132,9 +132,6 @@ echo -e "size\t\tbuild\t\tmerge\t\tsample"
 # Smart: exclude stars from the building phase, and sample them separately in the sampling phase
 
 EXTRA_BUILD_OPTS=()
-if [ "$SELECTIVE_FILE" != "" ]; then
-    EXTRA_BUILD_OPTS+=(--selective "$SELECTIVE_FILE")
-fi
 
 for i in $(seq 1 "$SIZE"); do
     
@@ -149,6 +146,10 @@ for i in $(seq 1 "$SIZE"); do
 	fi
     fi
 
+    if [ "$SELECTIVE_FILE" != "" ]; then
+	EXTRA_BUILD_OPTS+=(--selective "$SELECTIVE_FILE")
+    fi
+    
     echo -en "$i  \t\t"
     echo "[$(date)] Building table of size $i" >> $LOGFILE
     ($TIME $BUILDPATH/motivo-build --graph "$GRAPH" --size "$i" --colors "$SIZE" --tables-basename "$OUTPUT" --output "$OUTPUT" --threads "$THREADS" ${EXTRA_BUILD_OPTS[@]} > "$OUTPUT.b$i.log" 2>&1) || exit 1  
@@ -175,8 +176,11 @@ if [ "$SMART" == "YES" ]; then
     $BUILDPATH/motivo-decompose --star $SIZE --size $SIZE >> exclude-star-$SIZE.txt 2>/dev/null
     SELECTIVE_FILE=exclude-star-$SIZE.txt
     EXTRA_SAMPLE_OPTS+=(--smart-stars)
-elif [ "$ADAPTIVE" == "YES" ]; then
+fi
+if [ "$ADAPTIVE" == "YES" ]; then
     EXTRA_SAMPLE_OPTS+=(--estimate-occurrences-adaptive)
+else
+    EXTRA_SAMPLE_OPTS+=(--estimate-occurrences)
 fi
 
 if [ "$SELECTIVE_FILE" != "" ]; then
@@ -185,7 +189,7 @@ fi
 
 echo -en "\t\t"
 echo "[$(date)] Sampling..." >> $LOGFILE
-($TIME $BUILDPATH/motivo-sample --estimate-occurrences --graph "$GRAPH" --size "$SIZE" -n "$NSAMPLES" -i "$OUTPUT" -c --graphlets -o "$OUTPUT" --threads "$THREADS" ${EXTRA_SAMPLE_OPTS[@]} > "$OUTPUT.s$SIZE.log" 2>&1) || exit 1
+($TIME $BUILDPATH/motivo-sample --graph "$GRAPH" --size "$SIZE" -n "$NSAMPLES" -i "$OUTPUT" -c --graphlets -o "$OUTPUT" --threads "$THREADS" ${EXTRA_SAMPLE_OPTS[@]} > "$OUTPUT.s$SIZE.log" 2>&1) || exit 1
 echo $(get_walltime "$OUTPUT.s${SIZE}.log")
 echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,sample,0,$NSAMPLES,$(get_nthreads "$OUTPUT.s$SIZE.log"),$(get_walltime "$OUTPUT.s$SIZE.log"),$(get_usertime "$OUTPUT.s$SIZE.log"),$(get_systemtime "$OUTPUT.s$SIZE.log"),$(get_actualtime "$OUTPUT.s$SIZE.log")" >> $TIMEFILE
 

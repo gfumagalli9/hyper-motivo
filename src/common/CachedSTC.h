@@ -48,6 +48,13 @@ public:
 		reverse_table.set_empty_key(Treelet::invalid_treelet);
 	}
 
+	~CachedSTC() {
+		for (auto &itr : table)
+			delete itr.second;
+		for (auto &itr : reverse_table)
+			delete itr.second;
+	}
+
 	double running_time() {
 		return tot_running_time;
 	}
@@ -68,6 +75,19 @@ public:
 			m_mutex.unlock();
 		}
 		return table[o];
+	}
+
+	/**
+	 * Update all tables to include a given graphlet.
+	 */
+	inline void const update_tables(const Occurrence &o) {
+		if (!table.count(o)) {
+			auto tb = compute_t_table(o);
+			m_mutex.lock();
+			table[o] = tb;
+			update_reverse_table(*tb, o);
+			m_mutex.unlock();
+		}
 	}
 
 	void update_reverse_table(treelet_table_t& tab, const Occurrence& o);

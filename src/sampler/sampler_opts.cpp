@@ -124,8 +124,8 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
         opts->graphlets = true;
     }
 
-    if(opts->adaptive && selective_opt->is_found())
-        throw std::runtime_error("option 'estimate-occurrences-adaptive' cannot be used with 'selective'");
+//    if(opts->adaptive && selective_opt->is_found())
+//        throw std::runtime_error("option 'estimate-occurrences-adaptive' cannot be used with 'selective'");
 
     if((opts->adaptive || opts->estimate_occurrences) && (opts->footprints || opts->spanning_trees || opts->vertices))
         throw std::runtime_error("options 'estimate-occurrences' and 'estimate-occurrences-adaptive' cannot be used with 'footprints', 'spanning-trees', or 'vertices'");

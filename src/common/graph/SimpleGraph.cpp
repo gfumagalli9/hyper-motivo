@@ -56,7 +56,6 @@ Treelet SimpleGraph::dfs(unsigned int u, unsigned int parent, bool *visited, tre
  */
 void SimpleGraph::decompose(treelet_set_t *treelets, int root, bool unique)
 {
-	treelets->set_empty_key(Treelet::invalid_treelet);
     bool visited[16];
 
     if(root==-1)
