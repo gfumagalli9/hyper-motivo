@@ -59,24 +59,27 @@ public:
 	/**
 	 * Return the spanning tree table of the graphlet.
 	 */
-	treelet_table_t* const get_t_table(const Occurrence &o) {
+	inline treelet_table_t* const get_t_table(const Occurrence &o) {
 		if (!table.count(o)) {
 			auto tb = compute_t_table(o);
 			m_mutex.lock();
 			table[o] = tb;
+			update_reverse_table(*tb, o);
 			m_mutex.unlock();
 		}
 		return table[o];
 	}
 
+	void update_reverse_table(treelet_table_t& tab, const Occurrence& o);
+
 	/**
 	 * Return the graphlets present in the table and spanned by the given tree, with spanning counts.
 	 */
-	occ_table_t* const get_reverse_table(const Treelet &t) {
+	inline occ_table_t* const get_reverse_table(const Treelet &t) {
 		return reverse_table[t];
 	}
 
-	uint64_t num_spanning_trees(const Occurrence &o, const Treelet &t);
+//	uint64_t num_spanning_trees(const Occurrence &o, const Treelet &t);
 
 };
 

@@ -85,7 +85,7 @@ private:
 	double totManagementTime = 0;
 	bool store_only_on_0 = false;
 
-	void do_sample_mt(int num_samples, occ_count_table_t* counts, Random *rng);
+	void do_sample_mt(int num_samples, occ_count_table_t* counts, Random *rng, CachedSTC *stc = nullptr);
 
 	void updateSampler();
 

@@ -84,10 +84,11 @@ void AdaptiveSampler::updateSampler() {
  * In expectation, the ratio c/w equals the total number of occurrence of H in the graph.
  * This methods does *not* switch currentTreelet along the sampling.
  */
-void AdaptiveSampler::do_sample_mt(int num_samples, occ_count_table_t *counts, Random *rng) {
+void AdaptiveSampler::do_sample_mt(int num_samples, occ_count_table_t *counts, Random *rng, CachedSTC *stc) {
 	Occurrence h;
 	for (uint64_t i = 0; i < num_samples; i++) {
 		sampler->sample_one(&h, rng);
+		stc->get_t_table(h);
 		(*counts)[h]++;
 	}
 
@@ -140,6 +141,7 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 		int thread_samples = std::min((int) std::ceil(1.0 * round_samples_rem / number_of_threads),
 				round_samples_rem);
 		int id = 0;
+		CachedSTC* stc = &spTreeCounter;
 		while (id < number_of_threads && round_samples_rem > 0) {
 			thread_samples = std::min(thread_samples, round_samples_rem);
 			auto ct = &count_tabs[id];
@@ -148,7 +150,7 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 //				worker_threads[id] = std::thread([this, thread_samples, ct, r] { do_sample_mt(thread_samples, ct, r);}); //FIXME: One random for each thread
 			thread_q.push(
 					std::thread(
-							[this, thread_samples, ct, r] {do_sample_mt(thread_samples, ct, r);})); //FIXME: One random for each thread
+							[this, thread_samples, ct, r, stc] {do_sample_mt(thread_samples, ct, r, stc);})); //FIXME: One random for each thread
 			round_samples_rem -= thread_samples;
 			samples_rem -= thread_samples;
 			id++;
@@ -181,7 +183,7 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 			for (auto it : count_tabs[id]) {
 				Occurrence o = it.first;
 				seen_now.insert(o);
-				spTreeCounter.get_t_table(o);
+//				spTreeCounter.get_t_table(o);
 				seen.insert(o);
 				int cnt = it.second;
 				if (occTab[o].first < suffSamples && occTab[o].first + cnt >= suffSamples) {
