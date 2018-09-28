@@ -22,7 +22,7 @@ public:
     class Entry // a table entry
     {
     public:
-        //Occurrence occ;
+        Occurrence occ;
         std::string fingerprint = "";
         uint128_t num_spanning_trees = 0;
         uint64_t sample_count = 0;
@@ -43,6 +43,7 @@ public:
 
     void estimateOccurrences(double num_graph_treelets, unsigned int k, bool store_only_0 = false);
 	void estimateFrequencies();
+	void update_spanning_trees(TreeletSelector *ts);
 
 	void sort_by_estimate_occ();
 

@@ -95,12 +95,14 @@ public:
 	/**
 	 * Build an adaptive sampler.
 	 */
-//	AdaptiveSampler(UndirectedGraph* g, std::string dtzFile, std::map<Treelet, TreeletTable::treelet_count_t, Treelet::compare_less> *counts, unsigned int size, TreeletTableCollection* ttc, bool store_only_on_0);
 	AdaptiveSampler(UndirectedGraph* g, std::string dtzFile,
 			std::map<Treelet, TreeletTable::treelet_count_t, Treelet::compare_less> *counts,
 			unsigned int size, TreeletTableCollection* ttc, bool store_only_on_0);
 
-	SampleTable sample(unsigned int n_samples, unsigned int number_of_threads, Random* rng);
+	/**
+	 * Take samples and return a table with counts.
+	 */
+	SampleTable sample(unsigned int n_samples, unsigned int number_of_threads, Random* rng, double time_budget = std::numeric_limits<double>::infinity());
 
 	inline double getUpdateTime() //FIXME: Do we need this?
 	{

@@ -86,46 +86,54 @@ int main(const int argc, const char** argv) {
 			output = new std::ofstream(std::string(opts.output_basename) + +".csv",
 					std::ofstream::binary | std::ofstream::trunc);
 
+		/*********************
+		 ** ACTUAL SAMPLING **
+		 *********************/
 		std::chrono::time_point < std::chrono::steady_clock > tstart =
 				std::chrono::steady_clock::now();
-		double p = pcol(opts.size, opts.size);
-		if (opts.adaptive) {
-			std::cout << "sampler: adaptive" << std::endl;
+		double p = pcol(opts.size, opts.size); // the coloring probability
+		std::cerr << "Sampling using " << opts.threads << " thread(s)" << std::endl;
+
+		// 1. FAST STAR SAMPLING
+		SampleTable* star_samples = nullptr;
+		uint128_t nstars = 0;
+		uint64_t star_nsamples = 0;
+		if (opts.smart_stars) { // let's see...
 			OccurrenceStarSampler star_sampler(&G, opts.size, opts.threads, opts.canonicize);
-			const double nstars = star_sampler.number_of_stars();
-			//FIXME: Throw binomial rv
-			uint64_t star_nsamples = static_cast<uint64_t>(opts.number_of_samples
+			nstars = star_sampler.number_of_stars();
+			star_nsamples = static_cast<uint64_t>(opts.number_of_samples
 					* (1 - tot_treelets / (p * nstars + tot_treelets)) + 0.5);
-			uint64_t nonstar_nsamples = opts.number_of_samples - star_nsamples;
-			std::cout << "samples of stars / nonstars: " << star_nsamples << " " << nonstar_nsamples << std::endl;
-			AdaptiveSampler ad_sampler(&G,
-					std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".dtz",
-					nullptr, opts.size, &ttc, store_only_on_0);
-			SampleTable results_adaptive = ad_sampler.sample(nonstar_nsamples, opts.threads, &rng);
-			results_adaptive.sort_by_estimate_occ();
-			std::cout << results_adaptive << std::endl;
-
-//            SampleTable st0(occurrences, nonstar_nsamples, selector);
-//            delete[] occurrences;
-//            st0.estimateOccurrences(tot_treelets / p, store_only_on_0);
-
-			if (star_nsamples != 0) {
-				double w = (tot_treelets / p) / (nstars + tot_treelets / p), w0 = 1 - w;
-				std::cout << "sampling spanning stars..." << std::endl;
+			if (star_nsamples > 0) { // fast star sampling
+				std::chrono::time_point < std::chrono::steady_clock > sampstart =
+						std::chrono::steady_clock::now();
+				std::cout << "star sampler: taking " << star_nsamples << " samples" << std::endl;
 				Occurrence *star_occurrences = star_sampler.sample(star_nsamples, &rng);
-				std::cout << "computing results..." << std::endl;
 				TreeletSelector star_selector = TreeletSelector::get_star_selector(opts.size,
 						TreeletSelector::MODE_INCLUDE);
-				SampleTable results_stars(star_occurrences, star_nsamples, &star_selector);
+				star_samples = new SampleTable(star_occurrences, star_nsamples, &star_selector);
 				delete[] star_occurrences;
-				results_stars.estimateOccurrences(nstars, opts.size, store_only_on_0);
-				std::cout << results_stars << std::endl;
-//				std::cout << results_stars << std::endl;
-//				std::cout << results_adaptive << std::endl;
-				//FIXME:!!! This seemed wrong!!! Is p*nstars just nstars?
-				//Notice also that the second argument was an (implicitly converted) bool. Probably not intended
-				//It was st.estimateOccurrences(p * nstars, store_only_on_0);
-				SampleTable	merged = SampleTable::average(results_adaptive, results_stars, w, w0);
+				star_samples->estimateOccurrences((double) nstars, opts.size, store_only_on_0);
+				std::chrono::duration<double> el = std::chrono::steady_clock::now() - sampstart;
+				std::cerr << "star sampler: elapsed " << el.count() << " s\n";
+			}
+		}
+		uint64_t nonstar_nsamples = opts.number_of_samples - star_nsamples;
+
+		// 2. SAMPLING THE REST
+		if (opts.adaptive) {
+			std::cout << "adaptive sampler: taking " << nonstar_nsamples << " samples" << std::endl;
+			std::chrono::time_point < std::chrono::steady_clock > sampstart =
+					std::chrono::steady_clock::now();
+			AdaptiveSampler sampler(&G,
+					std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".dtz",
+					nullptr, opts.size, &ttc, store_only_on_0);
+			SampleTable results_adaptive = sampler.sample(nonstar_nsamples, opts.threads, &rng,
+					opts.time_budget);
+			std::chrono::duration<double> el = std::chrono::steady_clock::now() - sampstart;
+			std::cerr << "adaptive sampler: elapsed " << el.count() << " s\n";
+			if (star_samples != nullptr) {
+				double w = (tot_treelets / p) / (nstars + tot_treelets / p), w0 = 1 - w;
+				SampleTable merged = SampleTable::average(results_adaptive, *star_samples, w, w0);
 				merged.sort_by_estimate_occ();
 				*output << merged.header() << "\n" << merged << std::endl;
 			} else {
@@ -133,55 +141,25 @@ int main(const int argc, const char** argv) {
 				*output << results_adaptive.header() << "\n" << results_adaptive << std::endl;
 			}
 		} else {
-			std::cerr << "Sampling using " << opts.threads << " thread(s)" << std::endl;
+			std::cout << "naive sampler: taking " << nonstar_nsamples << " samples" << std::endl;
+			std::chrono::time_point < std::chrono::steady_clock > sampstart =
+					std::chrono::steady_clock::now();
 			OccurrenceSampler sampler(&G, &ttc, opts.size, opts.vertices, opts.graphlets,
 					opts.canonicize, opts.norejection);
 			sampler.set_selector(selector, opts.threads);
-
-			if (!opts.smart_stars) {
-				std::cout << "sampler: standard" << std::endl;
-				Occurrence*table = sampler.sample(opts.number_of_samples, opts.threads, &rng);
-				SampleTable st = SampleTable(table, opts.number_of_samples, selector);
-				delete[] table;
-				st.estimateOccurrences(tot_treelets / p, store_only_on_0);
-				st.sort_by_estimate_occ();
-				*output << st.header() << std::endl << st << std::endl;
+			SampleTable samples = sampler.sample(nonstar_nsamples, opts.threads, &rng,
+					opts.time_budget);
+			samples.estimateOccurrences(tot_treelets / p, opts.size, store_only_on_0);
+			std::chrono::duration<double> el = std::chrono::steady_clock::now() - sampstart;
+			std::cerr << "naive sampler: elapsed " << el.count() << " s\n";
+			if (star_samples != nullptr) {
+				SampleTable merged = SampleTable::merge(samples, *star_samples, tot_treelets / p,
+						nstars);
+				merged.sort_by_estimate_occ();
+				*output << merged.header() << std::endl << merged << std::endl;
 			} else {
-				std::cout << "sampler: fast stars" << std::endl;
-				OccurrenceStarSampler star_sampler(&G, opts.size, opts.threads, opts.canonicize);
-				const double nstars = star_sampler.number_of_stars();
-
-				//FIXME: Throw binomial rv
-				uint64_t star_nsamples = static_cast<uint64_t>(opts.number_of_samples
-						* (1 - tot_treelets / (p * nstars + tot_treelets)) + 0.5);
-				uint64_t nonstar_nsamples = opts.number_of_samples - star_nsamples;
-
-				Occurrence *occurrences = sampler.sample(nonstar_nsamples, opts.threads, &rng);
-				SampleTable st0(occurrences, nonstar_nsamples, selector);
-				delete[] occurrences;
-
-				st0.estimateOccurrences(tot_treelets / p, store_only_on_0);
-
-				if (star_nsamples != 0) {
-					Occurrence *star_occurrences = star_sampler.sample(star_nsamples, &rng);
-
-					TreeletSelector star_selector = TreeletSelector::get_star_selector(opts.size,
-							TreeletSelector::MODE_INCLUDE);
-					SampleTable st(star_occurrences, star_nsamples, &star_selector);
-					delete[] star_occurrences;
-
-					//FIXME:!!! This seemed wrong!!! Is p*nstars just nstars?
-					//Notice also that the second argument was an (implicitly converted) bool. Probably not intended
-					//It was st.estimateOccurrences(p * nstars, store_only_on_0);
-					st.estimateOccurrences(nstars, opts.size, store_only_on_0);
-
-					SampleTable merged = SampleTable::merge(st0, st, tot_treelets / p, nstars);
-					merged.sort_by_estimate_occ();
-					*output << merged.header() << "\n" << merged << std::endl;
-				} else {
-					st0.sort_by_estimate_occ();
-					*output << st0.header() << "\n" << st0 << std::endl;
-				}
+				samples.sort_by_estimate_occ();
+				*output << samples.header() << std::endl << samples << std::endl;
 			}
 		}
 

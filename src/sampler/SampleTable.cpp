@@ -45,6 +45,7 @@ SampleTable::SampleTable(Occurrence *occurrences, uint64_t noccurrences, Treelet
 	for (const auto& kv : ht) {
 		Entry e;
 		//e.occ = occurrences[i];
+		e.occ = *(kv.first);
 		e.fingerprint = kv.first->text_footprint();
 		e.sample_count = kv.second;
 
@@ -64,6 +65,35 @@ SampleTable::SampleTable(Occurrence *occurrences, uint64_t noccurrences, Treelet
 	for (Entry &e : entries)
 		e.estimate_graph_frequency = static_cast<double>(e.sample_count)
 				/ (static_cast<double>(e.num_spanning_trees) * normalized_samples);
+}
+
+/**
+ * Updates the entries' spanning tree number, possibly including/excluding some.
+ */
+void SampleTable::update_spanning_trees(TreeletSelector *ts) {
+
+	// populate the table
+	SpanningTreeCounter stc;
+	for (auto &e : entries) {
+		// Let's check if the TreeletSelector is including/excluding just k-stars...
+		bool include_only_stars = false;
+		bool exclude_only_stars = false;
+		if (ts != nullptr && ts->get_treelet_size() == entries.front().occ.get_size()
+				&& ts->get_size() == 2 && ts->get_treelets()[0].is_star()
+				&& ts->get_treelets()[1].is_star()) {
+			if (ts->get_mode() == TreeletSelector::MODE_INCLUDE)
+				include_only_stars = true;
+			else
+				exclude_only_stars = true;
+		}
+		if (exclude_only_stars)
+			e.num_spanning_trees = stc.num_spanning_trees_nostars(e.occ);
+		else if (include_only_stars)
+			e.num_spanning_trees = stc.num_spanning_stars(e.occ);
+		else
+			e.num_spanning_trees = stc.num_spanning_trees(e.occ, ts);
+		std::cout << e.num_spanning_trees << std::endl;
+	}
 }
 
 void SampleTable::addEntry(SampleTable::Entry e) {

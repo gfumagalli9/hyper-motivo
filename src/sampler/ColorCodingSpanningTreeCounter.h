@@ -28,13 +28,14 @@ private:
     void combine(unsigned int u, unsigned int v, unsigned int current_size);
 
 public:
-    ColorCodingSpanningTreeCounter(const Occurrence* occurrence, TreeletSelector* selector=nullptr);
+    ColorCodingSpanningTreeCounter(const Occurrence* occurrence, const TreeletSelector* selector=nullptr);
 
     ~ColorCodingSpanningTreeCounter();
 
     void count();
     uint64_t number_of_rooted_spanning_trees();
     uint64_t number_of_spanning_trees_rooted_at(unsigned int root);
+    uint64_t number_of_spanning_trees();
 
     // get the spanning tree count table for a given root node
     inline const table_t &get_table(int root) {

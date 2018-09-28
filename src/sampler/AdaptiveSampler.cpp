@@ -100,7 +100,7 @@ void AdaptiveSampler::do_sample_mt(int num_samples, occ_count_table_t *counts, R
  */
 //FIXME: Return type. We are returning a copy
 SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_of_threads,
-		Random* rng) {
+		Random* rng, double timeBudget) {
 	SampleTable table;
 	if (n_samples == 0)
 		return table;
@@ -112,7 +112,6 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 	occ_count_table_t* count_tabs = new occ_count_table_t[number_of_threads];
 	for (int id = 0; id < number_of_threads; id++)
 		count_tabs[id].set_empty_key(Occurrence());
-	auto worker_threads = new std::thread[number_of_threads];
 	int samples_rem = n_samples;
 
 	occ_set_t seen_now;
@@ -122,7 +121,8 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 	occ_set_t completed_now;
 	completed_now.set_empty_key(Occurrence());
 
-	double joinTime = 0, mergeTime = 0, weightsTime = 0, effTime = 0, prioTime = 0, samplerTime = 0;
+	double joinTime = 0, mergeTime = 0, weightsTime = 0, effTime = 0, prioTime = 0, samplerTime = 0, totTime = 0;
+	std::chrono::time_point < std::chrono::steady_clock > totTimeStart = std::chrono::steady_clock::now();
 
 	// MAIN CYCLE, LAUNCHES THREADS
 	while (samples_rem > 0) // take suffSamples more samples, in parallel
@@ -137,8 +137,7 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 				samples_rem);
 		int round_samples_rem = round_samples;
 //			std::cout << "Taking " << round_samples_rem << " samples " << std::endl;
-		int thread_samples = std::min((int) std::ceil(1.0 * round_samples_rem / number_of_threads),
-				round_samples_rem);
+		int thread_samples = std::ceil(1.0 * round_samples_rem / number_of_threads);
 		int id = 0;
 		CachedSTC* stc = &spTreeCounter;
 		while (id < number_of_threads && round_samples_rem > 0) {
@@ -146,7 +145,6 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 			auto ct = &count_tabs[id];
 //				std::cout << "Thread " << id << " samples " << thread_samples << std::endl;
 			Random *r = rng->derived_rng();
-//				worker_threads[id] = std::thread([this, thread_samples, ct, r] { do_sample_mt(thread_samples, ct, r);}); //FIXME: One random for each thread
 			thread_q.push(
 					std::thread(
 							[this, thread_samples, ct, r, stc] {do_sample_mt(thread_samples, ct, r, stc);})); //FIXME: One random for each thread
@@ -155,12 +153,10 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 			id++;
 		}
 //			std::cout << "samples_rem = " << samples_rem << std::endl;
-//			number_of_threads = id;
 		treeletSamples[currentTreelet] += round_samples;
 
 		//FIXME: What is joinTime supposed to be?
 		//It can be anything between 0 and the length of the time interval between the termination time of the first and last thread
-//            worker_threads[0].join();
 		std::chrono::time_point < std::chrono::steady_clock > tstart_join =
 				std::chrono::steady_clock::now();
 //			std::cout << "joining threads..." << std::endl;
@@ -182,7 +178,6 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 			for (auto it : count_tabs[id]) {
 				Occurrence o = it.first;
 				seen_now.insert(o);
-//				spTreeCounter.get_t_table(o);
 				seen.insert(o);
 				int cnt = it.second;
 				if (occTab[o].first < suffSamples && occTab[o].first + cnt >= suffSamples) {
@@ -268,6 +263,11 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 					(static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
 							- tstart)).count();
 		}
+
+		totTime = (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - totTimeStart)).count();
+		if (totTime >= timeBudget)
+			break;
+		// std::cout << "totTime = " << totTime << std::endl;
 	}
 
 	delete[] count_tabs;

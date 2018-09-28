@@ -82,8 +82,6 @@ int main(const int argc, const char** argv)
         treelets.set_empty_key(Treelet::invalid_treelet);
         g.decompose(&treelets, root);
 
-//        std::cout << "INCLUDE\n";
-
         Treelet::treelet_structure_t previous_structure = Treelet::invalid_structure;
         for(const Treelet& t : treelets)
         {

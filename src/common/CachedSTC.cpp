@@ -28,25 +28,6 @@ CachedSTC::treelet_table_t* CachedSTC::compute_t_table(const Occurrence &o) {
 	return tab;
 }
 
-/*
-*
- * Return the number of occurrences of t in o
-
-uint64_t CachedSTC::num_spanning_trees(const Occurrence &o, const Treelet &t) {
-	std::chrono::time_point < std::chrono::steady_clock > tstart = std::chrono::steady_clock::now();
-	if (table.count(o) == 0) {
-		auto tb = compute_t_table(o);
-		m_mutex.lock();
-		tot_running_time += (std::chrono::steady_clock::now() - tstart).count();
-		table[o] = tb;
-		tstart = std::chrono::steady_clock::now();
-		m_mutex.unlock();
-	}
-	tot_running_time = (std::chrono::steady_clock::now() - tstart).count();
-	return table[o]->count(t) ? (*table[o])[t] : 0;
-}
-*/
-
 /**
  * Update the reverse table (treelet to graphlet) using a treelet count table and a given graphlet
  */
