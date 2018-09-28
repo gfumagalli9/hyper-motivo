@@ -100,13 +100,14 @@ int main(const int argc, const char** argv) {
 		uint64_t star_nsamples = 0;
 		double time_bud =
 				opts.time_budget < std::numeric_limits<double>::infinity() && opts.time_budget > 0 ?
-						opts.time_budget / 2 : std::numeric_limits<double>::infinity();
+						opts.time_budget : std::numeric_limits<double>::infinity();
 		if (opts.smart_stars) { // let's see...
 			OccurrenceStarSampler star_sampler(&G, opts.size, opts.threads, opts.canonicize);
 			nstars = star_sampler.number_of_stars();
 			star_nsamples = static_cast<uint64_t>(opts.number_of_samples
 					* (1 - tot_treelets / (p * nstars + tot_treelets)) + 0.5);
-			if (star_nsamples > 0) { // fast star sampling
+			if (star_nsamples > 0 || (opts.number_of_samples == 0 && time_bud > 0)) { // fast star sampling
+				time_bud /= 2; // half here, half later
 				std::chrono::time_point < std::chrono::steady_clock > sampstart =
 						std::chrono::steady_clock::now();
 				std::cout << "star sampler" << std::endl;
@@ -118,7 +119,8 @@ int main(const int argc, const char** argv) {
 				star_samples->estimateOccurrences((double) nstars, opts.size, store_only_on_0);
 				std::chrono::duration<double> el = std::chrono::steady_clock::now() - sampstart;
 				std::cerr << "star sampler: elapsed " << el.count() << " s\n";
-				std::cout << "star sampler: taken " << star_samples->get_num_samples() << " samples in " << el.count() << " s\n";
+				std::cout << "star sampler: taken " << star_samples->get_num_samples()
+						<< " samples in " << el.count() << " s\n";
 			}
 		}
 		uint64_t nonstar_nsamples = opts.number_of_samples - star_nsamples;
@@ -133,7 +135,8 @@ int main(const int argc, const char** argv) {
 					nullptr, opts.size, &ttc, store_only_on_0);
 			SampleTable* samples = sampler.sample(nonstar_nsamples, opts.threads, &rng, time_bud);
 			std::chrono::duration<double> el = std::chrono::steady_clock::now() - sampstart;
-			std::cout << "adaptive sampler: taken " << samples->get_num_samples() << " samples in " << el.count() << " s\n";
+			std::cout << "adaptive sampler: taken " << samples->get_num_samples() << " samples in "
+					<< el.count() << " s\n";
 			if (star_samples != nullptr) {
 				double w = (tot_treelets / p) / (nstars + tot_treelets / p), w0 = 1 - w;
 				SampleTable merged = SampleTable::average(*samples, *star_samples, w, w0);
@@ -154,8 +157,10 @@ int main(const int argc, const char** argv) {
 			sampler.set_selector(selector, opts.threads);
 			SampleTable* samples = sampler.sample(nonstar_nsamples, opts.threads, &rng, time_bud);
 			samples->estimateOccurrences(tot_treelets / p, opts.size, store_only_on_0);
+			samples->estimateFrequencies();
 			std::chrono::duration<double> el = std::chrono::steady_clock::now() - sampstart;
-			std::cout << "naive sampler: taken " << samples->get_num_samples() << " samples in " << el.count() << " s\n";
+			std::cout << "naive sampler: taken " << samples->get_num_samples() << " samples in "
+					<< el.count() << " s\n";
 			if (star_samples != nullptr) {
 				SampleTable merged = SampleTable::merge(*samples, *star_samples, tot_treelets / p,
 						nstars);

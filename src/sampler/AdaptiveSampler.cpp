@@ -98,10 +98,11 @@ void AdaptiveSampler::do_sample_mt(int num_samples, occ_count_table_t *counts, R
 /**
  * Multi-threaded adaptive sampling.
  */
-SampleTable* AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_of_threads,
-		Random* rng, double timeBudget) {
+SampleTable* AdaptiveSampler::sample(uint64_t n_samples, unsigned int number_of_threads,
+		Random* rng, double time_budget) {
+
 	SampleTable* table = new SampleTable();
-	if (n_samples == 0)
+	if (n_samples == 0 && (time_budget < 0 || time_budget == std::numeric_limits<double>::infinity()))
 		return table;
 
 	occ_pair_table_t occTab;
@@ -111,7 +112,7 @@ SampleTable* AdaptiveSampler::sample(unsigned int n_samples, unsigned int number
 	occ_count_table_t* count_tabs = new occ_count_table_t[number_of_threads];
 	for (int id = 0; id < number_of_threads; id++)
 		count_tabs[id].set_empty_key(Occurrence());
-	int samples_rem = n_samples;
+	uint64_t samples_rem = n_samples;
 
 	occ_set_t seen_now;
 	seen_now.set_empty_key(Occurrence());
@@ -124,7 +125,7 @@ SampleTable* AdaptiveSampler::sample(unsigned int n_samples, unsigned int number
 	std::chrono::time_point < std::chrono::steady_clock > totTimeStart = std::chrono::steady_clock::now();
 
 	// MAIN CYCLE, LAUNCHES THREADS
-	while (samples_rem > 0) // take suffSamples more samples, in parallel
+	while ((samples_rem > 0 || n_samples == 0) && totTime < time_budget) // take suffSamples more samples, in parallel
 	{
 		std::queue<std::thread> thread_q;
 //		std::cout << std::endl << "new sample round, treelet priorities are:" << std::endl	<< treeletPriority << std::endl;
@@ -132,11 +133,13 @@ SampleTable* AdaptiveSampler::sample(unsigned int n_samples, unsigned int number
 		seen_now.clear();
 		completed_now.clear();
 		//FIXME: Types
-		int round_samples = std::min((int) std::max(number_of_threads * 50, suffSamples),
+		if (n_samples == 0)
+			samples_rem = (uint64_t)std::max(number_of_threads * 50, suffSamples);
+		uint64_t round_samples = std::min((uint64_t)std::max(number_of_threads * 50, suffSamples),
 				samples_rem);
-		int round_samples_rem = round_samples;
+		uint64_t round_samples_rem = round_samples;
 //			std::cout << "Taking " << round_samples_rem << " samples " << std::endl;
-		int thread_samples = std::ceil(1.0 * round_samples_rem / number_of_threads);
+		uint64_t thread_samples = std::ceil(1.0 * round_samples_rem / number_of_threads);
 		int id = 0;
 		CachedSTC* stc = &spTreeCounter;
 		while (id < number_of_threads && round_samples_rem > 0) {
@@ -172,8 +175,6 @@ SampleTable* AdaptiveSampler::sample(unsigned int n_samples, unsigned int number
 				std::chrono::steady_clock::now();
 		bool recomputeTreelet = false;
 		for (int id = 0; id < number_of_threads; id++) {
-//				std::cout << "Thread " << id << " found " << count_tabs[id].size() << " graphlets"
-//						<< std::endl;
 			for (auto it : count_tabs[id]) {
 				Occurrence o = it.first;
 				seen_now.insert(o);
@@ -264,7 +265,7 @@ SampleTable* AdaptiveSampler::sample(unsigned int n_samples, unsigned int number
 		}
 
 		totTime = (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - totTimeStart)).count();
-		if (totTime >= timeBudget)
+		if (totTime >= time_budget)
 			break;
 		// std::cout << "totTime = " << totTime << std::endl;
 	}

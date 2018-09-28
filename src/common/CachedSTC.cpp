@@ -1,5 +1,5 @@
 /*
- * CachedSTC.cpp
+* CachedSTC.cpp
  *
  *  Created on: 28 giu 2018
  *      Author: brix

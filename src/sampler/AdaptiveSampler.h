@@ -101,8 +101,9 @@ public:
 
 	/**
 	 * Take samples and return a table with counts.
+	 * n_samples = 0 means no limit on sample numbers, but only on the time budget.
 	 */
-	SampleTable* sample(unsigned int n_samples, unsigned int number_of_threads, Random* rng, double time_budget = std::numeric_limits<double>::infinity());
+	SampleTable* sample(uint64_t n_samples, unsigned int number_of_threads, Random* rng, double time_budget = std::numeric_limits<double>::infinity());
 
 	inline double getUpdateTime() //FIXME: Do we need this?
 	{

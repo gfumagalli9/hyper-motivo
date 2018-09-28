@@ -68,7 +68,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     if (time_budget_opt->is_found()) {
     	opts->time_budget = std::stod(time_budget_opt->get_value());
     	if (!numsamples_opt->is_found())
-    		opts->number_of_samples = std::numeric_limits<uint64_t>::max();
+    		opts->number_of_samples = 0;
     } else
     	opts->time_budget = std::numeric_limits<double>::infinity();
 

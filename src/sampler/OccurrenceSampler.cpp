@@ -28,7 +28,7 @@ SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int 
 		Random *rng, double time_budget) {
 	SampleTable* table = new SampleTable();
 	OccurrenceCanonicizer canon(size);
-	if (num_samples == 0 || number_of_threads == 0)
+	if (num_samples == 0 && (time_budget < 0 || time_budget == std::numeric_limits<double>::infinity()))
 		return table;
 
 	if (num_samples / 10 < number_of_threads)
@@ -36,14 +36,16 @@ SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int 
 
 	std::chrono::time_point < std::chrono::steady_clock > totTimeStart =
 			std::chrono::steady_clock::now();
-
+	double totTime = 0;
 	occ_count_table_t count_tab;
+	count_tab.set_empty_key(Occurrence());
 	if (number_of_threads <= 1) {
 		Occurrence o;
-		for (uint64_t i = 0; i < num_samples; i++) {
+		uint64_t i = 0;
+		while ((i < num_samples || num_samples == 0) && totTime < time_budget) {
 			sample_one(&o, rng);
 			count_tab[o]++;
-			double totTime =
+			totTime =
 					(static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
 							- totTimeStart)).count();
 			if (totTime >= time_budget)
@@ -55,7 +57,9 @@ SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int 
 		count_tab.set_empty_key(Occurrence());
 		for (int id = 0; id < number_of_threads; id++)
 			count_tabs[id].set_empty_key(Occurrence());
-		while (samples_rem > 0) {
+		while (samples_rem > 0 || (num_samples == 0 && totTime < time_budget)) {
+			if (num_samples == 0)
+				samples_rem = (uint64_t) (uint64_t) 100 * number_of_threads;
 			const uint64_t round_samples = std::min((uint64_t) 100 * number_of_threads,
 					samples_rem);
 			auto sequencer = new sequencer_t(0, round_samples, number_of_threads);
