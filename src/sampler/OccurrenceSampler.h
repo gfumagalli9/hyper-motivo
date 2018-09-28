@@ -38,7 +38,7 @@ public:
 	inline void sample_one [[gnu::hot]] (Occurrence *occurrence, Random *rng);
 
 //	Occurrence* sample(const uint64_t n_samples, unsigned int number_of_threads, Random *rng, double time_budget = std::numeric_limits<double>::infinity());
-	SampleTable sample(const uint64_t n_samples, unsigned int number_of_threads, Random *rng, double time_budget = std::numeric_limits<double>::infinity());
+	SampleTable* sample(const uint64_t n_samples, unsigned int number_of_threads, Random *rng, double time_budget = std::numeric_limits<double>::infinity());
 
     OccurrenceSampler(const UndirectedGraph *graph, TreeletTableCollection* ttc, unsigned int size,
                                          bool vertices, bool graphlets, bool canonicize, bool no_rejection) :

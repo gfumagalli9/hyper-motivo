@@ -98,10 +98,9 @@ void AdaptiveSampler::do_sample_mt(int num_samples, occ_count_table_t *counts, R
 /**
  * Multi-threaded adaptive sampling.
  */
-//FIXME: Return type. We are returning a copy
-SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_of_threads,
+SampleTable* AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_of_threads,
 		Random* rng, double timeBudget) {
-	SampleTable table;
+	SampleTable* table = new SampleTable();
 	if (n_samples == 0)
 		return table;
 
@@ -289,13 +288,13 @@ SampleTable AdaptiveSampler::sample(unsigned int n_samples, unsigned int number_
 		e.sample_count = it.second.first;
 		e.estimate_graph_occurrences = it.second.first * (store_only_on_0 ? size : 1)
 				/ (it.second.second * p);
-		table.addEntry(e);
+		table->addEntry(e);
 	}
 	std::cout << "total management time: " << totManagementTime << std::endl;
-	table.estimateFrequencies();
+	table->estimateFrequencies();
 	double norm2 = 0, totSamples = 0;
-	const SampleTable::Entry *entries = table.get_entries();
-	for (uint64_t i = 0; i < table.size(); i++) {
+	const SampleTable::Entry *entries = table->get_entries();
+	for (uint64_t i = 0; i < table->size(); i++) {
 		totSamples += entries[i].sample_count;
 		norm2 += entries[i].sample_count * entries[i].sample_count;
 	}

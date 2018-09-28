@@ -56,8 +56,8 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
         throw std::runtime_error("'size' option is invalid");
     opts->size = static_cast<unsigned int>(size);
 
-    if(!numsamples_opt->is_found() && !numsamples_opt->is_found())
-        throw std::runtime_error("At least one of 'num-samples' and 'num-accepted' must be specified");
+    if(!numsamples_opt->is_found() && !time_budget_opt->is_found())
+        throw std::runtime_error("At least one of 'num-samples' and 'time-budget' must be specified");
 
     opts->number_of_samples = std::numeric_limits<uint64_t>::max();
     if(numsamples_opt->is_found())
@@ -65,9 +65,11 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     if(opts->number_of_samples==0)
         throw std::runtime_error("'num-samples' option is invalid");
 
-    if (time_budget_opt->is_found())
+    if (time_budget_opt->is_found()) {
     	opts->time_budget = std::stod(time_budget_opt->get_value());
-    else
+    	if (!numsamples_opt->is_found())
+    		opts->number_of_samples = std::numeric_limits<uint64_t>::max();
+    } else
     	opts->time_budget = std::numeric_limits<double>::infinity();
 
     opts->footprints = footprints_opt->is_found();
