@@ -56,6 +56,7 @@ public:
     }
 
     void set_selector(const TreeletSelector *selector, unsigned int nthreads);
+    const TreeletSelector* get_selector() {return selector;}
 };
 
 

@@ -36,7 +36,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *smart_stars_opt = op.add_option(false, false, "smart-stars", '\0', "", "Sample star treelets separately and then merge the sample results");
     OptionsParser::Option *estimate_occurrences_opt = op.add_option(false, false, "estimate-occurrences", '\0', "", "Estimate the number of occurrences of graphlets in the graph (implies: --graphlets, --norejection)"); //FIXME: Can this be used with treelets?
     OptionsParser::Option *adaptive_opt = op.add_option(false, false, "estimate-occurrences-adaptive", '\0', "", "Estimate the number of occurrences of graphlets in the graph using adaptive sampling (implies: --graphlets, --norejection, and --canonicize)");
-
+    OptionsParser::Option *time_budget_opt = op.add_option(false, true, "time-budget", '\0', "", "Time budget in seconds");
 
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
@@ -56,14 +56,21 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
         throw std::runtime_error("'size' option is invalid");
     opts->size = static_cast<unsigned int>(size);
 
-    if(!numsamples_opt->is_found() && !numsamples_opt->is_found())
-        throw std::runtime_error("At least one of 'num-samples' and 'num-accepted' must be specified");
+    if(!numsamples_opt->is_found() && !time_budget_opt->is_found())
+        throw std::runtime_error("At least one of 'num-samples' and 'time-budget' must be specified");
 
     opts->number_of_samples = std::numeric_limits<uint64_t>::max();
     if(numsamples_opt->is_found())
         opts->number_of_samples = std::stoull(numsamples_opt->get_value());
     if(opts->number_of_samples==0)
         throw std::runtime_error("'num-samples' option is invalid");
+
+    if (time_budget_opt->is_found()) {
+    	opts->time_budget = std::stod(time_budget_opt->get_value());
+    	if (!numsamples_opt->is_found())
+    		opts->number_of_samples = 0;
+    } else
+    	opts->time_budget = std::numeric_limits<double>::infinity();
 
     opts->footprints = footprints_opt->is_found();
     opts->spanning_trees = spanning_opt->is_found();
@@ -86,7 +93,6 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     if(seed_opt->get_value().length()>=MOTIVO_ARG_MAX)
         throw std::runtime_error("'seed' option is too long");
     strcpy(opts->seed, seed_opt->get_value().c_str());
-
 
     int threads = std::stoi(threads_opt->get_value());
     if(threads<0)
@@ -124,15 +130,11 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
         opts->graphlets = true;
     }
 
-    if(opts->adaptive && selective_opt->is_found())
-        throw std::runtime_error("option 'estimate-occurrences-adaptive' cannot be used with 'selective'");
-
     if((opts->adaptive || opts->estimate_occurrences) && (opts->footprints || opts->spanning_trees || opts->vertices))
         throw std::runtime_error("options 'estimate-occurrences' and 'estimate-occurrences-adaptive' cannot be used with 'footprints', 'spanning-trees', or 'vertices'");
 
     if(!opts->footprints  && !opts->spanning_trees && !opts->vertices && !opts->estimate_occurrences && !opts->adaptive)
         throw std::runtime_error("Nothing to output. Please specify at least one of --footprints, --spanning-trees-no, --vertices, --estimate_occurrences, --estimate_occurrences-adaptive");
-
 
     return true;
 }

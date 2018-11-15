@@ -17,6 +17,7 @@
 #include "OccurrenceSampler.h"
 #include "sampler_opts.h"
 #include "../common/graph/UndirectedGraph.h"
+#include "../common/graph/SimpleGraph.h"
 #include "../common/RangeSampler.h"
 #include "../common/ValueSortedMap.h"
 #include "../common/treelets/Treelet.h"
@@ -25,84 +26,89 @@
 #include "../common/CachedSTC.h"
 #include "SampleTable.h"
 
-class AdaptiveSampler
-{
+class AdaptiveSampler {
+
+	typedef google::dense_hash_map<Occurrence, std::pair<int, double>,
+			Occurrence::OccurrenceFootprintHash, Occurrence::OccurrenceFootprintEquality> occ_pair_table_t;
+//typedef std::map<Occurrence, int, Occurrence::OccurrenceFootprintLess> occ_count_table_t;
+	typedef google::dense_hash_map<Occurrence, int, Occurrence::OccurrenceFootprintHash,
+			Occurrence::OccurrenceFootprintEquality> occ_count_table_t;
+	typedef google::dense_hash_set<Occurrence, Occurrence::OccurrenceFootprintHash,
+			Occurrence::OccurrenceFootprintEquality> occ_set_t;
+	typedef google::dense_hash_map<Treelet, uint64_t, Treelet::TreeletHash, Treelet::compare_eq> treelet_uint64_table_t;
+
 public:
 
-    //FIXME: Can these classes be merged with the ones used by SampleTable? Can also we use pointers?
-    struct OccurrenceFootprintHash
-    {
-        inline size_t operator()[[gnu::hot,gnu::flatten]] (const Occurrence &key) const
-        {
-            size_t seed;
-            seed = key.is_valid()?0xcb7fedb03a45866f:0xb896186490f1c8e9;
+	typedef google::dense_hash_set<Treelet, Treelet::TreeletHash, Treelet::compare_eq> treelet_set_t;
 
-            const char* p = key.binary_footprint();
-            for(unsigned int i = 0; i < Occurrence::binary_footprint_bytes; i++)
-                seed ^= static_cast<unsigned char>(p[i])*0xff51afd7ed558ccd +0x9e3779b9 + (seed << 6) + (seed >> 2);
-
-            return seed;
-        }
-    };
-
-    struct OccurrenceFootprintEquality
-    {
-        inline bool operator() [[gnu::hot,gnu::flatten]] (const Occurrence &occ1, const Occurrence &occ2) const
-        {
-            return (occ1.is_valid()==occ2.is_valid()) && !memcmp(occ1.binary_footprint(), occ2.binary_footprint(), Occurrence::binary_footprint_bytes);
-        }
-    };
-
-
-    struct OcurrenceFootprintLess
-    {
-        inline bool operator()[[gnu::hot,gnu::flatten]] (const Occurrence &occ1, const Occurrence &occ2) const
-        {
-            return (occ1.is_valid()==occ2.is_valid()) && (memcmp(occ1.binary_footprint(), occ2.binary_footprint(), Occurrence::binary_footprint_bytes) < 0);
-        }
-    };
+	/**
+	 * It represents a treelet with all its possible rootings.
+	 */
+	class TreeletClass {
+		Treelet representant = Treelet::invalid_treelet;
+		treelet_set_t all;
+	public:
+		TreeletClass() {
+			all.set_empty_key(Treelet::invalid_treelet);
+		}
+		TreeletClass(Treelet repr) {
+			all.set_empty_key(Treelet::invalid_treelet);
+			representant = repr;
+			SimpleGraph::from_treelet(repr).decompose(&all, -1, true);
+		}
+		treelet_set_t &get_all() {
+			return all;
+		}
+		size_t size() const {
+			return all.size();
+		}
+	};
 
 private:
-    constexpr static unsigned int suffSamples = 1000;
+	constexpr static unsigned int suffSamples = 1000;
 
 	std::map<Treelet, TreeletTable::treelet_count_t, Treelet::compare_less> numTreelets; // as computed by the build
 	TreeletTable::treelet_count_t totTreelets = 0; // the sum of the map values above
 	std::map<Treelet, double, Treelet::compare_less> treeletInefficiency; // estimated probability of yielding a graphlet in completedGraphlets
 	ValueSortedMap<Treelet, double> treeletPriority; // function of efficiency, we always take the highest value
 	Treelet currentTreelet; // the treelet in use for sampling
+	google::dense_hash_map<Treelet, TreeletClass, Treelet::TreeletHash, Treelet::compare_eq> treeletClassMap; // each treelet has many rooted versions, here in a class mapped by a representant
+	std::map<Treelet, Treelet, Treelet::compare_less> treeletToRepresentant; // each treelet mapped to its representant, so treeletClassMap[treeletToRepresentant[t]].all() contains t
 	unsigned int size;
 	UndirectedGraph* g;
 	CachedSTC spTreeCounter;
 	int totTreeletSwitches = 0;
-	std::set<Occurrence, OcurrenceFootprintLess> completedGraphlets; // graphlets sampled at least suffSamples times
-	std::map<Treelet, unsigned int, Treelet::compare_less> treeletSamples; // how many time each treelet has been used
-	std::map<Occurrence, unsigned int, OcurrenceFootprintLess> graphletCount; // how many times each graphlet has been sampled
-	std::map<Occurrence, double, OcurrenceFootprintLess> graphletWeight; // weights (it's complicate)
+	std::set<Occurrence, Occurrence::OccurrenceFootprintLess> completedGraphlets; // graphlets sampled at least suffSamples times
+	treelet_uint64_table_t treeletSamples; // how many time each treelet has been used
 	int totSamples; //FIXME: Needed?
 	TreeletSelector *treeletSelector = nullptr;
 	TreeletTableCollection *ttc;
 	OccurrenceSampler* sampler = nullptr;
 	double totManagementTime = 0;
+	bool store_only_on_0 = false;
 
+	void do_sample_mt(int num_samples, occ_count_table_t* counts, Random *rng, CachedSTC *stc = nullptr);
 
-    void sample_st(int num_samples, std::map<Occurrence, std::pair<int, double>, OcurrenceFootprintLess>* count_table, Random* rng);
-    void do_sample_mt(int num_samples, std::map<Occurrence, int, OcurrenceFootprintLess> *counts, Random *rng);
-
-    void updateSampler();
+	void updateSampler();
 
 public:
 	/**
 	 * Build an adaptive sampler.
 	 */
-	AdaptiveSampler(UndirectedGraph* g, std::string dtzFile, std::map<Treelet, TreeletTable::treelet_count_t, Treelet::compare_less> *counts, unsigned int size, TreeletTableCollection* ttc);
+	AdaptiveSampler(UndirectedGraph* g, std::string dtzFile,
+			std::map<Treelet, TreeletTable::treelet_count_t, Treelet::compare_less> *counts,
+			unsigned int size, TreeletTableCollection* ttc, bool store_only_on_0);
 
-	SampleTable sample(unsigned int n_samples, unsigned int number_of_threads, Random* rng);
+	/**
+	 * Take samples and return a table with counts.
+	 * n_samples = 0 means no limit on sample numbers, but only on the time budget.
+	 */
+	SampleTable* sample(uint64_t n_samples, unsigned int number_of_threads, Random* rng, double time_budget = std::numeric_limits<double>::infinity());
 
 	inline double getUpdateTime() //FIXME: Do we need this?
 	{
 		return totManagementTime;
 	}
 };
-
 
 #endif /* SRC_SAMPLER_ADAPTIVESAMPLER_H_ */

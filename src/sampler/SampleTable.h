@@ -16,37 +16,13 @@
 
 class SampleTable
 {
-private:
-    struct OccurrenceFootprintHash
-    {
-        inline size_t operator()[[gnu::hot,gnu::flatten]] (const Occurrence *key) const
-        {
-            size_t seed;
-            seed = key->is_valid()?0xcb7fedb03a45866f:0xb896186490f1c8e9;
-
-            const char* p = key->binary_footprint();
-            for (unsigned int i = 0; i < Occurrence::binary_footprint_bytes; i++)
-                seed ^= static_cast<unsigned char>(p[i])*0xff51afd7ed558ccd +0x9e3779b9 + (seed << 6) + (seed >> 2);
-
-            return seed;
-        }
-    };
-
-    struct OccurrenceFootprintEquality
-    {
-        inline bool operator() [[gnu::hot,gnu::flatten]] (const Occurrence *occ1, const Occurrence *occ2) const
-        {
-            return (occ1->is_valid()==occ2->is_valid()) && !memcmp(occ1->binary_footprint(), occ2->binary_footprint(), Occurrence::binary_footprint_bytes);
-        }
-    };
-
 public:
     //typedef google::dense_hash_map<Occurrence, uint64_t, Occurrence::OccurrenceHash, Occurrence::compare_eq> table_t;
 
     class Entry // a table entry
     {
     public:
-        //Occurrence occ;
+        Occurrence occ;
         std::string fingerprint = "";
         uint128_t num_spanning_trees = 0;
         uint64_t sample_count = 0;
@@ -67,12 +43,14 @@ public:
 
     void estimateOccurrences(double num_graph_treelets, unsigned int k, bool store_only_0 = false);
 	void estimateFrequencies();
+	void update_spanning_trees(TreeletSelector *ts);
 
 	void sort_by_estimate_occ();
 
     std::string header();
 
     static SampleTable merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2); // merge two tables (see source for details)
+    static SampleTable average(SampleTable& t1, SampleTable& t2, double w1, double w2); // average two tables (see source for details)
 	friend std::ostream& operator<<(std::ostream& os, const SampleTable& st);
 
 	uint64_t get_num_samples() const

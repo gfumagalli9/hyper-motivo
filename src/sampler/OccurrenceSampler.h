@@ -9,10 +9,15 @@
 #include "TreeletSampler.h"
 #include "Occurrence.h"
 #include "../common/sequencer/DynamicSequencer.h"
+#include <google/dense_hash_map>
+
+class SampleTable;
 
 class OccurrenceSampler {
 public:
 	typedef DynamicSequencer<uint64_t> sequencer_t;
+	typedef google::dense_hash_map<Occurrence, int, Occurrence::OccurrenceFootprintHash,
+			Occurrence::OccurrenceFootprintEquality> occ_count_table_t;
 
 private:
 	const UndirectedGraph *graph;
@@ -26,12 +31,14 @@ private:
 
 	TreeletSampler sampler;
 
-	void do_sample_mt [[gnu::hot, gnu::flatten]] (Occurrence* sampled_occurrences, sequencer_t *sequencer, Random *rng);
+//	void do_sample_mt [[gnu::hot, gnu::flatten]] (Occurrence* sampled_occurrences, sequencer_t *sequencer, Random *rng);
+	void do_sample_mt [[gnu::hot, gnu::flatten]] (occ_count_table_t* table, sequencer_t *sequencer, Random *rng);
 
 public:
 	inline void sample_one [[gnu::hot]] (Occurrence *occurrence, Random *rng);
 
-	Occurrence * sample(const uint64_t n_samples, unsigned int number_of_threads, Random *rng);
+//	Occurrence* sample(const uint64_t n_samples, unsigned int number_of_threads, Random *rng, double time_budget = std::numeric_limits<double>::infinity());
+	SampleTable* sample(const uint64_t n_samples, unsigned int number_of_threads, Random *rng, double time_budget = std::numeric_limits<double>::infinity());
 
     OccurrenceSampler(const UndirectedGraph *graph, TreeletTableCollection* ttc, unsigned int size,
                                          bool vertices, bool graphlets, bool canonicize, bool no_rejection) :
