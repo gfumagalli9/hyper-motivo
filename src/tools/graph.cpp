@@ -63,7 +63,7 @@ void graph2bin(const std::string &graph_filename, const std::string &output_base
                 for (auto v : adj[u]) {
                     edges.write(reinterpret_cast<const char*>(&v), sizeof(UndirectedGraph::vertex_t));
                 }
-                processed_edges += adj[u].size();
+                processed_edges += static_cast<UndirectedGraph::vertex_t>(adj[u].size());
             }
             break;
         }

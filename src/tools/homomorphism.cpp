@@ -142,7 +142,7 @@ void parse_occurrence_footprint(const std::string& footprint)
     }
 
     int pos = 0;
-    int max_vertex=0;
+    unsigned int max_vertex=0;
     for (unsigned int i = 1; i < 16; i++)
     {
         for (unsigned int j = 0; j < i; j++)

@@ -11,7 +11,7 @@ CompressedRecordFileWriter::CompressedRecordFileWriter(const std::string &filena
     fd = fopen(filename.c_str(), "wb");
 
     fwrite(&num_records, sizeof(uint64_t), 1, fd);
-    bytes_compressed += sizeof(uint64_t);
+    bytes_compressed = sizeof(uint64_t);
     bytes_uncompressed=0;
     offsets = new record_offset_t[number_of_records+1];
     written_records=0;
