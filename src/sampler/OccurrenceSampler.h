@@ -30,6 +30,7 @@ private:
 	const bool no_rejection;
 
 	TreeletSampler sampler;
+	TreeletSelector *sp_counter_selector = nullptr;
 
 //	void do_sample_mt [[gnu::hot, gnu::flatten]] (Occurrence* sampled_occurrences, sequencer_t *sequencer, Random *rng);
 	void do_sample_mt [[gnu::hot, gnu::flatten]] (occ_count_table_t* table, sequencer_t *sequencer, Random *rng);

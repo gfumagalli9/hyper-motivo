@@ -60,6 +60,20 @@ public:
 	    }
 	    return g;
 	}
+
+	static SimpleGraph clique(unsigned int size)
+	{
+		SimpleGraph g;
+	    g.nverts=size;
+	    for(unsigned int i=1; i<size; i++)
+		    for(unsigned int j=0; i<j; j++)
+			{
+				g.adj_lists[i][g.degrees[i]++]=j;
+				g.adj_lists[j][g.degrees[j]++]=i;
+			}
+	    return g;
+	}
+
 };
 
 #endif /* SRC_COMMON_GRAPH_SIMPLEGRAPH_H_ */

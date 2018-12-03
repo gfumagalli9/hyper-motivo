@@ -54,7 +54,6 @@ SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int 
 	} else {
 		uint64_t samples_rem = num_samples;
 		occ_count_table_t* count_tabs = new occ_count_table_t[number_of_threads];
-		count_tab.set_empty_key(Occurrence());
 		for (int id = 0; id < number_of_threads; id++)
 			count_tabs[id].set_empty_key(Occurrence());
 		while (samples_rem > 0 || (num_samples == 0 && totTime < time_budget)) {
