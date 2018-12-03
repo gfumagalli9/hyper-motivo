@@ -12,6 +12,7 @@
 #include "treelets/TreeletTableCollection.h"
 #include "../builder/SimpleTreeletTableBuilder.h"
 #include "../builder/TreeletTableBuilder.h"
+#include "../common/graph/SimpleGraph.h"
 #include "../common/common.h"
 #include "../sampler/ColorCodingSpanningTreeCounter.h"
 #include "../common/CachedSTC.h"
@@ -41,7 +42,8 @@ uint64_t SpanningTreeCounter::num_spanning_trees_nostars(const Occurrence& occ) 
 uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, const TreeletSelector* ts) {
 	if (ts == nullptr || ts->get_size() == 0)
 		return occ.number_of_spanning_trees();
-
+	std::cout << "SpanningTreeCounter computing spanning trees via ColorCoding... " << std::endl;
+	std::cout << "Treelet selector contains" << ts->get_size() << " trees " << std::endl;
 	CachedSTC::treelet_table_t* tab = new CachedSTC::treelet_table_t();
 	tab->set_empty_key(Treelet::invalid_treelet);
 	ColorCodingSpanningTreeCounter ccstc(&occ, ts);

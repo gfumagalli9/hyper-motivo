@@ -51,6 +51,7 @@ public:
 
     static SampleTable merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2); // merge two tables (see source for details)
     static SampleTable average(SampleTable& t1, SampleTable& t2, double w1, double w2); // average two tables (see source for details)
+	static SampleTable saverage(SampleTable& t1, SampleTable& t2);
 	friend std::ostream& operator<<(std::ostream& os, const SampleTable& st);
 
 	uint64_t get_num_samples() const

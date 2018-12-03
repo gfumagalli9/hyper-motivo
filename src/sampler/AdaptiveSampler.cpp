@@ -84,7 +84,8 @@ void AdaptiveSampler::updateSampler() {
  * In expectation, the ratio c/w equals the total number of occurrence of H in the graph.
  * This methods does *not* switch currentTreelet along the sampling.
  */
-void AdaptiveSampler::do_sample_mt(int num_samples, occ_count_table_t *counts, Random *rng, CachedSTC *stc) {
+void AdaptiveSampler::do_sample_mt(int num_samples, occ_count_table_t *counts, Random *rng,
+		CachedSTC *stc) {
 	Occurrence h;
 	for (uint64_t i = 0; i < num_samples; i++) {
 		sampler->sample_one(&h, rng);
@@ -95,6 +96,56 @@ void AdaptiveSampler::do_sample_mt(int num_samples, occ_count_table_t *counts, R
 	delete rng;
 }
 
+void AdaptiveSampler::recomputeTreeletPriorities(occ_pair_table_t& occTab) {
+	// 4. RECOMPUTE TREELET PRIORITY
+	std::chrono::time_point < std::chrono::steady_clock > tstart = std::chrono::steady_clock::now();
+	google::dense_hash_set<Treelet, Treelet::TreeletHash, Treelet::compare_eq> touchedTreelets;
+	touchedTreelets.set_empty_key(Treelet::invalid_treelet);
+
+	// 1. subtract the frequency of completed graphlets
+	treeletInefficiency.clear();
+	for (Occurrence j : completedGraphlets) {
+		CachedSTC::treelet_table_t* spanTable = spTreeCounter.get_t_table(j);
+		int cj = occTab[j].first;
+		double wj = occTab[j].second;
+		for (auto t_itr : (*spanTable)) {
+			Treelet i = t_itr.first;
+			if (!numTreelets.count(i)) // treelet spanning j, but excluded from building
+				continue;
+			Treelet repr = treeletToRepresentant[i];
+			touchedTreelets.insert(repr);
+			treeletInefficiency[repr] += (1.0 * (*spanTable)[i] * cj) / (wj * numTreelets[repr]);
+		}
+	}
+	effTime +=
+			(static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - tstart)).count();
+
+	// 2. recompute inefficiencies for the affected treelets
+	std::chrono::time_point < std::chrono::steady_clock > tstart1 =
+			std::chrono::steady_clock::now();
+	for (Treelet i : touchedTreelets) {
+		treeletInefficiency[i] = std::min(1.0, treeletInefficiency[i]);
+		// the actual priority is a mix of efficiency and abundance
+		double prio = std::round(100 * (1.0 - treeletInefficiency[i]))
+				+ 1.0 * numTreelets[i] / totTreelets;
+		treeletPriority.insert(i, prio);
+	}
+	prioTime += (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
+			- tstart1)).count();
+
+	// Do we need to choose a new treelet?
+	std::chrono::time_point < std::chrono::steady_clock > tstart2 =
+			std::chrono::steady_clock::now();
+	if (!(currentTreelet == treeletPriority.last_key()))
+		updateSampler();
+	samplerTime += (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
+			- tstart2)).count();
+
+	//				std::cout << treeletPriority << std::endl;
+	totManagementTime +=
+			(static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - tstart)).count();
+}
+
 /**
  * Multi-threaded adaptive sampling.
  */
@@ -102,7 +153,8 @@ SampleTable* AdaptiveSampler::sample(uint64_t n_samples, unsigned int number_of_
 		Random* rng, double time_budget) {
 
 	SampleTable* table = new SampleTable();
-	if (n_samples == 0 && (time_budget < 0 || time_budget == std::numeric_limits<double>::infinity()))
+	if (n_samples == 0
+			&& (time_budget < 0 || time_budget == std::numeric_limits<double>::infinity()))
 		return table;
 
 	occ_pair_table_t occTab;
@@ -121,8 +173,8 @@ SampleTable* AdaptiveSampler::sample(uint64_t n_samples, unsigned int number_of_
 	occ_set_t completed_now;
 	completed_now.set_empty_key(Occurrence());
 
-	double joinTime = 0, mergeTime = 0, weightsTime = 0, effTime = 0, prioTime = 0, samplerTime = 0, totTime = 0;
-	std::chrono::time_point < std::chrono::steady_clock > totTimeStart = std::chrono::steady_clock::now();
+	std::chrono::time_point < std::chrono::steady_clock > totTimeStart =
+			std::chrono::steady_clock::now();
 
 	// MAIN CYCLE, LAUNCHES THREADS
 	while ((samples_rem > 0 || n_samples == 0) && totTime < time_budget) // take suffSamples more samples, in parallel
@@ -134,8 +186,8 @@ SampleTable* AdaptiveSampler::sample(uint64_t n_samples, unsigned int number_of_
 		completed_now.clear();
 		//FIXME: Types
 		if (n_samples == 0)
-			samples_rem = (uint64_t)std::max(number_of_threads * 50, suffSamples);
-		uint64_t round_samples = std::min((uint64_t)std::max(number_of_threads * 50, suffSamples),
+			samples_rem = (uint64_t) std::max(number_of_threads * 50, suffSamples);
+		uint64_t round_samples = std::min((uint64_t) std::max(number_of_threads * 50, suffSamples),
 				samples_rem);
 		uint64_t round_samples_rem = round_samples;
 //			std::cout << "Taking " << round_samples_rem << " samples " << std::endl;
@@ -209,62 +261,12 @@ SampleTable* AdaptiveSampler::sample(uint64_t n_samples, unsigned int number_of_
 		weightsTime += (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
 				- tstart_w)).count();
 
-		// 4. RECOMPUTE TREELET PRIORITY
 		if (recomputeTreelet) {
-//			std::cout << "Recomputing treelet priorities..." << std::endl;
-			std::chrono::time_point < std::chrono::steady_clock > tstart =
-					std::chrono::steady_clock::now();
-			google::dense_hash_set<Treelet, Treelet::TreeletHash, Treelet::compare_eq> touchedTreelets;
-			touchedTreelets.set_empty_key(Treelet::invalid_treelet);
-
-			// 1. subtract the frequency of completed graphlets
-			treeletInefficiency.clear();
-			for (Occurrence j : completedGraphlets) {
-				CachedSTC::treelet_table_t* spanTable = spTreeCounter.get_t_table(j);
-				int cj = occTab[j].first;
-				double wj = occTab[j].second;
-				for (auto t_itr : (*spanTable)) {
-					Treelet i = t_itr.first;
-					if (!numTreelets.count(i)) // treelet spanning j, but excluded from building
-						continue;
-					Treelet repr = treeletToRepresentant[i];
-					touchedTreelets.insert(repr);
-					treeletInefficiency[repr] += (1.0 * (*spanTable)[i] * cj)
-							/ (wj * numTreelets[repr]);
-				}
-			}
-			effTime += (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
-					- tstart)).count();
-
-			// 2. recompute inefficiencies for the affected treelets
-			std::chrono::time_point < std::chrono::steady_clock > tstart1 =
-					std::chrono::steady_clock::now();
-			for (Treelet i : touchedTreelets) {
-				treeletInefficiency[i] = std::min(1.0, treeletInefficiency[i]);
-				// the actual priority is a mix of efficiency and abundance
-				double prio = std::round(100 * (1.0 - treeletInefficiency[i]))
-						+ 1.0 * numTreelets[i] / totTreelets;
-				treeletPriority.insert(i, prio);
-			}
-			prioTime += (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
-					- tstart1)).count();
-
-			// Do we need to choose a new treelet?
-			std::chrono::time_point < std::chrono::steady_clock > tstart2 =
-					std::chrono::steady_clock::now();
-			if (!(currentTreelet == treeletPriority.last_key()))
-				updateSampler();
-			samplerTime +=
-					(static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
-							- tstart2)).count();
-
-			//				std::cout << treeletPriority << std::endl;
-			totManagementTime +=
-					(static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
-							- tstart)).count();
+			recomputeTreeletPriorities(occTab);
 		}
 
-		totTime = (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - totTimeStart)).count();
+		totTime = (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
+				- totTimeStart)).count();
 		if (totTime >= time_budget)
 			break;
 		// std::cout << "totTime = " << totTime << std::endl;

@@ -92,7 +92,6 @@ void SampleTable::update_spanning_trees(TreeletSelector *ts) {
 			e.num_spanning_trees = stc.num_spanning_stars(e.occ);
 		else
 			e.num_spanning_trees = stc.num_spanning_trees(e.occ, ts);
-		std::cout << e.num_spanning_trees << std::endl;
 	}
 }
 
@@ -119,10 +118,8 @@ void SampleTable::estimateOccurrences(double num_graph_treelets, unsigned int k,
  */
 void SampleTable::estimateFrequencies() {
 	double tot_occ = 0;
-
 	for (Entry &e : entries)
 		tot_occ += e.estimate_graph_occurrences;
-
 	if (tot_occ > 0)
 		for (Entry &e : entries)
 			e.estimate_graph_frequency = e.estimate_graph_occurrences / tot_occ;
@@ -228,6 +225,56 @@ SampleTable SampleTable::average(SampleTable& t1, SampleTable& t2, double w1, do
 		merged[it.first].num_spanning_trees = 0;
 		t.addEntry(merged[it.first]);
 	}
+	t.estimateFrequencies();
+	return t;
+}
+
+/**
+ * Sample-weighted average of two count tables.
+ * In the output table:
+ *   e.sample_count is the sum of the corresponding entries in t1 and t2.
+ *	 e.estimate_graph_frequency = (w1 * t1[e].estimate_graph_frequency + w2 * t2[e].estimate_graph_frequency)
+ *	 e.estimate_graph_occurrences = [the same as above]
+ *   e.num_spanning_trees = -1
+ */
+SampleTable SampleTable::saverage(SampleTable& t1, SampleTable& t2) {
+	SampleTable t;
+	std::map<std::string, SampleTable::Entry> merged;
+	std::map<std::string, std::pair<double, double>> weights;
+
+	for (SampleTable::Entry e : t1.entries)
+		weights[e.fingerprint].first = e.sample_count;
+	for (SampleTable::Entry e : t2.entries)
+		weights[e.fingerprint].second = e.sample_count;
+	for (auto &e : weights) {
+		e.second.first /= (e.second.first + e.second.second);
+		e.second.second /= (e.second.first + e.second.second);
+	}
+
+	for (SampleTable::Entry e : t1.entries) {
+		merged[e.fingerprint].fingerprint = e.fingerprint;
+		merged[e.fingerprint].num_spanning_trees = 1;
+		merged[e.fingerprint].sample_count += e.sample_count;
+		merged[e.fingerprint].estimate_graph_frequency += e.estimate_graph_frequency
+				* weights[e.fingerprint].first;
+		merged[e.fingerprint].estimate_graph_occurrences = e.estimate_graph_occurrences
+				* weights[e.fingerprint].first;
+		;
+	}
+	for (SampleTable::Entry e : t2.entries) {
+		merged[e.fingerprint].fingerprint = e.fingerprint;
+		merged[e.fingerprint].num_spanning_trees = 1;
+		merged[e.fingerprint].sample_count += e.sample_count;
+		merged[e.fingerprint].estimate_graph_frequency += e.estimate_graph_frequency
+				* weights[e.fingerprint].second;
+		merged[e.fingerprint].estimate_graph_occurrences += e.estimate_graph_occurrences
+				* weights[e.fingerprint].second;
+	}
+	for (auto &it : merged) {
+		merged[it.first].num_spanning_trees = 0;
+		t.addEntry(merged[it.first]);
+	}
+//	t.estimateFrequencies();
 	return t;
 }
 

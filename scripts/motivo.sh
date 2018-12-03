@@ -75,6 +75,11 @@ do
 	    EQUALIZE_BUILD_SAMPLE_TIMES=yes
 	    shift
 	    ;;
+	--seed)
+	    SEED="$2"
+	    shift
+	    shift
+	    ;;
 	*)    # unknown option
 	    POSITIONAL+=("$1") # save it in an array for later
 	    shift # past argument
@@ -145,7 +150,16 @@ run_once()
     # Smart: exclude stars from the building phase, and sample them separately in the sampling phase
 
     EXTRA_BUILD_OPTS=()
+    EXTRA_SAMPLE_OPTS=()
     BUILD_TIME=0
+    if [ "$SEED" != "" ]; then
+	EXTRA_BUILD_OPTS+=(--seed $SEED)
+	EXTRA_SAMPLE_OPTS+=(--seed $SEED)
+    fi
+    if [ "$SELECTIVE_FILE" != "" ]; then
+	EXTRA_BUILD_OPTS+=(--selective "$SELECTIVE_FILE")
+    fi
+    
     for i in $(seq 1 "$SIZE"); do
 	
 	if [ $i -eq "$SIZE" ]; then
@@ -156,11 +170,8 @@ run_once()
 		echo "EXCLUDE" > exclude-star-$SIZE.txt
 		$BUILDPATH/motivo-decompose --star $SIZE --size $SIZE >> exclude-star-$SIZE.txt 2>/dev/null
 		SELECTIVE_FILE=exclude-star-$SIZE.txt
+		EXTRA_BUILD_OPTS+=(--selective "$SELECTIVE_FILE")
 	    fi
-	fi
-
-	if [ "$SELECTIVE_FILE" != "" ]; then
-	    EXTRA_BUILD_OPTS+=(--selective "$SELECTIVE_FILE")
 	fi
 	
 	echo -en "$i  \t\t"
@@ -208,7 +219,7 @@ run_once()
     else
 	EXTRA_SAMPLE_OPTS+=(-n "$NSAMPLES")
     fi
-    
+
     echo -en "\t\t"
     echo "[$(date)] Sampling..." >> $LOGFILE
     ($TIME $BUILDPATH/motivo-sample --graph "$GRAPH" --size "$SIZE" -i "$OUTPUT" -c --graphlets -o "$OUTPUT" --threads "$THREADS" ${EXTRA_SAMPLE_OPTS[@]} > "$OUTPUT.s$SIZE.log" 2>&1) || exit 1
@@ -229,9 +240,9 @@ else
 	run_once | tee $OUTPUT.log | grep -Ei "(start|done)"
     done
     ./average.py ${FILES[@]}
+    OUTPUT=$OUT_ROOT
 fi
 
-OUTPUT=$OUT_ROOT
 echo "Samples are in $OUTPUT.csv:"
 head -5 $OUTPUT.csv
 

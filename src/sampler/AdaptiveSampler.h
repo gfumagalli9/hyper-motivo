@@ -86,6 +86,7 @@ private:
 	OccurrenceSampler* sampler = nullptr;
 	double totManagementTime = 0;
 	bool store_only_on_0 = false;
+	double joinTime = 0, mergeTime = 0, weightsTime = 0, effTime = 0, prioTime = 0, samplerTime = 0, totTime = 0;
 
 	void do_sample_mt(int num_samples, occ_count_table_t* counts, Random *rng, CachedSTC *stc = nullptr);
 
@@ -104,6 +105,8 @@ public:
 	 * n_samples = 0 means no limit on sample numbers, but only on the time budget.
 	 */
 	SampleTable* sample(uint64_t n_samples, unsigned int number_of_threads, Random* rng, double time_budget = std::numeric_limits<double>::infinity());
+
+	void recomputeTreeletPriorities(occ_pair_table_t&);
 
 	inline double getUpdateTime() //FIXME: Do we need this?
 	{
