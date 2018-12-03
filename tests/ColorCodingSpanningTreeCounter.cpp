@@ -1,5 +1,6 @@
+#include "../src/common/Occurrence.h"
+
 #include "doctest.h"
-#include "../src/sampler/Occurrence.h"
 #include "../src/sampler/ColorCodingSpanningTreeCounter.h"
 
 /* Graph test contains 56 vertices and 159 edges:

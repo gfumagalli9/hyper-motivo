@@ -2,6 +2,7 @@
 // Created by steven on 8/14/17.
 //
 
+#include "../common/Occurrence.h"
 #include <iostream>
 #include <limits>
 #include <cstring>
@@ -13,7 +14,6 @@
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/treelets/TreeletTableCollection.h"
 #include "TreeletSampler.h"
-#include "Occurrence.h"
 
 bool parse_sampler_args(const int argc, const char **argv, const std::string &name, sampler_opts *opts)
 {

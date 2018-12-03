@@ -2,13 +2,13 @@
 // Created by steven on 11/13/16.
 //
 
+#include "../Occurrence.h"
 #include <istream>
 #include <fstream>
 #include <algorithm>
 #include <sys/mman.h>
 #include "UndirectedGraph.h"
 #include "../../platform/platform.h"
-#include "../../sampler/Occurrence.h"
 
 /**
  * Convert a graphlet occurrence into an UndirectedGraph.

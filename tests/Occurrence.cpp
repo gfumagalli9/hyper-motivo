@@ -2,11 +2,12 @@
 // Created by steven on 11/29/16.
 //
 
+#include "../src/common/Occurrence.h"
+
 #include "doctest.h"
 #include <sstream>
 #include <cmath>
 #include "../src/common/graph/UndirectedGraph.h"
-#include "../src/sampler/Occurrence.h"
 
 /* Graph test contains 56 vertices and 159 edges:
  * A clique of 16 vertices on vertices 0-15 (120 edges)

@@ -1,12 +1,12 @@
 #ifndef MOTIVO_COLORCODINGSPANNINGTREECOUNTER_H
 #define MOTIVO_COLORCODINGSPANNINGTREECOUNTER_H
 
+#include "../common/Occurrence.h"
 #include <sparsehash/dense_hash_map>
 #include "../platform/platform.h"
 #include "../common/treelets/Treelet.h"
 
 #include "../common/treelets/TreeletSelector.h"
-#include "Occurrence.h"
 #include "../common/CachedSTC.h"
 
 class ColorCodingSpanningTreeCounter

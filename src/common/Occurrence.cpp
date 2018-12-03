@@ -2,9 +2,9 @@
 // Created by steven on 12/18/16.
 //
 
+#include "Occurrence.h"
 #include <lapacke.h>
 
-#include "Occurrence.h"
 
 constexpr unsigned int Occurrence::binary_footprint_bits;
 constexpr unsigned int Occurrence::binary_footprint_bytes;

@@ -5,9 +5,9 @@
 #ifndef MOTIVO_OCCURRENCESAMPLER_H
 #define MOTIVO_OCCURRENCESAMPLER_H
 
+#include "../common/Occurrence.h"
 #include "../common/graph/UndirectedGraph.h"
 #include "TreeletSampler.h"
-#include "Occurrence.h"
 #include "../common/sequencer/DynamicSequencer.h"
 #include <google/dense_hash_map>
 

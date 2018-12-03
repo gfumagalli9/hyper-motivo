@@ -8,12 +8,12 @@
 #ifndef SRC_SAMPLER_ADAPTIVESAMPLER_H_
 #define SRC_SAMPLER_ADAPTIVESAMPLER_H_
 
+#include "../common/Occurrence.h"
 #include <google/dense_hash_map>
 #include <google/dense_hash_set>
 #include <map>
 #include <set>
 
-#include "Occurrence.h"
 #include "OccurrenceSampler.h"
 #include "sampler_opts.h"
 #include "../common/graph/UndirectedGraph.h"

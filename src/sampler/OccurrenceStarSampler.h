@@ -8,9 +8,9 @@
 #ifndef SRC_SAMPLER_OCCURRENCESTARSAMPLER_H_
 #define SRC_SAMPLER_OCCURRENCESTARSAMPLER_H_
 
+#include "../common/Occurrence.h"
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/AliasMethodSampler.h"
-#include "Occurrence.h"
 #include "../common/sequencer/DynamicSequencer.h"
 #include <google/dense_hash_map>
 

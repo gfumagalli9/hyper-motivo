@@ -5,11 +5,12 @@
  *      Author: brix
  */
 
+#include "../src/common/Occurrence.h"
+
 #include "doctest.h"
 #include <sstream>
 #include <cmath>
 #include "../src/common/graph/UndirectedGraph.h"
-#include "../src/sampler/Occurrence.h"
 #include "../src/common/SpanningTreeCounter.h"
 
 /* Graph test contains 56 vertices and 159 edges:
