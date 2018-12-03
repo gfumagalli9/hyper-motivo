@@ -6,7 +6,7 @@ import sys
 dfs = [pd.read_csv(f).set_index("motif") for f in sys.argv[2:]]
 d = dfs[0]
 for df in dfs[1:]:
-    d = d + df
+    d = d.add(df, fill_value=0)
 r = len(dfs)
 d.estim_occur //= r
 d.estim_freq /= r

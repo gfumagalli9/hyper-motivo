@@ -86,23 +86,6 @@ int main(const int argc, const char** argv) {
 					<< " treelet(s) of the given size" << std::endl;
 		}
 
-		/*
-		 *
-		 * Treelet selector with all treelet sizes (for computing spanning tree counts
-		 * via color coding).
-
-		 SimpleGraph::treelet_set_t treelets;
-		 treelets.set_empty_key(Treelet::invalid_treelet);
-		 for (int i = 0; i < selector->get_size(); i++) {
-		 Treelet t = selector->get_treelets()[i];
-		 SimpleGraph sg = SimpleGraph::from_treelet(t);
-		 sg.decompose(&treelets, -1);
-		 }
-		 TreeletSelector all_size_ts(TreeletSelector::MODE_INCLUDE);
-		 for (auto t = treelets.begin(); t != treelets.end(); ++t)
-		 all_size_ts.add_treelet(*t);
-		 */
-
 		std::ostream *output = &std::cout;
 		if (strlen(opts.output_basename) != 0)
 			output = new std::ofstream(std::string(opts.output_basename) + +".csv",
