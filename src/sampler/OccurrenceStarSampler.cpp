@@ -107,39 +107,41 @@ void OccurrenceStarSampler::do_sample_mt(occ_count_table_t* tab, sequencer_t *se
  */
 SampleTable* OccurrenceStarSampler::sample(uint64_t num_samples, Random *rng, double time_budget) {
 	SampleTable* table = new SampleTable();
-
-	OccurrenceCanonicizer canon(size);
-	if (num_samples == 0 && (time_budget < 0 || time_budget == std::numeric_limits<double>::infinity()))
+	bool on_budget = (num_samples == 0 && time_budget > 0
+			&& time_budget != std::numeric_limits<double>::infinity());
+	if (num_samples == 0 && !on_budget)
 		return table;
-
-	if (num_samples / 10 < number_of_threads)
+	if (!on_budget && num_samples < 10 * number_of_threads)
 		number_of_threads = std::ceil(1.0 * num_samples / 10);
-
 	std::chrono::time_point < std::chrono::steady_clock > totTimeStart =
 			std::chrono::steady_clock::now();
 	double totTime = 0;
 	occ_count_table_t count_tab;
 	count_tab.set_empty_key(Occurrence());
+	OccurrenceCanonicizer canon(size);
 	if (number_of_threads <= 1) {
 		Occurrence o;
 		uint64_t i = 0;
 		while ((i < num_samples || num_samples == 0) && totTime < time_budget) {
 			sample_one(&o, rng);
 			count_tab[o]++;
-			totTime =
-					(static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
-							- totTimeStart)).count();
+			totTime = (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
+					- totTimeStart)).count();
 		}
 	} else {
+		std::cout << number_of_threads << " " << on_budget << " " << num_samples << std::endl;
 		uint64_t samples_rem = num_samples;
+		uint64_t batch_size = 10; // samples batch size (per thread)
 		occ_count_table_t* count_tabs = new occ_count_table_t[number_of_threads];
 		count_tab.set_empty_key(Occurrence());
 		for (int id = 0; id < number_of_threads; id++)
 			count_tabs[id].set_empty_key(Occurrence());
-		while (samples_rem > 0) {
+		while (samples_rem > 0 || (on_budget && totTime < time_budget)) {
+			std::chrono::time_point < std::chrono::steady_clock > roundStart =
+					std::chrono::steady_clock::now();
 			if (num_samples == 0)
-				samples_rem = (uint64_t) (uint64_t) 100 * number_of_threads;
-			const uint64_t round_samples = std::min((uint64_t) 100 * number_of_threads,
+				samples_rem = (uint64_t) batch_size * number_of_threads;
+			const uint64_t round_samples = std::min((uint64_t) batch_size * number_of_threads,
 					samples_rem);
 			auto sequencer = new sequencer_t(0, round_samples, number_of_threads);
 			uint64_t thread_samples = std::ceil(1.0 * round_samples / number_of_threads);
@@ -173,6 +175,14 @@ SampleTable* OccurrenceStarSampler::sample(uint64_t num_samples, Random *rng, do
 							- totTimeStart)).count();
 			if (totTime >= time_budget)
 				break;
+			double roundElapsed =
+					(static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
+							- roundStart)).count();
+			// Adapt the batch size so to make the time per round approx 5% of the budget
+			if (on_budget
+					&& ((roundElapsed < 0.05 * time_budget) || (roundElapsed > 0.1 * time_budget)))
+				batch_size *= (0.05 * time_budget / roundElapsed);
+			batch_size = std::max(batch_size, 10ul);
 		}
 		delete[] count_tabs;
 	}

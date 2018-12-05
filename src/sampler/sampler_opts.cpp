@@ -37,6 +37,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *estimate_occurrences_opt = op.add_option(false, false, "estimate-occurrences", '\0', "", "Estimate the number of occurrences of graphlets in the graph (implies: --graphlets, --norejection)"); //FIXME: Can this be used with treelets?
     OptionsParser::Option *adaptive_opt = op.add_option(false, false, "estimate-occurrences-adaptive", '\0', "", "Estimate the number of occurrences of graphlets in the graph using adaptive sampling (implies: --graphlets, --norejection, and --canonicize)");
     OptionsParser::Option *time_budget_opt = op.add_option(false, true, "time-budget", '\0', "", "Time budget in seconds");
+    OptionsParser::Option *sptrees_db_opt = op.add_option(false, true, "sptrees", '\0', "", "Read graphlet spanning tree counts from/to this file");
 
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
@@ -128,6 +129,12 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     {
         opts->norejection = true;
         opts->graphlets = true;
+    }
+
+    if (sptrees_db_opt->is_found()) {
+        if(sptrees_db_opt->get_value().length()>=MOTIVO_ARG_MAX)
+            throw std::runtime_error("'sptrees_db' option is too long");
+        opts->sptrees_file = sptrees_db_opt->get_value();
     }
 
     if((opts->adaptive || opts->estimate_occurrences) && (opts->footprints || opts->spanning_trees || opts->vertices))

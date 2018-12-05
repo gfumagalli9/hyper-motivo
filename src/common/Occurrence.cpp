@@ -25,6 +25,11 @@ Occurrence::Occurrence(const unsigned int size, const UndirectedGraph *graph, co
     }
 }
 
+Occurrence::Occurrence(const unsigned int size, const uint8_t* edges) {
+	this->size = size;
+	memcpy(this->edges, edges, binary_footprint_bytes);
+}
+
 Occurrence::Occurrence(const Treelet& treelet, const UndirectedGraph::vertex_t *occ) : size(treelet.number_of_vertices())
 {
      for(unsigned int i = 0; i < size; i++)
@@ -48,6 +53,7 @@ Occurrence::Occurrence(const Treelet& treelet, const UndirectedGraph::vertex_t *
 
     assert(n==size-1);
 }
+
 
 const char* Occurrence::text_footprint() const
 {
@@ -206,3 +212,4 @@ void OccurrenceCanonicizer::canonicize(Occurrence *occ)
 
     occ->text_footprint_buffer[0]=0; //Invalidate text footprint
 }
+

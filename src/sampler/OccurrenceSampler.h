@@ -7,6 +7,7 @@
 
 #include "../common/Occurrence.h"
 #include "../common/graph/UndirectedGraph.h"
+#include "../common/SpanningTreeCounter.h"
 #include "TreeletSampler.h"
 #include "../common/sequencer/DynamicSequencer.h"
 #include <google/dense_hash_map>
@@ -28,27 +29,50 @@ private:
 	const bool graphlets;
 	const bool canonicize;
 	const bool no_rejection;
+	bool delete_stc = true;
 
 	TreeletSampler sampler;
 	TreeletSelector *sp_counter_selector = nullptr;
 
-//	void do_sample_mt [[gnu::hot, gnu::flatten]] (Occurrence* sampled_occurrences, sequencer_t *sequencer, Random *rng);
-	void do_sample_mt [[gnu::hot, gnu::flatten]] (occ_count_table_t* table, sequencer_t *sequencer, Random *rng);
+	SpanningTreeCounter* stc;
 
+	void do_sample_mt [[gnu::hot, gnu::flatten]] (occ_count_table_t* table, sequencer_t *sequencer, Random *rng);
 public:
 	inline void sample_one [[gnu::hot]] (Occurrence *occurrence, Random *rng);
 
-//	Occurrence* sample(const uint64_t n_samples, unsigned int number_of_threads, Random *rng, double time_budget = std::numeric_limits<double>::infinity());
 	SampleTable* sample(const uint64_t n_samples, unsigned int number_of_threads, Random *rng, double time_budget = std::numeric_limits<double>::infinity());
 
     OccurrenceSampler(const UndirectedGraph *graph, TreeletTableCollection* ttc, unsigned int size,
                                          bool vertices, bool graphlets, bool canonicize, bool no_rejection) :
             graph(graph), ttc(ttc), size(size), vertices(vertices), graphlets(graphlets), canonicize(canonicize),
             no_rejection(no_rejection), sampler(graph, ttc, size)
-    {}
+    {
+    	stc = new SpanningTreeCounter();
+    }
 
+    void setSpanningTreeCounter(SpanningTreeCounter* stc) {
+    	if (this->stc) {
+    		delete this->stc;
+    		this->delete_stc = false;
+    	}
+    	this->stc = stc;
+    }
 
-    void set_selector(const TreeletSelector *selector, unsigned int number_of_threads);
+    ~OccurrenceSampler() {
+    	if (this->delete_stc)
+    		delete stc;
+    }
+
+    /**
+     * Set the treelet selector.
+     * - the first specifies the treelets to be used for sampling the graphlets.
+     * - the second specified the treelets to be used to count the spanning trees of
+     *   the graphlets, including all their subtrees. This means that you want this
+     *   second selector to contain all the treelets of the first, plus their subtrees,
+     *   if the first selector is in INCLUDE mode. By default, it uses the first selector
+     *   again, which is correct if in EXCLUDE mode.
+     */
+    void set_selector(const TreeletSelector *selector, unsigned int number_of_threads, const TreeletSelector *sp_counter_selector = nullptr);
 };
 
 

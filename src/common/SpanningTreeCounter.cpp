@@ -42,8 +42,6 @@ uint64_t SpanningTreeCounter::num_spanning_trees_nostars(const Occurrence& occ) 
 uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, const TreeletSelector* ts) {
 	if (ts == nullptr || ts->get_size() == 0)
 		return occ.number_of_spanning_trees();
-	CachedSTC::treelet_table_t* tab = new CachedSTC::treelet_table_t();
-	tab->set_empty_key(Treelet::invalid_treelet);
 	ColorCodingSpanningTreeCounter ccstc(&occ, ts);
 	ccstc.count();
 	return ccstc.number_of_spanning_trees();
@@ -52,12 +50,23 @@ uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, const Tr
 /**
  * Return the number of spanning stars
  */
-unsigned int SpanningTreeCounter::num_spanning_stars(const Occurrence& occ)
-{
+unsigned int SpanningTreeCounter::num_spanning_stars(const Occurrence& occ) {
 	UndirectedGraph h(occ);
 	unsigned int count = 0;
 	for (UndirectedGraph::vertex_t v = 0; v < h.number_of_vertices(); v++)
 		count += (h.degree(v) == h.number_of_vertices() - 1) ? 1u : 0u;
 
 	return count;
+}
+
+/**
+ * Return the number of spanning trees from the cache (else compute it now).
+ */
+uint64_t SpanningTreeCounter::get_spanning_trees(const Occurrence& occ, const TreeletSelector* ts) {
+	if (!cache.count(occ)) {
+		m_mutex.lock();
+		cache[occ] = SpanningTreeCounter::num_spanning_trees(occ, ts);
+		m_mutex.unlock();
+	}
+	return cache[occ];
 }
