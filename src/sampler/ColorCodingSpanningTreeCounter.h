@@ -1,13 +1,13 @@
 #ifndef MOTIVO_COLORCODINGSPANNINGTREECOUNTER_H
 #define MOTIVO_COLORCODINGSPANNINGTREECOUNTER_H
 
-#include "../common/Occurrence.h"
+#include "Occurrence.h"
 #include <sparsehash/dense_hash_map>
 #include "../platform/platform.h"
 #include "../common/treelets/Treelet.h"
 
 #include "../common/treelets/TreeletSelector.h"
-#include "../common/CachedSTC.h"
+#include "CachedSTC.h"
 
 class ColorCodingSpanningTreeCounter
 {
@@ -42,6 +42,7 @@ public:
     	return tables[size-1][root];
     }
 
+    /* FIXME: What is going on here?
     // get the global spanning tree count table (sum over all nodes)
     inline const table_t get_table() {
     	table_t result; // = new table_t();
@@ -51,10 +52,10 @@ public:
     			result[it.first] += it.second;
     	return result;
     }
-
+*/
     // get the global spanning tree count table (sum over all nodes)
-    inline const void get_table(CachedSTC::treelet_table_t* tab) {
-    	for (int u = 0; u < size; u++)
+    inline void get_table(CachedSTC::treelet_table_t* tab) {
+    	for (unsigned int u = 0; u < size; u++)
     		for (auto &it : tables[size-1][u])
     			(*tab)[it.first] += it.second;
     }

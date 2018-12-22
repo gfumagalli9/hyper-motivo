@@ -5,13 +5,13 @@
  *      Author: brix
  */
 
-#include "../src/common/Occurrence.h"
+#include "../src/sampler/Occurrence.h"
 
 #include "doctest.h"
 #include <sstream>
 #include <cmath>
 #include "../src/common/graph/UndirectedGraph.h"
-#include "../src/common/SpanningTreeCounter.h"
+#include "../src/sampler/SpanningTreeCounter.h"
 
 /* Graph test contains 56 vertices and 159 edges:
  * A clique of 16 vertices on vertices 0-15 (120 edges)
@@ -28,16 +28,7 @@ void test_stc(unsigned int from, unsigned int size)
 	for (unsigned int i = 0; i < size; i++)
 		subgraph[i] = from + i;
 	Occurrence occ(size, &test_graph, subgraph);
-	UndirectedGraph g1(occ);
-/*
-	for (UndirectedGraph::vertex_t u = 0; u < g1.number_of_vertices(); u++) {
-		std::cout << u << ": ";
-		for (unsigned int i = 0; i < g1.degree(u); i++) {
-			std::cout << " " << g1.neighbor(u, i);
-		}
-		std::cout << std::endl;
-	}
-*/
+
 	SpanningTreeCounter stc;
 	CHECK_EQ(stc.num_spanning_trees(occ), occ.number_of_spanning_trees());
 	uint64_t tc = stc.num_spanning_trees(occ, nullptr);

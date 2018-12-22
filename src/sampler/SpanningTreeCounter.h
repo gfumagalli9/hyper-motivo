@@ -8,7 +8,7 @@
 #ifndef SRC_SAMPLER_SPANNINGTREECOUNTER_H_
 #define SRC_SAMPLER_SPANNINGTREECOUNTER_H_
 
-#include "../common/Occurrence.h"
+#include "Occurrence.h"
 #include "../common/treelets/TreeletSelector.h"
 
 /**

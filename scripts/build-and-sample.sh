@@ -168,13 +168,13 @@ fi
 
 echo -en "\t\t"
 echo "[$(date)] Sampling..." >> $LOGFILE
-($TIME ./motivo-sample --graph "$GRAPH" --size "$SIZE" -n "$NSAMPLES" -i "$OUTPUT" -t -c --graphlets -o "$OUTPUT" --spanning-trees-no --footprints --no-rejection --group --threads 0 ${EXTRA_SAMPLE_OPTS[@]} > "$OUTPUT.s$SIZE.log" 2>&1) || exit 1
+($TIME ./motivo-sample --graph "$GRAPH" --size "$SIZE" -n "$NSAMPLES" -i "$OUTPUT" -c --graphlets -o "$OUTPUT.$SIZE" --spanning-trees-no --footprints --no-rejection --threads 0 ${EXTRA_SAMPLE_OPTS[@]} > "$OUTPUT.s$SIZE.log" 2>&1) || exit 1
 echo $(get_walltime "$OUTPUT.s${SIZE}.log")
 echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,sample,0,$NSAMPLES,$(get_nthreads "$OUTPUT.s$SIZE.log"),$(get_walltime "$OUTPUT.s$SIZE.log"),$(get_usertime "$OUTPUT.s$SIZE.log"),$(get_systemtime "$OUTPUT.s$SIZE.log"),$(get_actualtime "$OUTPUT.s$SIZE.log")" >> $LOGFILE
 
 echo "[$(date)] Done" | tee -a $LOGFILE
 
-echo "Samples are in $OUTPUT.$SIZE.samples:"
-head -6 $OUTPUT.$SIZE.samples
+echo "Samples are in $OUTPUT.$SIZE.csv:"
+head -6 $OUTPUT.$SIZE.csv
 
 exit 0

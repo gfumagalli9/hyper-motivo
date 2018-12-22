@@ -7,10 +7,9 @@
 #include <queue>
 #include "OccurrenceSampler.h"
 #include "SampleTable.h"
-#include "../common/SpanningTreeCounter.h"
+#include "SpanningTreeCounter.h"
 
-void OccurrenceSampler::do_sample_mt(occ_count_table_t* table, sequencer_t *sequencer,
-		Random *rng) {
+void OccurrenceSampler::do_sample_mt(occ_count_table_t* table, sequencer_t *sequencer, Random *rng) {
 	while (true) {
 		sequencer_t::sequence_batch_t batch = sequencer->next_batch();
 		if (batch.from >= batch.to)
@@ -44,10 +43,8 @@ SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int 
 		while ((i < num_samples || num_samples == 0) && totTime < time_budget) {
 			sample_one(&o, rng);
 			count_tab[o]++;
-			totTime = (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
-					- totTimeStart)).count();
-			if (totTime >= time_budget)
-				break;
+			totTime = (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - totTimeStart)).count();
+			i++;
 		}
 	} else {
 		uint64_t samples_rem = num_samples;
@@ -60,7 +57,7 @@ SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int 
 				samples_rem = (uint64_t) (uint64_t) 100 * number_of_threads;
 			const uint64_t round_samples = std::min((uint64_t) 100 * number_of_threads,
 					samples_rem);
-			auto sequencer = new sequencer_t(0, round_samples, number_of_threads);
+			auto sequencer = new sequencer_t(1, round_samples, number_of_threads);
 			uint64_t thread_samples = std::ceil(1.0 * round_samples / number_of_threads);
 			std::queue<std::thread> thread_q;
 			uint64_t round_samples_rem = round_samples;

@@ -2,7 +2,7 @@
 // Created by steven on 8/14/17.
 //
 
-#include "../common/Occurrence.h"
+#include "Occurrence.h"
 #include <iostream>
 #include <limits>
 #include <cstring>

@@ -44,7 +44,7 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     int colors = std::stoi(colors_opt->get_value());
     if(size==1 && (!colors_opt->is_found() || colors < 1 || colors > 16))
         throw std::runtime_error("'colors' option missing or invalid");
-    opts->colors = static_cast<unsigned int>(colors);
+    opts->colors = static_cast<uint8_t>(colors);
 
     if(size != 1 && !tables_opt->is_found())
         throw std::runtime_error("'tables-basename' option is required");
@@ -93,21 +93,6 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     if(opts->threads<=0)
         throw std::runtime_error("Failed to determine the number of logical processors");
 
-    /*UndirectedGraph::vertex_t batch_size = (opts->to_vertex-opts->from_vertex+1)/(opts->threads*1000); //Each thread should get ~1000 slices
-    if(batch_size<=0)
-        batch_size=1;
-    if(batch_size>1000)
-        batch_size=1000;
-    if(batchsize_opt->is_found())
-    {
-        long bs = std::stol(batchsize_opt->get_value());
-        if(bs<=0 || bs > std::numeric_limits<UndirectedGraph::vertex_t>::max())
-            throw std::runtime_error("Invalid value of option 'thread-batch-size'");
-
-        batch_size= static_cast<UndirectedGraph::vertex_t>(bs);
-    }
-    opts->batch_size=batch_size;*/
-
     if(output_opt->get_value().size()>=MOTIVO_ARG_MAX)
         throw std::runtime_error("'output' option is too long");
     strcpy(opts->output_basename, output_opt->get_value().c_str());
@@ -136,65 +121,3 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     return true;
 }
 
-double timing(const std::string& name, const std::chrono::time_point<std::chrono::steady_clock> tstart, const std::chrono::time_point<std::chrono::steady_clock> tend, const UndirectedGraph::vertex_t vstart, const  UndirectedGraph::vertex_t vend)
-{
-    UndirectedGraph::vertex_t delta_v = vend-vstart;
-    std::chrono::duration<double> delta_t = tend - tstart;
-
-    double speed = delta_v/delta_t.count();
-
-    std::cout << "Timing (" << name << "): Processed " << delta_v << " vertices in " << delta_t.count() << " seconds (" << speed << "v/s)"<< std::endl;
-
-    return speed;
-}
-
-void report_progress(UndirectedGraph::vertex_t next, const UndirectedGraph::vertex_t from_vertex, const UndirectedGraph::vertex_t to_vertex)
-{
-    static UndirectedGraph::vertex_t timing_no = 0;
-    static UndirectedGraph::vertex_t previous_progress;
-    static std::chrono::time_point<std::chrono::steady_clock> start_time;
-    static std::chrono::time_point<std::chrono::steady_clock> previous_time;
-    static double speed_mean; //Geometric mean of speed
-
-    std::chrono::time_point<std::chrono::steady_clock> current_time = std::chrono::steady_clock::now();
-
-    if(timing_no==0)
-    {
-        previous_progress = next;
-        start_time = current_time;
-        previous_time = current_time;
-        timing_no++;
-        return;
-    }
-
-    //FIXME? No guarantee on the order of the callbacks
-    if(next>=previous_progress && current_time >= previous_time + std::chrono::seconds(10))
-    {
-        UndirectedGraph::vertex_t processed = next-from_vertex;
-        static UndirectedGraph::vertex_t total = to_vertex-from_vertex+1;
-
-        std::cout << "Progress report #"<< timing_no <<": " << (100*static_cast<double>(processed)/total) << "%" << std::endl;
-        timing("all", start_time, current_time, 0, processed);
-        double speed = timing("last", previous_time, current_time, previous_progress, next);
-
-        if(timing_no==1)
-            speed_mean = speed;
-        else
-            speed_mean = 0.2 * speed + 0.8 * speed_mean;
-
-        long ttc = static_cast<long>((total-processed)/speed_mean);
-        int ttc_s = static_cast<int>(ttc%60);
-        ttc/=60;
-        int ttc_m = static_cast<int>(ttc%60);
-        ttc/=60;
-        int ttc_h = static_cast<int>(ttc%24);
-        ttc /= 24;
-
-        std::cout << "ETC: " << ttc << " days " << ttc_h << "h " << ttc_m << "m " << ttc_s <<"s" << std::endl;
-        std::cout << std::flush;
-
-        previous_progress = next;
-        previous_time = current_time;
-        timing_no++;
-    }
-}

@@ -7,7 +7,7 @@
 
 #include <map>
 #include "SampleTable.h"
-#include "../common/SpanningTreeCounter.h"
+#include "SpanningTreeCounter.h"
 #include "../common/common.h"
 
 /**

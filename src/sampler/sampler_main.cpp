@@ -11,7 +11,7 @@
 #include "OccurrenceStarSampler.h"
 #include "AdaptiveSampler.h"
 #include "SampleTable.h"
-#include "../common/SpanningTreeCounter.h"
+#include "SpanningTreeCounter.h"
 #include "../common/common.h"
 
 int main(const int argc, const char** argv) {
@@ -159,7 +159,7 @@ int main(const int argc, const char** argv) {
 				delete samples;
 			}
 		} else {
-			std::cout << "naive sampler" << std::endl;
+			std::cout << "Naive sampler" << std::endl;
 			std::chrono::time_point < std::chrono::steady_clock > sampstart =
 					std::chrono::steady_clock::now();
 			OccurrenceSampler sampler(&G, &ttc, opts.size, opts.vertices, opts.graphlets,
@@ -170,12 +170,13 @@ int main(const int argc, const char** argv) {
 			samples->estimateOccurrences(tot_treelets / p, opts.size, store_only_on_0);
 			samples->estimateFrequencies();
 			std::chrono::duration<double> el = std::chrono::steady_clock::now() - sampstart;
-			std::cout << "naive sampler: taken " << samples->get_num_samples() << " samples in "
+			std::cout << "Naive sampler: taken " << samples->get_num_samples() << " samples in "
 					<< el.count() << " s\n";
 			if (star_samples != nullptr) {
 				SampleTable merged = SampleTable::merge(*samples, *star_samples, tot_treelets / p,
 						nstars);
-				delete samples, star_samples;
+				delete samples;
+				delete star_samples;
 				merged.sort_by_estimate_occ();
 				*output << merged.header() << std::endl << merged << std::endl;
 			} else {

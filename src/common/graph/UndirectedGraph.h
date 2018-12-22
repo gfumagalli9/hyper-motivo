@@ -5,16 +5,18 @@
 #ifndef MOTIVO_UNDIRECTEDGRAPH_H
 #define MOTIVO_UNDIRECTEDGRAPH_H
 
+#include <limits>
 #include <string>
 #include <cassert>
 #include <cstring>
-class Occurrence;
+class Occurrence; //FIXME
 
 ///Represents an immutable undirected unweighted graph
 ///Vertices are numbered with consecutive integers, starting from 0
 class UndirectedGraph {
 public:
 	typedef uint32_t vertex_t;
+	static constexpr vertex_t INVALID_VERTEX = std::numeric_limits<vertex_t>::max();
 
 private:
 	vertex_t num_verts;
@@ -29,37 +31,14 @@ private:
 	void operator=(const UndirectedGraph &) = delete;
 
 private:
-
-	/**
-	 * Set the offset of v to off.
-	 */
-	void set_offset(const vertex_t v, uint32_t off) {
-		memcpy(offsets + sizeof(uint32_t) * static_cast<uint64_t>(v), &off, sizeof(uint32_t));
-	}
-
-	/**
-	 * Let u be the i-th neighbor of v.
-	 */
-	void set_neighbor(const vertex_t v, vertex_t i, vertex_t u) {
-		memcpy(offset_of(v, i), &u, sizeof(vertex_t));
-	}
-
 	char *offset_of(const vertex_t v, vertex_t i = 0) const {
 		uint32_t offset;
 		memcpy(&offset, offsets + sizeof(uint32_t) * static_cast<uint64_t>(v), sizeof(uint32_t));
 		return edges + static_cast<uint64_t>(offset + i) * sizeof(vertex_t);
 	}
 
-	/**
-	 * The (integer) offset of v, i.e. the sum of the degrees of nodes 1,...,v-1
-	 */
-	uint64_t get_int_offset(const vertex_t v) const {
-		return static_cast<uint64_t>(offset_of(v) - offset_of(0)) / sizeof(vertex_t);
-	}
-
 public:
-	UndirectedGraph(const std::string &filename);
-	UndirectedGraph(const Occurrence& occ); // convert an occurrence into a graph
+	explicit UndirectedGraph(const std::string &filename);
 
 	~UndirectedGraph();
 

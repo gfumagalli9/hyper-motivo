@@ -7,15 +7,12 @@
 
 #include <string>
 #include "SpanningTreeCounter.h"
-#include "graph/FullGraphColoring.h"
-#include "treelets/TreeletTable.h"
-#include "treelets/TreeletTableCollection.h"
-#include "../builder/SimpleTreeletTableBuilder.h"
-#include "../builder/TreeletTableBuilder.h"
+#include "../common/treelets/TreeletTable.h"
+#include "../common/treelets/TreeletTableCollection.h"
 #include "../common/graph/SimpleGraph.h"
 #include "../common/common.h"
-#include "../sampler/ColorCodingSpanningTreeCounter.h"
-#include "../common/CachedSTC.h"
+#include "ColorCodingSpanningTreeCounter.h"
+#include "CachedSTC.h"
 
 struct vertex_info {
 	char* ptr;
@@ -54,10 +51,18 @@ uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, const Tr
  */
 unsigned int SpanningTreeCounter::num_spanning_stars(const Occurrence& occ)
 {
-	UndirectedGraph h(occ);
 	unsigned int count = 0;
-	for (UndirectedGraph::vertex_t v = 0; v < h.number_of_vertices(); v++)
-		count += (h.degree(v) == h.number_of_vertices() - 1) ? 1u : 0u;
+	for(unsigned int u=0; u<occ.get_size(); u++)
+	{
+		unsigned int deg=0;
+		for(unsigned int v=0; v<u; v++)
+			deg+=occ.has_edge(u,v);
+
+		for(unsigned int v=u+1; v<occ.get_size(); v++)
+			deg+=occ.has_edge(v,u);
+
+		count += (deg == occ.get_size());
+	}
 
 	return count;
 }

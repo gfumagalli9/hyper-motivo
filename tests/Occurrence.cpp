@@ -2,7 +2,7 @@
 // Created by steven on 11/29/16.
 //
 
-#include "../src/common/Occurrence.h"
+#include "../src/sampler/Occurrence.h"
 
 #include "doctest.h"
 #include <sstream>

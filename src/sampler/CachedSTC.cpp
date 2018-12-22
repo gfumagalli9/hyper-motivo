@@ -6,7 +6,7 @@
  */
 
 #include "CachedSTC.h"
-#include "../sampler/ColorCodingSpanningTreeCounter.h"
+#include "ColorCodingSpanningTreeCounter.h"
 
 struct vertex_info {
 	char* ptr;
@@ -32,7 +32,7 @@ CachedSTC::treelet_table_t* CachedSTC::compute_t_table(const Occurrence &o) {
  * Update the reverse table (treelet to graphlet) using a treelet count table and a given graphlet
  */
 void CachedSTC::update_reverse_table(treelet_table_t& tab, const Occurrence& o) {
-	for (const std::pair<Treelet, uint64_t> &it : tab) { // update the reverse table
+	for (const auto &it : tab) { // update the reverse table
 		if (reverse_table.count(it.first) == 0) {
 			reverse_table[it.first] = new occ_table_t();
 			reverse_table[it.first]->set_empty_key(Occurrence());

@@ -13,7 +13,7 @@ struct builder_opts
 {
     char graph[MOTIVO_ARG_MAX];
     unsigned int size;
-    unsigned int colors;
+    uint8_t colors;
     char tables_basename[MOTIVO_ARG_MAX];
     UndirectedGraph::vertex_t from_vertex;
     UndirectedGraph::vertex_t to_vertex;
@@ -26,9 +26,6 @@ struct builder_opts
 };
 
 bool parse_builder_args(const int argc, const char **argv, const std::string &name, builder_opts *opts);
-
-double timing(const std::string& name, const std::chrono::time_point<std::chrono::steady_clock> tstart, const std::chrono::time_point<std::chrono::steady_clock> tend, const UndirectedGraph::vertex_t vstart, const  UndirectedGraph::vertex_t vend);
-void report_progress(UndirectedGraph::vertex_t next, const UndirectedGraph::vertex_t from_vertex, const UndirectedGraph::vertex_t to_vertex);
 
 
 #endif //MOTIVO_BUILDER_H

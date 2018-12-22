@@ -4,10 +4,10 @@
 #include <thread>
 
 #include "../common/graph/UndirectedGraph.h"
-#include "../common/sequencer/StaticSequencer.h"
-#include "TreeletTableBuilder.h"
 #include "builder.h"
-#include "../common/sequencer/DynamicSequencer.h"
+#include "Size1ColorCoding.h"
+#include "SequentialColorCoding.h"
+#include "MultithreadedColorCoding.h"
 
 int main(const int argc, const char** argv)
 {
@@ -22,15 +22,6 @@ int main(const int argc, const char** argv)
         UndirectedGraph G(opts.graph);
         G.prefault();
         std::cout << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
-
-        std::unique_ptr<GraphColoring> coloring;
-        if(opts.size == 1)
-        {
-            std::cout << "Generating random coloring of " << (opts.to_vertex-opts.from_vertex+1) << " vertices using " << std::to_string(opts.colors) << " colors" << std::endl;
-            Random rng(opts.seed);
-            std::cout << "Using seed: \"" << rng.get_seed() <<"\"" << std::endl;
-            coloring = std::make_unique<GraphColoring>(opts.from_vertex, opts.to_vertex, opts.colors, &rng);
-        }
 
         TreeletTableCollection ttc;
         CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>* readers = nullptr;
@@ -59,12 +50,7 @@ int main(const int argc, const char** argv)
                   << opts.to_vertex << " using " << opts.threads << " thread(s)" << std::endl;
 
 
-        DynamicSequencer<UndirectedGraph::vertex_t> sequencer(opts.from_vertex, opts.to_vertex, opts.threads);
-        if(opts.progress > 0)
-        {
-            std::cout << "Will print a progress report every " << opts.progress << " processed vertices" << std::endl;
-            sequencer.set_progress_callback( [](UndirectedGraph::vertex_t next) -> void { report_progress(next, opts.from_vertex, opts.to_vertex); }, opts.progress);
-        }
+        //FIXME: Progress?
 
         bool selective = *opts.selective_filename!='\0' && opts.size>1;
         TreeletSelector* selector = nullptr;
@@ -74,11 +60,28 @@ int main(const int argc, const char** argv)
             std::cout << "Selectively " << ((selector->get_mode()==TreeletSelector::MODE_INCLUDE)?"counting only ":"ignoring ") << selector->get_size() << " treelet(s) of the given size" << std::endl;
         }
 
-        TreeletTableBuilder builder(&G, coloring.get(), opts.size, &ttc, &out, &sequencer, opts.threads, opts.store0, selector);
-
-        std::chrono::time_point<std::chrono::steady_clock>  tstart = std::chrono::steady_clock::now();
-        builder.build();
+        std::chrono::time_point<std::chrono::steady_clock> tstart;
+        if(opts.size==1)
+        {
+            Random rng(opts.seed);
+            Size1ColorCoding builder(G.number_of_vertices(), opts.colors, opts.store0, &rng, &out);
+            tstart = std::chrono::steady_clock::now();
+            builder.build();
+        }
+        else if(opts.threads==1)
+        {
+            SequentialColorCoding builder(&G, opts.size, &ttc, opts.store0, selector, &out);
+            tstart = std::chrono::steady_clock::now();
+            builder.build();
+        }
+        else
+        {
+            MultithreadedColorCoding builder(&G, opts.size, &ttc, opts.store0, selector, &out, opts.threads);
+            tstart = std::chrono::steady_clock::now();
+            builder.build();
+        }
         std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
+
         std::cerr << "Building time: " << delta_t.count() << " s\n";
 
         out.close();
