@@ -12,10 +12,10 @@
 #ifndef SRC_COMMON_CACHEDSTC_H_
 #define SRC_COMMON_CACHEDSTC_H_
 
-#include "../../../../../../usr/include/google/dense_hash_map"
-#include "../../../../../../usr/include/c++/8/string"
-#include "../../../../../../usr/include/c++/8/map"
-#include "../../../../../../usr/include/c++/8/mutex"
+#include <google/dense_hash_map>
+#include <string>
+#include <map>
+#include <mutex>
 #include "../common/treelets/TreeletTable.h"
 #include "../common/treelets/TreeletTableCollection.h"
 #include "../common/common.h"
