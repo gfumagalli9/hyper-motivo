@@ -8,7 +8,7 @@
 #ifndef SRC_COMMON_VALUESORTEDMAP_H_
 #define SRC_COMMON_VALUESORTEDMAP_H_
 
-#include "../../../../../../usr/include/c++/8/map"
+#include <map>
 
 /**
  * A map that keeps the elements sorted in nondecreasing order of value V.
