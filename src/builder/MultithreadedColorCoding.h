@@ -36,6 +36,8 @@ private:
     };
 
     const UndirectedGraph* const G;
+    const UndirectedGraph::vertex_t from_vertex;
+    UndirectedGraph::vertex_t to_vertex;
     const unsigned int size;
     const TreeletTableCollection* const ttc;
     const bool store_only_0;
@@ -45,13 +47,13 @@ private:
 
     vertex_info_t **slots;
     unsigned int nbusy_slots = 0;
-    UndirectedGraph::vertex_t next_vertex =0;
+    UndirectedGraph::vertex_t next_vertex;
     std::mutex mutex;
 
 public:
-    MultithreadedColorCoding(const UndirectedGraph* G, const unsigned int size, const TreeletTableCollection* ttc,
+    MultithreadedColorCoding(const UndirectedGraph* G, UndirectedGraph::vertex_t from_vertex, UndirectedGraph::vertex_t to_vertex, const unsigned int size, const TreeletTableCollection* ttc,
                   bool store_only_0, TreeletSelector* selector, std::ostream* output, unsigned int nthreads)
-            : G(G), size(size), ttc(ttc), store_only_0(store_only_0), output(output), nthreads(nthreads), builder(size, ttc, selector)
+            : G(G), from_vertex(from_vertex), to_vertex(to_vertex), size(size), ttc(ttc), store_only_0(store_only_0), output(output), nthreads(nthreads), builder(size, ttc, selector)
     {
         slots = new vertex_info_t*[nthreads];
         for(unsigned int i=0; i<nthreads; i++)
@@ -102,7 +104,7 @@ public:
         }
         else
         {
-            if(state->vertex_info != nullptr )
+            if(state->vertex_info != nullptr)
             {
                 //The descriptor slot is now free.
                 nbusy_slots--;
@@ -115,10 +117,10 @@ public:
         }
 
         //Look for a new vertex for the thread
-        while(next_vertex<G->number_of_vertices() && (G->degree(next_vertex)==0 || (store_only_0 && ttc->get_table(1)->begin(next_vertex).treelet().get_colors() != 1)) )
+        while(next_vertex<=to_vertex && (G->degree(next_vertex)==0 || (store_only_0 && ttc->get_table(1)->begin(next_vertex).treelet().get_colors() != 1)) )
             next_vertex++;
 
-        if(next_vertex<G->number_of_vertices()) //A new vertex is available
+        if(next_vertex<=to_vertex) //A new vertex is available
         {
             //There must be an empty info slot
             assert(nbusy_slots<nthreads);
@@ -152,7 +154,7 @@ public:
         state->vertex_info = slots[slot];
         state->vertex_info->assigned_threads++;
         state->from_vertex = state->vertex_info->vertex;
-        state->to_vertex = state->vertex_info->next_edge++;
+        state->to_vertex = G->neighbor(state->from_vertex, state->vertex_info->next_edge++);
         state->table = state->vertex_info->tables + state->vertex_info->ntables;
         state->vertex_info->ntables++;
     }
@@ -165,9 +167,19 @@ public:
         while(state.from_vertex != UndirectedGraph::INVALID_VERTEX)
         {
             if(state.to_vertex != UndirectedGraph::INVALID_VERTEX)
+            {
+                assert(state.to_vertex  != state.from_vertex);
+
+                mutex.lock();
+                mutex.unlock();
                 builder.combine(state.from_vertex, state.to_vertex, *state.table);
+            }
             else
+            {
                 merge_and_write(writer, state.vertex_info);
+                mutex.lock();
+                mutex.unlock();
+            }
 
             update_state(&state);
         }
@@ -194,6 +206,8 @@ public:
     {
         UndirectedGraph::vertex_t num_verts = G->number_of_vertices();
         output->write(reinterpret_cast<const char*>(&num_verts), sizeof(UndirectedGraph::vertex_t));
+
+        next_vertex = from_vertex;
 
         auto *writer = new ConcurrentWriter(output, 100*nthreads);
         auto *worker_threads = new std::thread[nthreads];

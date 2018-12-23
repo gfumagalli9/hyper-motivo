@@ -49,9 +49,6 @@ int main(const int argc, const char** argv)
         std::cout << "Computing counts of treelets of size " << opts.size << " for vertices " << opts.from_vertex << "--"
                   << opts.to_vertex << " using " << opts.threads << " thread(s)" << std::endl;
 
-
-        //FIXME: Progress?
-
         bool selective = *opts.selective_filename!='\0' && opts.size>1;
         TreeletSelector* selector = nullptr;
         if(selective)
@@ -64,19 +61,19 @@ int main(const int argc, const char** argv)
         if(opts.size==1)
         {
             Random rng(opts.seed);
-            Size1ColorCoding builder(G.number_of_vertices(), opts.colors, opts.store0, &rng, &out);
+            Size1ColorCoding builder(G.number_of_vertices(), opts.from_vertex, opts.to_vertex, opts.colors, opts.store0, &rng, &out);
             tstart = std::chrono::steady_clock::now();
             builder.build();
         }
         else if(opts.threads==1)
         {
-            SequentialColorCoding builder(&G, opts.size, &ttc, opts.store0, selector, &out);
+            SequentialColorCoding builder(&G, opts.from_vertex, opts.to_vertex, opts.size, &ttc, opts.store0, selector, &out);
             tstart = std::chrono::steady_clock::now();
             builder.build();
         }
         else
         {
-            MultithreadedColorCoding builder(&G, opts.size, &ttc, opts.store0, selector, &out, opts.threads);
+            MultithreadedColorCoding builder(&G, opts.from_vertex, opts.to_vertex, opts.size, &ttc, opts.store0, selector, &out, opts.threads);
             tstart = std::chrono::steady_clock::now();
             builder.build();
         }

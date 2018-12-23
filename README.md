@@ -15,11 +15,10 @@ Motivo depends on the following libraries:
 - [Nauty](http://pallini.di.uniroma1.it/),
 - [LZ4](https://github.com/lz4/lz4),
 - Optional: libtcmalloc from [gperftools](https://github.com/gperftools/gperftools).
-- Optional: a MPI library, such as [Open MPI](https://www.open-mpi.org/)
 
 Your Linux distribution might have premade packages, i.e., on Debian you can run:
 ~~~~
-# apt-get install lib{sparsehash,openblas,lapacke,nauty2,openmpi}-dev
+# apt-get install lib{sparsehash,openblas,lapacke,nauty2}-dev
 ~~~~
 
 And, if you want to use the tcmalloc allocator:
