@@ -103,7 +103,8 @@ if [ -z ${GRAPH+x} ]; then echo "Missing input graph basename (-g,--graph)"; pri
 if [ -z ${SIZE+x} ]; then echo "Missing graphlet size (-k)"; print_usage; exit 1; fi
 if [ -z ${NSAMPLES+x} ] && [ "$EQUALIZE_BUILD_SAMPLE_TIMES" == "no" ]; then echo "Missing number of samples (-s,--samples)"; print_usage; exit 1; fi
 if [ -z ${OUTPUT+x} ]; then echo "Missing output basename (-o,--output)"; print_usage; exit 1; fi
-
+if [ "$SELECTIVE_FILE" != "" ]; then FAST_STARS="NO"; fi
+    
 LOGFILE="$OUTPUT.log"
 TIMEFILE="$OUTPUT.perf"
 
@@ -176,8 +177,8 @@ run_once()
 	    if [ "$FAST_STARS" == "YES" ]; then
 		echo "EXCLUDE" > exclude-star-$SIZE.txt
 		$BUILDPATH/motivo-decompose --star $SIZE --size $SIZE >> exclude-star-$SIZE.txt 2>/dev/null
-		SELECTIVE_FILE=exclude-star-$SIZE.txt
-		EXTRA_BUILD_OPTS+=(--selective "$SELECTIVE_FILE")
+#		SELECTIVE_FILE=exclude-star-$SIZE.txt
+		EXTRA_BUILD_OPTS+=(--selective exclude-star-$SIZE.txt)
 	    fi
 	fi
 	
@@ -204,21 +205,19 @@ run_once()
 	echo "[$(date)] Done. Removing count file." >> $LOGFILE
 	rm "$OUTPUT.$i.cnt"
     done
-    # Smart: exclude stars from the building phase, and sample them separately in the sampling phase
+    if [ "$SELECTIVE_FILE" != "" ]; then
+	EXTRA_SAMPLE_OPTS+=(--selective "$SELECTIVE_FILE")
+    fi
     if [ "$FAST_STARS" == "YES" ]; then
-	echo "EXCLUDE" > exclude-star-$SIZE.txt
-	$BUILDPATH/motivo-decompose --star $SIZE --size $SIZE >> exclude-star-$SIZE.txt 2>/dev/null
-	SELECTIVE_FILE=exclude-star-$SIZE.txt
+#	echo "EXCLUDE" > exclude-star-$SIZE.txt
+#	$BUILDPATH/motivo-decompose --star $SIZE --size $SIZE >> exclude-star-$SIZE.txt 2>/dev/null
+#	SELECTIVE_FILE=exclude-star-$SIZE.txt
 	EXTRA_SAMPLE_OPTS+=(--smart-stars)
     fi
     if [ "$ADAPTIVE" == "YES" ]; then
 	EXTRA_SAMPLE_OPTS+=(--estimate-occurrences-adaptive)
     else
 	EXTRA_SAMPLE_OPTS+=(--estimate-occurrences)
-    fi
-
-    if [ "$SELECTIVE_FILE" != "" ]; then
-	EXTRA_SAMPLE_OPTS+=(--selective "$SELECTIVE_FILE")
     fi
 
     if [ "$EQUALIZE_BUILD_SAMPLE_TIMES" == "YES" ]; then

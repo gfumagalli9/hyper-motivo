@@ -25,6 +25,7 @@ void OccurrenceSampler::do_sample_mt(occ_count_table_t* table, sequencer_t *sequ
 	}
 	delete rng;
 }
+
 /***
  * Main entry method for sampling, both single- and multi-threaded.
  *

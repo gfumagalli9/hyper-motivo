@@ -78,8 +78,11 @@ int main(const int argc, const char** argv) {
 		TreeletSelector *selector = nullptr;
 		TreeletSelector *full_selector = nullptr;
 		if (*opts.selective_filename != '\0') {
-			full_selector = new TreeletSelector(opts.selective_filename);
 			selector = new TreeletSelector(opts.selective_filename, opts.size);
+			if (selector->get_mode() == TreeletSelector::MODE_INCLUDE)
+				full_selector = new TreeletSelector(opts.selective_filename);
+			else
+				full_selector = new TreeletSelector(opts.selective_filename, opts.size);
 			std::cout << "Selectively "
 					<< ((selector->get_mode() == TreeletSelector::MODE_INCLUDE) ?
 							"sampling only " : "ignoring ") << selector->get_size()
@@ -164,6 +167,10 @@ int main(const int argc, const char** argv) {
 					std::chrono::steady_clock::now();
 			OccurrenceSampler sampler(&G, &ttc, opts.size, opts.vertices, opts.graphlets,
 					opts.canonicize, opts.norejection);
+			TreeletSelector fs = TreeletSelector::get_star_selector(opts.size,
+					TreeletSelector::MODE_EXCLUDE);
+			if (opts.smart_stars && !selector)
+				full_selector = &fs;
 			sampler.set_selector(selector, opts.threads, full_selector);
 			SpanningTreeCounter *stc = new SpanningTreeCounter();
 			if (!opts.sptrees_file.empty())
@@ -178,7 +185,9 @@ int main(const int argc, const char** argv) {
 			std::chrono::duration<double> el = std::chrono::steady_clock::now() - sampstart;
 			std::cout << "naive sampler: taken " << samples->get_num_samples() << " samples in "
 					<< el.count() << " s\n";
-			if (star_samples != nullptr) {
+			if (star_samples) {
+				std::cout << "merging samples with weights " << tot_treelets / p << "," << nstars
+						<< std::endl;
 				SampleTable merged = SampleTable::merge(*samples, *star_samples, tot_treelets / p,
 						nstars);
 				delete samples, star_samples;

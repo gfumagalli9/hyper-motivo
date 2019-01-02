@@ -133,7 +133,6 @@ SampleTable* OccurrenceStarSampler::sample(uint64_t num_samples, Random *rng, do
 		uint64_t samples_rem = num_samples;
 		uint64_t batch_size = 10; // samples batch size (per thread)
 		occ_count_table_t* count_tabs = new occ_count_table_t[number_of_threads];
-		count_tab.set_empty_key(Occurrence());
 		for (int id = 0; id < number_of_threads; id++)
 			count_tabs[id].set_empty_key(Occurrence());
 		while (samples_rem > 0 || (on_budget && totTime < time_budget)) {

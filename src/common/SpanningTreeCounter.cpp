@@ -41,7 +41,13 @@ uint64_t SpanningTreeCounter::num_spanning_trees_nostars(const Occurrence& occ) 
  */
 uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, const TreeletSelector* ts) {
 	if (ts == nullptr || ts->get_size() == 0)
-		return occ.number_of_spanning_trees();
+		return num_spanning_trees(occ);
+	if (ts->get_treelet_size() == occ.get_size()
+			&& ts->get_special_mode() == TreeletSelector::STAR_EXCLUDE)
+		return num_spanning_trees_nostars(occ);
+	if (ts->get_treelet_size() == occ.get_size()
+			&& ts->get_special_mode() == TreeletSelector::STAR_INCLUDE)
+		return num_spanning_stars(occ);
 	ColorCodingSpanningTreeCounter ccstc(&occ, ts);
 	ccstc.count();
 	return ccstc.number_of_spanning_trees();
