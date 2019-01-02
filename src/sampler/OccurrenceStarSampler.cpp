@@ -9,7 +9,7 @@
 #include <queue>
 #include <algorithm>
 #include "OccurrenceStarSampler.h"
-#include "../common/common.h"
+#include "../common/util.h"
 #include "SpanningTreeCounter.h"
 #include "../sampler/SampleTable.h"
 

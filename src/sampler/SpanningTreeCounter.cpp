@@ -9,8 +9,7 @@
 #include "SpanningTreeCounter.h"
 #include "../common/treelets/TreeletTable.h"
 #include "../common/treelets/TreeletTableCollection.h"
-#include "../common/graph/SimpleGraph.h"
-#include "../common/common.h"
+#include "../common/util.h"
 #include "ColorCodingSpanningTreeCounter.h"
 #include "CachedSTC.h"
 

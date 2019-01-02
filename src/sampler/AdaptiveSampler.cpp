@@ -7,11 +7,9 @@
 
 #include "AdaptiveSampler.h"
 #include "OccurrenceSampler.h"
-#include "../common/graph/SimpleGraph.h"
 #include <thread>
 #include <vector>
-#include <google/dense_hash_set>
-#include "../common/common.h"
+#include "../common/util.h"
 #include "ColorCodingSpanningTreeCounter.h"
 #include <queue>
 
@@ -138,8 +136,7 @@ void AdaptiveSampler::recomputeTreeletPriorities(occ_pair_table_t& occTab) {
 			std::chrono::steady_clock::now();
 	if (!(currentTreelet == treeletPriority.last_key()))
 		updateSampler();
-	samplerTime += (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
-			- tstart2)).count();
+	samplerTime += (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - tstart2)).count();
 
 	//				std::cout << treeletPriority << std::endl;
 	totManagementTime +=

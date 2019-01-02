@@ -2,9 +2,10 @@
 // Created by steven on 12/23/18.
 //
 
-#include "SequentialColorCoding.h"
+#include "SequentialBuilder.h"
+#include "ColorCodingHashmap.h"
 
-void SequentialColorCoding::build()
+void SequentialBuilder::build()
 {
     UndirectedGraph::vertex_t num_verts = G->number_of_vertices();
     output->write(reinterpret_cast<const char*>(&num_verts), sizeof(UndirectedGraph::vertex_t));
@@ -14,8 +15,7 @@ void SequentialColorCoding::build()
         if (store_only_0 && ttc->get_table(1)->begin(u).treelet().get_colors() != 1) //color 0 is represented as 1<<0 = 1
             continue;
 
-        ColorCodingBuilder::table_t table;
-        BUILDER_INIT_HASHMAP(table);
+        ColorCodingHashmap table;
         const UndirectedGraph::vertex_t degree = G->degree(u);
         for (UndirectedGraph::vertex_t d = 0; d < degree; d++)
             builder.combine(u, G->neighbor(u, d), table);
@@ -26,7 +26,7 @@ void SequentialColorCoding::build()
     }
 }
 
-SequentialColorCoding::SequentialColorCoding(const UndirectedGraph *G, UndirectedGraph::vertex_t from_vertex,
+SequentialBuilder::SequentialBuilder(const UndirectedGraph *G, UndirectedGraph::vertex_t from_vertex,
                                              UndirectedGraph::vertex_t to_vertex, const unsigned int size,
                                              const TreeletTableCollection *ttc, const bool store_only_0,
                                              TreeletSelector *selector, std::ostream *output)

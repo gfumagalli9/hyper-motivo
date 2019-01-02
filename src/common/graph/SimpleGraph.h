@@ -9,11 +9,10 @@
 #define SRC_COMMON_GRAPH_SIMPLEGRAPH_H_
 
 #include <set>
-#include <google/dense_hash_set>
+#include <sparsehash/dense_hash_set>
 #include <algorithm>
 #include "UndirectedGraph.h"
 #include "../treelets/Treelet.h"
-//#include "../../sampler/AdaptiveSampler.h"
 
 class SimpleGraph;
 

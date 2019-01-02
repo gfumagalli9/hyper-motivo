@@ -107,7 +107,7 @@ SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int 
 
 }
 
-void OccurrenceSampler::set_selector(const TreeletSelector *selector,
-		unsigned int number_of_threads) {
+void OccurrenceSampler::set_selector(const TreeletSelector *selector, unsigned int number_of_threads)
+{
 	sampler.set_selector(selector, number_of_threads);
 }

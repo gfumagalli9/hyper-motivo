@@ -2,7 +2,7 @@
 // Created by steven on 12/21/18.
 //
 
-#include "MultithreadedColorCoding.h"
+#include "MultithreadedBuilder.h"
 
 MultithreadedColorCoding::MultithreadedColorCoding(const UndirectedGraph *G, UndirectedGraph::vertex_t from_vertex,
                                                    UndirectedGraph::vertex_t to_vertex, const unsigned int size,
@@ -15,10 +15,7 @@ MultithreadedColorCoding::MultithreadedColorCoding(const UndirectedGraph *G, Und
     for(unsigned int i=0; i<nthreads; i++)
     {
         slots[i] = new vertex_info_t();
-        slots[i]->tables = new ColorCodingBuilder::table_t[nthreads];
-
-        for(unsigned int j=0; j<nthreads; j++)
-            BUILDER_INIT_HASHMAP(slots[i]->tables[j]);
+        slots[i]->tables = new ColorCodingHashmap[nthreads];
     }
 
 }
@@ -144,7 +141,7 @@ void MultithreadedColorCoding::thread_loop(ConcurrentWriter *writer)
 void MultithreadedColorCoding::merge_and_write(ConcurrentWriter *writer, MultithreadedColorCoding::vertex_info_t *info)
 {
     //Merge tables
-    ColorCodingBuilder::table_t &table = info->tables[0];
+    ColorCodingHashmap &table = info->tables[0];
     for(unsigned int i=1; i<info->ntables; i++)
     {
         for(const auto&  tcp : info->tables[i])

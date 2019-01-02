@@ -2,9 +2,9 @@
 // Created by steven on 12/23/18.
 //
 
-#include "Size1ColorCoding.h"
+#include "Size1Builder.h"
 
-void Size1ColorCoding::build()
+void Size1Builder::build()
 {
     output->write(reinterpret_cast<const char*>(&number_of_vertices), sizeof(UndirectedGraph::vertex_t));
 
@@ -30,7 +30,7 @@ void Size1ColorCoding::build()
     }
 }
 
-Size1ColorCoding::Size1ColorCoding(UndirectedGraph::vertex_t number_of_vertices, UndirectedGraph::vertex_t from_vertex,
+Size1Builder::Size1Builder(UndirectedGraph::vertex_t number_of_vertices, UndirectedGraph::vertex_t from_vertex,
                                    UndirectedGraph::vertex_t to_vertex, uint8_t number_of_colors, bool store_only_0, Random *rng,
                                    std::ostream *output)
         : number_of_vertices(number_of_vertices), from_vertex(from_vertex), to_vertex(to_vertex), number_of_colors(number_of_colors),

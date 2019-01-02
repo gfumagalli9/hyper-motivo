@@ -12,7 +12,7 @@
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/AliasMethodSampler.h"
 #include "../common/sequencer/DynamicSequencer.h"
-#include <google/dense_hash_map>
+#include <sparsehash/dense_hash_map>
 
 class SampleTable;
 

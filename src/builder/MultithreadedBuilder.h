@@ -2,8 +2,8 @@
 // Created by steven on 12/21/18.
 //
 
-#ifndef MOTIVO_MULTITHREADED_COLOR_CODING_H
-#define MOTIVO_MULTITHREADED_COLOR_CODING_H
+#ifndef MOTIVO_MULTITHREADED_BUILDER_H
+#define MOTIVO_MULTITHREADED_BUILDER_H
 
 #include <mutex>
 #include <thread>
@@ -11,8 +11,9 @@
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/io/ConcurrentWriter.h"
 #include "ColorCodingBuilder.h"
+#include "ColorCodingHashmap.h"
 
-class MultithreadedColorCoding //FIXME: store_on_0
+class MultithreadedColorCoding
 {
 
 private:
@@ -23,7 +24,7 @@ private:
         unsigned int assigned_threads;
         unsigned int slot_index;
 
-        ColorCodingBuilder::table_t* tables;
+        ColorCodingHashmap* tables;
         unsigned int ntables;
     };
 
@@ -32,7 +33,7 @@ private:
         vertex_info_t *vertex_info = nullptr;
         UndirectedGraph::vertex_t from_vertex = UndirectedGraph::INVALID_VERTEX;
         UndirectedGraph::vertex_t to_vertex = UndirectedGraph::INVALID_VERTEX;
-        ColorCodingBuilder::table_t* table = nullptr;
+        ColorCodingHashmap* table = nullptr;
     };
 
     const UndirectedGraph* const G;
@@ -58,9 +59,9 @@ private:
     void merge_and_write(ConcurrentWriter *writer, vertex_info_t* info);
 
 public:
-    MultithreadedColorCoding(const UndirectedGraph* G, UndirectedGraph::vertex_t from_vertex, UndirectedGraph::vertex_t to_vertex,
-                             const unsigned int size, const TreeletTableCollection* ttc, bool store_only_0,
-                             TreeletSelector* selector, std::ostream* output, unsigned int nthreads);
+    MultithreadedColorCoding(const UndirectedGraph* G, UndirectedGraph::vertex_t from_vertex,
+                             UndirectedGraph::vertex_t to_vertex, unsigned int size, const TreeletTableCollection* ttc,
+                             bool store_only_0, TreeletSelector* selector, std::ostream* output, unsigned int nthreads);
 
     ~MultithreadedColorCoding();
 
@@ -68,4 +69,4 @@ public:
 };
 
 
-#endif //MOTIVO_MULTITHREADED_COLOR_CODING_H
+#endif //MOTIVO_MULTITHREADED_BUILDER_H

@@ -8,23 +8,25 @@
 #include "CachedSTC.h"
 #include "ColorCodingSpanningTreeCounter.h"
 
-struct vertex_info {
-	char* ptr;
-	uint64_t count = 0;
-};
-
 /**
  * Compute the spanning tree table of a graphlet
  */
-CachedSTC::treelet_table_t* CachedSTC::compute_t_table(const Occurrence &o) {
+CachedSTC::treelet_table_t* CachedSTC::compute_t_table(const Occurrence &o)
+{
 	std::chrono::time_point < std::chrono::steady_clock > tstart = std::chrono::steady_clock::now();
+
+	ColorCodingSpanningTreeCounter ccstc(&o);
+	ccstc.count();
+
 	CachedSTC::treelet_table_t* tab = new treelet_table_t();
 	tab->set_empty_key(Treelet::invalid_treelet);
-	ColorCodingSpanningTreeCounter ccstc(&o, nullptr);
-	ccstc.count();
-	ccstc.get_table(tab);
+	for (unsigned int u = 0; u < o.get_size(); u++)
+		for (auto &it : ccstc.get_table(u))
+			(*tab)[it.first] += it.second;
+
 	std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
 	tot_running_time += delta_t.count();
+
 	return tab;
 }
 

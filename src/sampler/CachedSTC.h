@@ -12,13 +12,13 @@
 #ifndef SRC_COMMON_CACHEDSTC_H_
 #define SRC_COMMON_CACHEDSTC_H_
 
-#include <google/dense_hash_map>
+#include <sparsehash/dense_hash_map>
 #include <string>
 #include <map>
 #include <mutex>
 #include "../common/treelets/TreeletTable.h"
 #include "../common/treelets/TreeletTableCollection.h"
-#include "../common/common.h"
+#include "../common/util.h"
 #include "OccurrenceSampler.h"
 
 class CachedSTC

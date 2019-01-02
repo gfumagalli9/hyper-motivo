@@ -12,7 +12,7 @@
 #include "AdaptiveSampler.h"
 #include "SampleTable.h"
 #include "SpanningTreeCounter.h"
-#include "../common/common.h"
+#include "../common/util.h"
 
 int main(const int argc, const char** argv) {
 	std::cerr << "This is motivo-sample. Version: " << MOTIVO_VERSION_STRING << std::endl;

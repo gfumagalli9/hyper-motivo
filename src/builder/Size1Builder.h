@@ -2,8 +2,8 @@
 // Created by steven on 12/22/18.
 //
 
-#ifndef MOTIVO_SIZE1COLORCODING_H
-#define MOTIVO_SIZE1COLORCODING_H
+#ifndef MOTIVO_SIZE1BUILDER_H
+#define MOTIVO_SIZE1BUILDER_H
 
 #include <ostream>
 #include "../common/Random.h"
@@ -12,7 +12,7 @@
 
 //FIXME: Should the TreeletSelector also apply to size 1 tables?
 
-class Size1ColorCoding
+class Size1Builder
 {
 
 private:
@@ -25,7 +25,7 @@ private:
     std::ostream* const output;
 
 public:
-    Size1ColorCoding(UndirectedGraph::vertex_t number_of_vertices,UndirectedGraph::vertex_t from_vertex,
+    Size1Builder(UndirectedGraph::vertex_t number_of_vertices,UndirectedGraph::vertex_t from_vertex,
                      UndirectedGraph::vertex_t to_vertex,uint8_t number_of_colors, bool store_only_0, Random *rng,
                      std::ostream* output);
 
@@ -33,4 +33,4 @@ public:
 
 };
 
-#endif //MOTIVO_SIZE1COLORCODING_H
+#endif //MOTIVO_SIZE1BUILDER_H

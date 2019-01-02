@@ -8,7 +8,7 @@
 #include <map>
 #include "SampleTable.h"
 #include "SpanningTreeCounter.h"
-#include "../common/common.h"
+#include "../common/util.h"
 
 /**
  * Take an Occurrence collection and calculates spanning trees, estimates frequencies, etc
@@ -281,10 +281,10 @@ SampleTable SampleTable::saverage(SampleTable& t1, SampleTable& t2) {
 /**
  * Prints the table in the natural format.
  */
-std::ostream& operator<<(std::ostream& os, const SampleTable& st) {
-	for (const SampleTable::Entry& e : st.entries) {
-		os << e.fingerprint << "," << e.sample_count << "," << e.num_spanning_trees << ","
-				<< e.estimate_graph_frequency << "," << e.estimate_graph_occurrences << "\n";
-	}
+std::ostream& operator<<(std::ostream& os, const SampleTable& st)
+{
+	for (const SampleTable::Entry& e : st.entries)
+		os << e.fingerprint << "," << e.sample_count << "," << uint128_to_string(e.num_spanning_trees) << "," << e.estimate_graph_frequency << "," << e.estimate_graph_occurrences << "\n";
+
 	return os;
 }

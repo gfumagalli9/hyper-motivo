@@ -9,8 +9,8 @@
 #define SRC_SAMPLER_ADAPTIVESAMPLER_H_
 
 #include "Occurrence.h"
-#include <google/dense_hash_map>
-#include <google/dense_hash_set>
+#include <sparsehash/dense_hash_map>
+#include <sparsehash/dense_hash_set>
 #include <map>
 #include <set>
 
@@ -19,12 +19,12 @@
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/graph/SimpleGraph.h"
 #include "../common/RangeSampler.h"
-#include "ValueSortedMap.h"
 #include "../common/treelets/Treelet.h"
 #include "../common/treelets/TreeletTable.h"
 #include "../common/treelets/TreeletSelector.h"
 #include "CachedSTC.h"
 #include "SampleTable.h"
+#include "ValueSortedMap.h"
 
 class AdaptiveSampler {
 
