@@ -14,7 +14,7 @@
 void test_ccstc(unsigned int from, unsigned int size)
 {
 	UndirectedGraph test_graph("test-graph");
-	UndirectedGraph::vertex_t* subgraph = new UndirectedGraph::vertex_t[size];
+	auto* subgraph = new UndirectedGraph::vertex_t[size];
 
 	for (unsigned int i = 0; i < size; i++)
 		subgraph[i] = from + i;
@@ -29,12 +29,12 @@ void test_ccstc(unsigned int from, unsigned int size)
 
 TEST_CASE("ColorCodingSpanningTreeCounter.clique")
 {
-    for(unsigned int i=1; i<=10; i++)
+    for(unsigned int i=1; i<=8; i++)
         test_ccstc(0, i);
 }
 
 TEST_CASE("ColorCodingSpanningTreeCounter.star")
 {
-   for(unsigned int i=1; i<=14; i++)
+   for(unsigned int i=1; i<=12; i++)
         test_ccstc(16, i);
 }

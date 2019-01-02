@@ -33,8 +33,7 @@ void test_stc(unsigned int from, unsigned int size)
 	CHECK_EQ(stc.num_spanning_trees(occ), occ.number_of_spanning_trees());
 	uint64_t tc = stc.num_spanning_trees(occ, nullptr);
 	CHECK_EQ(tc, occ.number_of_spanning_trees());
-	std::cout << tc << std::endl;
-////	CHECK_EQ(g1.number_of_vertices(), size);
+
 	delete[] subgraph;
 }
 

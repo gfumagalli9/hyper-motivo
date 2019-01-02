@@ -31,8 +31,9 @@ private:
     struct thread_state_t
     {
         vertex_info_t *vertex_info = nullptr;
-        UndirectedGraph::vertex_t from_vertex = UndirectedGraph::INVALID_VERTEX;
-        UndirectedGraph::vertex_t to_vertex = UndirectedGraph::INVALID_VERTEX;
+        UndirectedGraph::vertex_t vertex = UndirectedGraph::INVALID_VERTEX;
+        UndirectedGraph::vertex_t from_edge = UndirectedGraph::INVALID_VERTEX;
+        UndirectedGraph::vertex_t to_edge = UndirectedGraph::INVALID_VERTEX;
         ColorCodingHashmap* table = nullptr;
     };
 
@@ -49,6 +50,8 @@ private:
     vertex_info_t **slots;
     unsigned int nbusy_slots = 0;
     UndirectedGraph::vertex_t next_vertex;
+    UndirectedGraph::vertex_t remaining_edges;
+
     std::mutex mutex;
 
 

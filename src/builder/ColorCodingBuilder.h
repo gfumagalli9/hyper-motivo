@@ -28,7 +28,7 @@ public:
 
     /// Combines the treelets of vertex @param u with the treelets of vertex @param v
     /// Thread safe as long as @param counts is not accessed while this method is running
-    template<typename T> void combine [[gnu::hot]] (const UndirectedGraph::vertex_t u, const UndirectedGraph::vertex_t v, T& counts)
+    template<typename T> inline void combine [[gnu::hot]] (const UndirectedGraph::vertex_t u, const UndirectedGraph::vertex_t v, T& counts)
     {
         for(unsigned int size1=1; size1<size; size1++)
         {
