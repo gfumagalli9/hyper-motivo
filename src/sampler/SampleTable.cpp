@@ -144,8 +144,8 @@ void SampleTable::sort_by_estimate_occ() {
  * Merge two tables.
  * tcount1 and tcount2 are the total treelet counts (the number of colorful k-treelets
  *	the sampling was performed on, for t1 and t2 respectively).
+ * Graphlet occurrences can have a different number of spanning trees in the two tables.
  * In the output table, e.sample_count is the sum of the corresponding entries in t1 and t2.
- * If in the two tables the entries have a different number of spanning trees.
  * If this is the case, then in the merged table:
  * 	e.num_spanning_trees = -1
  *	e.estimate_graph_frequency is obtained as an appropriate average of the two tables

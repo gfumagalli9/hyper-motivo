@@ -32,6 +32,7 @@ struct sampler_opts
     unsigned int threads;
     char selective_filename[MOTIVO_ARG_MAX];
     double time_budget;
+    std::string sptrees_file;
 };
 
 bool parse_sampler_args(const int argc, const char **argv, const std::string &name, sampler_opts *opts);

@@ -12,7 +12,8 @@ TIME="$TIME --verbose"
 fi
 
 ADAPTIVE=NO
-SMART=NO
+FAST_STARS=YES
+USE_STC_CACHE=NO
 COMPRESS_THRESHOLD=0
 SELECTIVE_FILE=""
 POSITIONAL=()
@@ -38,8 +39,8 @@ do
 	    shift # past argument
 	    shift # past value
 	    ;;
-	--smart)
-	    SMART=YES
+	--no-fast-stars)
+	    FAST_STARS=NO
 	    shift # past argument
 	    ;;
 	-o|--output)
@@ -72,11 +73,17 @@ do
 	    shift
 	    ;;
 	-e|--equalize)
-	    EQUALIZE_BUILD_SAMPLE_TIMES=yes
+	    EQUALIZE_BUILD_SAMPLE_TIMES=YES
 	    shift
 	    ;;
 	--seed)
 	    SEED="$2"
+	    shift
+	    shift
+	    ;;
+	--use-stc-cache)
+	    USE_STC_CACHE=YES
+	    STC_CACHE="$2"
 	    shift
 	    shift
 	    ;;
@@ -96,7 +103,8 @@ if [ -z ${GRAPH+x} ]; then echo "Missing input graph basename (-g,--graph)"; pri
 if [ -z ${SIZE+x} ]; then echo "Missing graphlet size (-k)"; print_usage; exit 1; fi
 if [ -z ${NSAMPLES+x} ] && [ "$EQUALIZE_BUILD_SAMPLE_TIMES" == "no" ]; then echo "Missing number of samples (-s,--samples)"; print_usage; exit 1; fi
 if [ -z ${OUTPUT+x} ]; then echo "Missing output basename (-o,--output)"; print_usage; exit 1; fi
-
+if [ "$SELECTIVE_FILE" != "" ]; then FAST_STARS="NO"; fi
+    
 LOGFILE="$OUTPUT.log"
 TIMEFILE="$OUTPUT.perf"
 
@@ -166,11 +174,11 @@ run_once()
 	    #	if [ "$ADAPTIVE" == "NO" ]; then
             EXTRA_BUILD_OPTS+=(--store-on-0-colored-vertices-only)
 	    #	fi
-	    if [ "$SMART" == "YES" ]; then
+	    if [ "$FAST_STARS" == "YES" ]; then
 		echo "EXCLUDE" > exclude-star-$SIZE.txt
 		$BUILDPATH/motivo-decompose --star $SIZE --size $SIZE >> exclude-star-$SIZE.txt 2>/dev/null
-		SELECTIVE_FILE=exclude-star-$SIZE.txt
-		EXTRA_BUILD_OPTS+=(--selective "$SELECTIVE_FILE")
+#		SELECTIVE_FILE=exclude-star-$SIZE.txt
+		EXTRA_BUILD_OPTS+=(--selective exclude-star-$SIZE.txt)
 	    fi
 	fi
 	
@@ -197,11 +205,13 @@ run_once()
 	echo "[$(date)] Done. Removing count file." >> $LOGFILE
 	rm "$OUTPUT.$i.cnt"
     done
-    # Smart: exclude stars from the building phase, and sample them separately in the sampling phase
-    if [ "$SMART" == "YES" ]; then
-	echo "EXCLUDE" > exclude-star-$SIZE.txt
-	$BUILDPATH/motivo-decompose --star $SIZE --size $SIZE >> exclude-star-$SIZE.txt 2>/dev/null
-	SELECTIVE_FILE=exclude-star-$SIZE.txt
+    if [ "$SELECTIVE_FILE" != "" ]; then
+	EXTRA_SAMPLE_OPTS+=(--selective "$SELECTIVE_FILE")
+    fi
+    if [ "$FAST_STARS" == "YES" ]; then
+#	echo "EXCLUDE" > exclude-star-$SIZE.txt
+#	$BUILDPATH/motivo-decompose --star $SIZE --size $SIZE >> exclude-star-$SIZE.txt 2>/dev/null
+#	SELECTIVE_FILE=exclude-star-$SIZE.txt
 	EXTRA_SAMPLE_OPTS+=(--smart-stars)
     fi
     if [ "$ADAPTIVE" == "YES" ]; then
@@ -210,16 +220,16 @@ run_once()
 	EXTRA_SAMPLE_OPTS+=(--estimate-occurrences)
     fi
 
-    if [ "$SELECTIVE_FILE" != "" ]; then
-	EXTRA_SAMPLE_OPTS+=(--selective "$SELECTIVE_FILE")
-    fi
-
-    if [ "$EQUALIZE_BUILD_SAMPLE_TIMES" == "yes" ]; then
+    if [ "$EQUALIZE_BUILD_SAMPLE_TIMES" == "YES" ]; then
 	EXTRA_SAMPLE_OPTS+=(--time-budget "$BUILD_TIME")
     else
 	EXTRA_SAMPLE_OPTS+=(-n "$NSAMPLES")
     fi
 
+    if [ "$USE_STC_CACHE" == "YES" ]; then
+	EXTRA_SAMPLE_OPTS+=(--sptrees "$STC_CACHE")
+    fi
+    
     echo -en "\t\t"
     echo "[$(date)] Sampling..." >> $LOGFILE
     ($TIME $BUILDPATH/motivo-sample --graph "$GRAPH" --size "$SIZE" -i "$OUTPUT" -c --graphlets -o "$OUTPUT" --threads "$THREADS" ${EXTRA_SAMPLE_OPTS[@]} > "$OUTPUT.s$SIZE.log" 2>&1) || exit 1
