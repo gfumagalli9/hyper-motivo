@@ -4,11 +4,11 @@
 
 #include "MultithreadedBuilder.h"
 
-MultithreadedColorCoding::MultithreadedColorCoding(const UndirectedGraph *G, UndirectedGraph::vertex_t from_vertex,
+MultithreadedBuilder::MultithreadedBuilder(const UndirectedGraph *G, UndirectedGraph::vertex_t from_vertex,
                                                    UndirectedGraph::vertex_t to_vertex, const unsigned int size,
                                                    const TreeletTableCollection *ttc, bool store_only_0,
                                                    TreeletSelector *selector, std::ostream *output, unsigned int nthreads)
-        : G(G), from_vertex(from_vertex), to_vertex(to_vertex), size(size), ttc(ttc), store_only_0(store_only_0),
+        : G(G), from_vertex(from_vertex), to_vertex(to_vertex), ttc(ttc), store_only_0(store_only_0),
           output(output), nthreads(nthreads), builder(size, ttc, selector)
 {
     slots = new vertex_info_t*[nthreads];
@@ -20,7 +20,7 @@ MultithreadedColorCoding::MultithreadedColorCoding(const UndirectedGraph *G, Und
 
 }
 
-MultithreadedColorCoding::~MultithreadedColorCoding()
+MultithreadedBuilder::~MultithreadedBuilder()
 {
     for(unsigned int i=0; i<nthreads; i++)
         delete[] slots[i]->tables;
@@ -28,7 +28,7 @@ MultithreadedColorCoding::~MultithreadedColorCoding()
     delete[] slots;
 }
 
-void MultithreadedColorCoding::update_state(MultithreadedColorCoding::thread_state_t *const state)
+void MultithreadedBuilder::update_state(MultithreadedBuilder::thread_state_t *const state)
 {
     std::lock_guard<std::mutex> lock(mutex);
 
@@ -154,7 +154,7 @@ void MultithreadedColorCoding::update_state(MultithreadedColorCoding::thread_sta
     remaining_edges--;
 }
 
-void MultithreadedColorCoding::thread_loop(ConcurrentWriter *writer)
+void MultithreadedBuilder::thread_loop(ConcurrentWriter *writer)
 {
     thread_state_t state;
     update_state(&state);
@@ -176,7 +176,7 @@ void MultithreadedColorCoding::thread_loop(ConcurrentWriter *writer)
     }
 }
 
-void MultithreadedColorCoding::merge_and_write(ConcurrentWriter *writer, MultithreadedColorCoding::vertex_info_t *info)
+void MultithreadedBuilder::merge_and_write(ConcurrentWriter *writer, MultithreadedBuilder::vertex_info_t *info)
 {
     //Merge tables
     ColorCodingHashmap &table = info->tables[0];
@@ -193,7 +193,7 @@ void MultithreadedColorCoding::merge_and_write(ConcurrentWriter *writer, Multith
     writer->write(to_write.first, to_write.second);
 }
 
-void MultithreadedColorCoding::build()
+void MultithreadedBuilder::build()
 {
     UndirectedGraph::vertex_t num_verts = G->number_of_vertices();
     output->write(reinterpret_cast<const char*>(&num_verts), sizeof(UndirectedGraph::vertex_t));

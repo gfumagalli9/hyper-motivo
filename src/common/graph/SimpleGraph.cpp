@@ -6,16 +6,8 @@
  */
 
 #include "SimpleGraph.h"
-#include "../../sampler/AdaptiveSampler.h"
 #include <stack>
 
-SimpleGraph::SimpleGraph() {
-	// TODO Auto-generated constructor stub
-}
-
-SimpleGraph::~SimpleGraph() {
-	// TODO Auto-generated destructor stub
-}
 
 Treelet SimpleGraph::dfs(unsigned int u, unsigned int parent, bool *visited, treelet_set_t *treelets)
 {

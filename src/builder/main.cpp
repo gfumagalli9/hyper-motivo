@@ -10,6 +10,7 @@
 #include "Size1Builder.h"
 #include "SequentialBuilder.h"
 #include "MultithreadedBuilder.h"
+#include "SimpleMultithreadedBuilder.h"
 
 struct builder_opts
 {
@@ -201,7 +202,7 @@ int main(const int argc, const char** argv)
         }
         else
         {
-            MultithreadedColorCoding builder(&G, opts.from_vertex, opts.to_vertex, opts.size, &ttc, opts.store0, selector, &out, opts.threads);
+            SimpleMultithreadedBuilder builder(&G, opts.from_vertex, opts.to_vertex, opts.size, &ttc, opts.store0, selector, &out, opts.threads);
             tstart = std::chrono::steady_clock::now();
             builder.build();
         }

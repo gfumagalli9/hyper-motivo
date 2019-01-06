@@ -48,6 +48,9 @@ public:
 
     template<typename T, bool RAW> static decompress_result_t<T> decompress(const char *record, const uint64_t length)
     {
+        static_assert(std::is_standard_layout<T>::value, "template type T is not a standard layout type");
+        static_assert(std::is_trivial<T>::value, "template type T is not a trivial type");
+
         if(length<sizeof(header_t))
             return decompress_result_t<T>{nullptr, 0, nullptr};
 

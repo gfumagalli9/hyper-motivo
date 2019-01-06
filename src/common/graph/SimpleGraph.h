@@ -19,17 +19,20 @@ class SimpleGraph;
 /**
  * A simple graph(let) that can hold at most 16 vertices
  */
-class SimpleGraph {
-protected:
+class SimpleGraph
+{
+private:
 	unsigned int nverts=0;
 	unsigned int degrees[16] = {0};
 	unsigned int adj_lists[16][16] = {0};
+
 public:
 	typedef google::dense_hash_set<Treelet, Treelet::TreeletHash, Treelet::compare_eq> treelet_set_t;
-	SimpleGraph();
-	~SimpleGraph();
-	unsigned int n() { return nverts; };
+
+	unsigned int number_of_vertices() { return nverts; };
+
 	Treelet dfs(unsigned int u, unsigned int parent, bool *visited, treelet_set_t *treelets);
+
 	void decompose(treelet_set_t *treelets, int root, bool unique = false);
 
 	static SimpleGraph from_stdin();
