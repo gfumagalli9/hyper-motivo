@@ -111,17 +111,6 @@ if(MOTIVO_OVERFLOW_SAFE AND NOT MOTIVO_HAS_BUILTIN_MUL_OVERFLOW)
     message(WARNING "No builtin function for checking multiplication overflow. Will use slow implementation.")
 endif()
 
-set(COMMON_SOURCE_FILES src/common/util.h src/common/graph/UndirectedGraph.cpp src/common/graph/UndirectedGraph.h src/common/treelets/Treelet.h src/common/Random.h src/common/treelets/Treelet.cpp src/common/treelets/TreeletTableCollection.cpp src/common/treelets/TreeletTableCollection.h src/common/treelets/TreeletTable.cpp src/common/treelets/TreeletTable.h src/platform/platform.h src/platform/platform.cpp src/common/AliasMethodSampler.h src/common/OptionsParser.cpp src/common/OptionsParser.h src/common/io/CompressedRecordFile.cpp src/common/io/CompressedRecordFile.h src/common/io/RecordCompressor.cpp src/common/io/RecordCompressor.h src/common/io/BaseRecordSource.h src/common/sequencer/BaseSequencer.h src/common/sequencer/StaticSequencer.h src/common/sequencer/DynamicSequencer.h src/common/io/ConcurrentWriter.cpp src/common/io/ConcurrentWriter.h src/common/treelets/TreeletSelector.h src/common/RangeSampler.h src/common/graph/SimpleGraph.h src/common/graph/SimpleGraph.cpp)
-set(MERGER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/merger/merger.cpp)
-set(BUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/common/io/ConcurrentFIFO.h src/builder/main.cpp src/builder/MultithreadedBuilder.cpp src/builder/MultithreadedBuilder.h src/builder/SequentialBuilder.h src/builder/Size1Builder.h src/builder/Size1Builder.cpp src/builder/SequentialBuilder.cpp src/builder/ColorCodingHashmap.h src/builder/ColorCodingBuilder.h src/builder/SimpleMultithreadedBuilder.cpp src/builder/SimpleMultithreadedBuilder.h)
-set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp src/sampler/TreeletSampler.h src/sampler/sampler_main.cpp src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp src/sampler/OccurrenceSampler.cpp src/sampler/OccurrenceSampler.h src/sampler/SpanningTreeCounter.cpp src/sampler/SpanningTreeCounter.h src/sampler/OccurrenceStarSampler.h src/sampler/OccurrenceStarSampler.cpp src/sampler/SampleTable.h src/sampler/SampleTable.cpp src/sampler/AdaptiveSampler.h src/sampler/AdaptiveSampler.cpp src/sampler/ColorCodingSpanningTreeCounter.h src/sampler/ColorCodingSpanningTreeCounter.cpp src/sampler/Occurrence.cpp src/sampler/Occurrence.h src/sampler/include_nauty.h src/sampler/ValueSortedMap.h src/sampler/CachedSTC.h src/sampler/CachedSTC.cpp) #FIXME Sigh... common files added under the sampler.
-set(GRAPH_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/graph.cpp)
-set(DECOMPOSE_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/decompose.cpp)
-set(HOMOMORPHISM_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/homomorphism.cpp)
-set(TREELET_COUNTS_SOURCE_FILES  ${COMMON_SOURCE_FILES} src/tools/treelet-counts.cpp)
-
-set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp tests/Treelet.cpp tests/Occurrence.cpp tests/ColorCodingSpanningTreeCounter.cpp tests/leftmost_bit_tie.cpp tests/CompressedRecordFile.cpp tests/SpanningTreeCounter.cpp src/sampler/Occurrence.h src/sampler/Occurrence.cpp src/sampler/include_nauty.h src/sampler/SpanningTreeCounter.h src/sampler/SpanningTreeCounter.cpp src/sampler/ColorCodingSpanningTreeCounter.h src/sampler/ColorCodingSpanningTreeCounter.cpp)
-
 string(REPLACE ":" ";" LIBRARY_PATH_STR "$ENV{LIBRARY_PATH}")
 set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} ${LIBRARY_PATH_STR})
 
@@ -220,57 +209,29 @@ if(PROFILE)
 endif()
 
 
-set(SAMPLER_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
-set(BUILDER_LIBRARIES ${COMMON_LIBRARIES})
-set(MERGER_LIBRARIES ${COMMON_LIBRARIES})
-set(GRAPH_LIBRARIES ${COMMON_LIBRARIES})
-set(DECOMPOSE_LIBRARIES ${COMMON_LIBRARIES})
-set(HOMOMORPHISM_LIBRARIES ${COMMON_LIBRARIES})
-set(TREELET_COUNTS_LIBRARIES ${COMMON_LIBRARIES})
-
-set(TEST_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
-
-
-add_executable(motivo-build ${BUILDER_SOURCE_FILES})
-add_executable(motivo-merge ${MERGER_SOURCE_FILES})
-add_executable(motivo-sample ${SAMPLER_SOURCE_FILES})
-add_executable(motivo-graph ${GRAPH_SOURCE_FILES})
-add_executable(motivo-decompose ${DECOMPOSE_SOURCE_FILES})
-add_executable(motivo-homomorphism ${HOMOMORPHISM_SOURCE_FILES})
-add_executable(motivo-treelet-counts ${TREELET_COUNTS_SOURCE_FILES})
-
-add_executable(motivo-tests ${TEST_SOURCE_FILES})
-
-target_link_libraries(motivo-build ${BUILDER_LIBRARIES})
-target_link_libraries(motivo-merge ${MERGER_LIBRARIES})
-target_link_libraries(motivo-sample ${SAMPLER_LIBRARIES})
-target_link_libraries(motivo-graph ${GRAPH_LIBRARIES})
-target_link_libraries(motivo-decompose ${DECOMPOSE_LIBRARIES})
-target_link_libraries(motivo-homomorphism ${HOMOMORPHISM_LIBRARIES})
-target_link_libraries(motivo-treelet-counts ${TREELET_COUNTS_LIBRARIES})
-
-target_link_libraries(motivo-tests ${TEST_LIBRARIES})
 
 add_custom_target(hg_id COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/hg_id.cmake)
-
-add_dependencies(motivo-build hg_id)
-add_dependencies(motivo-merge hg_id)
-add_dependencies(motivo-sample hg_id)
-add_dependencies(motivo-decompose hg_id)
-add_dependencies(motivo-homomorphism hg_id)
-add_dependencies(motivo-treelet-counts hg_id)
-add_dependencies(motivo-tests hg_id)
-
-
-if(PROFILE)
-  set_target_properties(motivo-build PROPERTIES LINK_FLAGS "-lprofiler")
-  set_target_properties(motivo-merge PROPERTIES LINK_FLAGS "-lprofiler")
-  set_target_properties(motivo-sample PROPERTIES LINK_FLAGS "-lprofiler")
-endif()
 
 file(COPY scripts/build-and-sample.sh DESTINATION .)
 file(COPY scripts/build-many.sh DESTINATION .)
 file(COPY scripts/loe_to_graph.py DESTINATION .)
+
+string(STRIP "${MOTIVO_FLAGS}" MOTIVO_FLAGS)
+configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
+include(src/common/CMakeLists.txt)
+include(src/merger/CMakeLists.txt)
+include(src/builder/CMakeLists.txt)
+include(src/sampler/CMakeLists.txt)
+include(src/tools/CMakeLists.txt)
+include(tests/CMakeLists.txt)
+
+
+
+include(testing.cmake)
+
+
 
 INSTALL(TARGETS motivo-build DESTINATION bin)
 INSTALL(TARGETS motivo-merge DESTINATION bin)
@@ -281,55 +242,6 @@ INSTALL(TARGETS motivo-homomorphism DESTINATION bin)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/build-many.sh DESTINATION share/motivo)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/build-and-sample.sh DESTINATION share/motivo)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/loe_to_graph.py DESTINATION share/motivo)
-
-
-string(STRIP "${MOTIVO_FLAGS}" MOTIVO_FLAGS)
-configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
-
-enable_testing()
-add_test(NAME build-graph COMMAND motivo-graph --input ../graphs/test-graph.txt --output test-graph)
-add_test(NAME motivo-tests COMMAND motivo-tests "-tce=leftmost_bit_tie,CompressedRecordFile Multiblock")
-set_tests_properties(motivo-tests PROPERTIES DEPENDS build-graph)
-
-
-add_test(NAME motivo-build-1 COMMAND motivo-build -g test-graph -s 1 -c 5 -o test --seed 42)
-set_tests_properties(motivo-build-1 PROPERTIES DEPENDS build-graph)
-
-add_test(NAME motivo-merge-1 COMMAND motivo-merge -o test.1 test.1.cnt)
-set_tests_properties(motivo-merge-1 PROPERTIES DEPENDS motivo-build-1)
-
-foreach(size RANGE 2 5)
-    math(EXPR prev ${size}-1)
-
-    add_test(NAME motivo-build-${size} COMMAND motivo-build -g test-graph -s ${size} -i test -o test)
-    set_tests_properties(motivo-build-${size} PROPERTIES DEPENDS motivo-merge-${prev})
-
-    add_test(NAME motivo-merge-${size} COMMAND motivo-merge -o test.${size} test.${size}.cnt)
-    set_tests_properties(motivo-merge-${size} PROPERTIES DEPENDS motivo-build-${size})
-endforeach(size)
-
-add_test(NAME motivo-build-mt-1 COMMAND motivo-build -g test-graph -s 1 -c 5 -o test-mt --seed 42)
-set_tests_properties(motivo-build-mt-1 PROPERTIES DEPENDS build-graph)
-
-add_test(NAME motivo-merge-mt-1 COMMAND motivo-merge -o test-mt.1 test.1.cnt)
-set_tests_properties(motivo-merge-mt-1 PROPERTIES DEPENDS motivo-build-mt-1)
-
-foreach(size RANGE 2 5)
-    math(EXPR prev ${size}-1)
-
-    add_test(NAME motivo-build-mt-${size} COMMAND motivo-build -g test-graph -s ${size} -i test-mt -o test-mt --threads 0)
-    set_tests_properties(motivo-build-mt-${size} PROPERTIES DEPENDS motivo-merge-mt-${prev})
-
-    add_test(NAME motivo-merge-mt-${size} COMMAND motivo-merge -o test-mt.${size} test-mt.${size}.cnt)
-    set_tests_properties(motivo-merge-mt-${size} PROPERTIES DEPENDS motivo-build-mt-${size})
-
-    add_test(motivo-dtz-mt-matches-st-${size} ${CMAKE_COMMAND} -E compare_files test-mt.${size}.dtz test.${size}.dtz )
-    set_tests_properties(motivo-dtz-mt-matches-st-${size} PROPERTIES DEPENDS motivo-merge-mt-${size})
-
-    add_test(motivo-rts-mt-matches-st-${size} ${CMAKE_COMMAND} -E compare_files test-mt.${size}.rts test.${size}.rts )
-    set_tests_properties(motivo-rts-mt-matches-st-${size} PROPERTIES DEPENDS motivo-merge-mt-${size})
-endforeach(size)
 
 
 
