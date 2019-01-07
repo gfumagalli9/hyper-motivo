@@ -77,7 +77,7 @@ SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int 
 			std::chrono::time_point < std::chrono::steady_clock > roundStart =
 					std::chrono::steady_clock::now();
 			if (num_samples == 0)
-				samples_rem = (uint64_t) batch_size * number_of_threads;
+				samples_rem = batch_size * number_of_threads;
 			const uint64_t round_samples = std::min((uint64_t) batch_size * number_of_threads,
 					samples_rem);
 			auto sequencer = new sequencer_t(1, round_samples, number_of_threads);

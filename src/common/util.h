@@ -7,90 +7,30 @@
 
 #ifndef SRC_COMMON_UTIL_H_
 #define SRC_COMMON_UTIL_H_
-#include <unistd.h>
-#include <ostream>
-#include <set>
 
-inline unsigned int uint128_bits_needed(uint128_t n)
-{
-	unsigned int needed = 1;
-	for (n >>= 1; n != 0; n >>= 1)
-		needed++;
+#include "../platform/platform.h"
 
-	return needed;
-}
+unsigned int uint128_bits_needed(uint128_t n);
 
 /**
  * Convert uint128_t to its decimal string representation.
  */
-inline std::string uint128_to_string(uint128_t n)
-{
-	static const constexpr uint128_t ten_19 = 0x8ac7230489e80000; //10^19;
-	static const constexpr uint128_t ten_38 = ten_19 * ten_19; //Maximum power of 10 representable with an uint128_t
-
-	if (n == 0)
-		return "0";
-
-	std::string s;
-	for (uint128_t max_dec = ten_38; max_dec != 0; max_dec /= 10)
-	{
-		unsigned int digit = static_cast<unsigned int>(n / max_dec);
-		n %= max_dec;
-		assert(digit <= 9);
-
-		if (s.length()!=0 || digit != 0)
-			s += static_cast<char>('0' + digit);
-	}
-
-	return s;
-}
+std::string uint128_to_string(uint128_t n);
 
 /**
  * Convert a string to uint128_t
  */
-inline uint128_t atoi128(std::string const s)
-{
-	uint128_t x = 0;
-	for (char c : s)
-	    x = x*10 + static_cast<unsigned char>(c - '0');
-
-	return x;
-}
+uint128_t atoi128(const std::string &s);
 
 /**
  * The probability that a coloring with c colors makes k <= c nodes colorful
  */
-inline double pcol(unsigned int k, unsigned int c)
-{
-	if (k > c)
-		return 0;
-
-    double p = 1;
-    for (unsigned int i = 0; i < k; i++)
-        p *= (1 - 1.0 * i / c);
-
-    return p;
-}
+double pcol(unsigned int k, unsigned int c);
 
 /**
  * Binomial coefficient with *some* care for numeric stability.
  */
-inline double binomial(unsigned long n, unsigned long m) //FIXME: types?
-{
-	if (n < m)
-		return 0;
-
-	double b = 1;
-	m = std::max(m, n - m);
-
-	for (unsigned long i = m + 1; i <= n; i++)
-		b *= static_cast<double>(i);
-
-	for (unsigned long i = 2; i <= n - m; i++)
-		b /= static_cast<double>(i);
-
-	return b;
-}
+double binomial(unsigned long n, unsigned long m); //FIXME: types?
 
 
 #endif /* SRC_COMMON_UTIL_H_ */

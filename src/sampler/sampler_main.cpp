@@ -4,7 +4,6 @@
 
 #include <fstream>
 #include <unordered_map>
-#include "../common/graph/UndirectedGraph.h"
 #include "TreeletSampler.h"
 #include "sampler_opts.h"
 #include "OccurrenceSampler.h"
@@ -12,6 +11,7 @@
 #include "AdaptiveSampler.h"
 #include "SampleTable.h"
 #include "SpanningTreeCounter.h"
+#include "../common/graph/UndirectedGraph.h"
 #include "../common/util.h"
 
 int main(const int argc, const char** argv) {

@@ -1,6 +1,7 @@
 set(COMMON_SOURCE_FILES
         src/platform/platform.h
         src/platform/platform.cpp
+        src/common/util.cpp
         src/common/util.h
         src/common/graph/UndirectedGraph.cpp
         src/common/graph/UndirectedGraph.h
