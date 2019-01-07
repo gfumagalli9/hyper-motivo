@@ -23,7 +23,6 @@ option(MOTIVO_OVERFLOW_SAFE "Check for overflows during computation" ON)
 option(MOTIVO_MAY_ALIAS "Turn off if compiler does not support the may_alias attribute" ON)
 option(USE_TCMALLOC "Use tcmalloc allocator library" OFF)
 option(MOTIVO_DENSE_HASHMAP "Use dense hashmaps" OFF)
-option(PROFILE "Enable gprof profiling (-pg)" OFF)
 
 set(MOTIVO_FLAGS "")
 
@@ -100,6 +99,7 @@ if(MOTIVO_OVERFLOW_SAFE)
     message(STATUS "Building with overflow checks")
     set(MOTIVO_FLAGS "${MOTIVO_FLAGS} OS")
 else()
+    message(STATUS "Building without overflow checks")
     set(MOTIVO_FLAGS "${MOTIVO_FLAGS} os")
 endif()
 
@@ -200,13 +200,6 @@ else()
     message(FATAL_ERROR "Could not find sparsehash header files")
 endif()
 
-if(PROFILE)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
-  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lprofiler" )
-  message(STATUS "profiling enabled")
-endif()
 
 
 

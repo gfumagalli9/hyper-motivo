@@ -17,21 +17,21 @@ class SimpleMultithreadedBuilder
 private:
     struct phase1_thread_state_t
     {
-        UndirectedGraph::vertex_t current_vertex;
-        UndirectedGraph::vertex_t degree;
-        UndirectedGraph::vertex_t next_edge;
+        UndirectedGraph::vertex_t current_vertex = UndirectedGraph::INVALID_VERTEX;
+        UndirectedGraph::vertex_t degree = UndirectedGraph::INVALID_VERTEX;
+        UndirectedGraph::vertex_t next_edge = UndirectedGraph::INVALID_VERTEX;
         ColorCodingHashmap table;
-        std::atomic<bool> terminate_flag;
+        std::atomic<bool> terminate_flag {false};
     };
 
     struct phase2_vertex_state_t
     {
-        UndirectedGraph::vertex_t vertex;
-        UndirectedGraph::vertex_t degree;
-        std::atomic<UndirectedGraph::vertex_t> next_edge;
-        std::atomic<UndirectedGraph::vertex_t> processed_edges;
-        std::atomic<unsigned int> num_workers;
-        ColorCodingHashmap **tables;
+        UndirectedGraph::vertex_t vertex = UndirectedGraph::INVALID_VERTEX;
+        UndirectedGraph::vertex_t degree = UndirectedGraph::INVALID_VERTEX;
+        std::atomic<UndirectedGraph::vertex_t> next_edge {UndirectedGraph::INVALID_VERTEX};
+        std::atomic<UndirectedGraph::vertex_t> processed_edges {UndirectedGraph::INVALID_VERTEX};
+        std::atomic<unsigned int> num_workers {0};
+        ColorCodingHashmap **tables = nullptr;
     };
 
     const UndirectedGraph *const G;
@@ -43,7 +43,7 @@ private:
     ColorCodingBuilder builder;
 
     unsigned int nthreads;
-    std::atomic<UndirectedGraph::vertex_t> next_vertex;
+    std::atomic<UndirectedGraph::vertex_t> next_vertex {UndirectedGraph::INVALID_VERTEX};
 
 
 public:
@@ -61,7 +61,7 @@ public:
 
         do
             state.current_vertex = next_vertex.fetch_add(1);
-        while( (state.current_vertex <= to_vertex) && store_only_0 && ttc->get_table(1)->begin(state.current_vertex).treelet().get_colors() != 1);
+        while( (state.current_vertex <= to_vertex) && ( (state.degree = G->degree(state.current_vertex))==0 || (store_only_0 && ttc->get_table(1)->begin(state.current_vertex).treelet().get_colors() != 1)) );
         state.next_edge = 0;
 
         if(state.current_vertex > to_vertex)
@@ -69,8 +69,6 @@ public:
             state.current_vertex = UndirectedGraph::INVALID_VERTEX;
             return;
         }
-
-        state.degree = G->degree(state.current_vertex);
 
         while(!state.terminate_flag)
         {
@@ -85,13 +83,10 @@ public:
 
                 do
                     state.current_vertex = next_vertex.fetch_add(1);
-                while( (state.current_vertex <= to_vertex) && store_only_0 && ttc->get_table(1)->begin(state.current_vertex).treelet().get_colors() != 1);
-
-
+                while( (state.current_vertex <= to_vertex) && ( (state.degree = G->degree(state.current_vertex))==0 || (store_only_0 && ttc->get_table(1)->begin(state.current_vertex).treelet().get_colors() != 1)) );
                 state.next_edge = 0;
-                if(state.current_vertex <= to_vertex)
-                    state.degree = G->degree(state.current_vertex);
-                else
+
+                if(state.current_vertex > to_vertex)
                 {
                     state.current_vertex = UndirectedGraph::INVALID_VERTEX;
                     for(unsigned int i=0; i<nthreads; i++)
