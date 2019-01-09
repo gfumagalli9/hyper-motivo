@@ -16,8 +16,6 @@ public:
 	typedef int mode_t;
 	constexpr static int MODE_INCLUDE = 1;
 	constexpr static int MODE_EXCLUDE = 2;
-	constexpr static int STAR_INCLUDE = MODE_INCLUDE + 2;
-	constexpr static int STAR_EXCLUDE = MODE_EXCLUDE + 2;
 
 private:
 	uint64_t size = 0;
@@ -30,7 +28,7 @@ private:
 
 public:
 	TreeletSelector(const mode_t mode, const unsigned int treelet_size = 0) :
-			mode(mode), treelet_size(treelet_size), special_mode(mode) {
+			mode(mode), special_mode(mode), treelet_size(treelet_size) {
 	}
 
 	TreeletSelector(const std::string& filename, const unsigned int treelet_size = 0) :
@@ -61,9 +59,6 @@ public:
 							&& treelets[i - 1].get_structure() == treelets[i].get_structure()))
 				throw std::runtime_error("Duplicate or redudant treelet selection pattern");
 		}
-
-		if (*this == TreeletSelector::get_star_selector(treelet_size, mode))
-			special_mode = mode == MODE_INCLUDE ? STAR_INCLUDE : STAR_EXCLUDE;
 	}
 
 	~TreeletSelector() {
@@ -78,11 +73,8 @@ public:
 		return mode;
 	}
 
-	mode_t get_special_mode() const {
-		return special_mode;
-	}
-
-	void add_treelet(Treelet treelet, bool sort_treelets = false) {
+	void add_treelet(Treelet treelet, bool sort_treelets = false)
+	{
 		if (treelet_size != 0 && treelet.number_of_vertices() != treelet_size)
 			return;
 
@@ -110,7 +102,8 @@ public:
 	}
 	;
 
-	bool is_included(Treelet t) const {
+	bool is_included(Treelet t) const
+	{
 		//FIXME: Binary search? Stop early?
 		bool found = false;
 		for (uint64_t i = 0; i < size; i++) {
@@ -144,28 +137,9 @@ public:
 			ts.add_treelet(Treelet(structure, 0), true);
 		}
 
-		ts.special_mode = (mode == MODE_INCLUDE) ? STAR_INCLUDE : STAR_EXCLUDE;
-
 		return ts;
 	}
 
-	/**
-	 * True iff they have the same size, mode, and treelet set.
-	 * It ignores special_mode.
-	 */
-	bool operator==(const TreeletSelector& s) const {
-		if (s.get_size() != get_size() || s.get_treelet_size() != get_treelet_size()
-				|| s.get_mode() != get_mode())
-			return false;
-		std::set<Treelet> ts1, ts2;
-		for (int i = 0; i < get_size(); i++) {
-			ts1.insert(get_treelets()[i]);
-			ts2.insert(s.get_treelets()[i]);
-		}
-		if (ts1 != ts2)
-			return false;
-		return true;
-	}
 
 };
 

@@ -12,17 +12,14 @@
 #ifndef SRC_COMMON_CACHEDSTC_H_
 #define SRC_COMMON_CACHEDSTC_H_
 
-#include <google/dense_hash_map>
+#include <sparsehash/dense_hash_map>
 #include <string>
 #include <map>
 #include <mutex>
-#include "graph/FullGraphColoring.h"
-#include "treelets/TreeletTable.h"
-#include "treelets/TreeletTableCollection.h"
-#include "../builder/SimpleTreeletTableBuilder.h"
-#include "../builder/TreeletTableBuilder.h"
-#include "../common/common.h"
-#include "../sampler/OccurrenceSampler.h"
+#include "../common/treelets/TreeletTable.h"
+#include "../common/treelets/TreeletTableCollection.h"
+#include "../common/util.h"
+#include "OccurrenceSampler.h"
 
 class CachedSTC
 {
@@ -66,7 +63,7 @@ public:
 	/**
 	 * Return the spanning tree table of the graphlet.
 	 */
-	inline treelet_table_t* const get_t_table(const Occurrence &o) {
+	inline treelet_table_t* get_t_table(const Occurrence &o) {
 		if (!table.count(o)) {
 			auto tb = compute_t_table(o);
 			m_mutex.lock();
@@ -80,7 +77,7 @@ public:
 	/**
 	 * Update all tables to include a given graphlet.
 	 */
-	inline void const update_tables(const Occurrence &o) {
+	inline void update_tables(const Occurrence &o) {
 		if (!table.count(o)) {
 			auto tb = compute_t_table(o);
 			m_mutex.lock();
@@ -95,7 +92,7 @@ public:
 	/**
 	 * Return the graphlets present in the table and spanned by the given tree, with spanning counts.
 	 */
-	inline occ_table_t* const get_reverse_table(const Treelet &t) {
+	inline occ_table_t* get_reverse_table(const Treelet &t) {
 		return reverse_table[t];
 	}
 

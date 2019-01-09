@@ -5,7 +5,7 @@
 #include <exception>
 #include "../common/treelets/TreeletTable.h"
 
-inline std::string to_string(uint128_t n) {
+inline std::string uint128_to_string(uint128_t n) {
     static const constexpr uint128_t ten_19 = 0x8ac7230489e80000; //10^19;
     static const constexpr uint128_t ten_38 = ten_19 * ten_19; //Maximum power of 10 representable with an uint128_t
 
@@ -50,7 +50,7 @@ int main(const int argc, const char** argv)
                 counts[it.treelet()] += it.count();
 
         for(const auto& it : counts)
-            std::cout << it.first.get_structure() << " " << it.first.get_colors() << " " << to_string(it.second) << "\n";
+            std::cout << it.first.get_structure() << " " << it.first.get_colors() << " " << uint128_to_string(it.second) << "\n";
     }
     catch(std::exception &e)
     {

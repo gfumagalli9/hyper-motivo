@@ -15,11 +15,10 @@ Motivo depends on the following libraries:
 - [Nauty](http://pallini.di.uniroma1.it/),
 - [LZ4](https://github.com/lz4/lz4),
 - Optional: libtcmalloc from [gperftools](https://github.com/gperftools/gperftools).
-- Optional: a MPI library, such as [Open MPI](https://www.open-mpi.org/)
 
 Your Linux distribution might have premade packages, i.e., on Debian you can run:
 ~~~~
-# apt-get install lib{sparsehash,openblas,lapacke,nauty2,openmpi}-dev
+# apt-get install lib{sparsehash,openblas,lapacke,nauty2}-dev
 ~~~~
 
 And, if you want to use the tcmalloc allocator:
@@ -108,8 +107,6 @@ The option -DENABLE_ASSERTS=YES enables asserts even when the code is compiled i
 
 The option -DMOTIVO_OVERFLOW_SAFE=NO disables overflow checks on arithmetic operations involving large numbers. This results in faster (but less safe) code. 
 
-The option -DMOTIVO_MULTITHREAD=NO disables multithreading support.
-
 Example:
 
 ~~~
@@ -126,7 +123,8 @@ All graphs are simple, undirected, and loop-free. Vertices are consecutive integ
 #### Textual graph format
 
 A graph G with n vertices and m edges is encoded in a text file containing n+1 lines as follows:
- - The first line contains the integers n and m, sperated by a space. Notice that m is the number edges of the *undirected* graph G (i.e., half the sum of the vertices' degrees).
+
+ - The first line contains the integers n and m, separated by a space. Notice that m is the number edges of the *undirected* graph G (i.e., half the sum of the vertices' degrees).
  - For i>=0, The (i+1)th line encodes the neighbors of vertex i. It contains d+1 space-separated integers, where d is the degree of vertex i in G. The first integer is d and the remaining d integers are the neighbors of vertex i, in ascending order. 
 
 #### Converting textual format to binary format

@@ -2,7 +2,7 @@
 // Created by steven on 11/29/16.
 //
 
-#include "../src/common/Occurrence.h"
+#include "../src/sampler/Occurrence.h"
 
 #include "doctest.h"
 #include <sstream>
@@ -15,6 +15,7 @@
  * A path of 16 vertices on vertices 32-47 (15 edges)
  * A diamond on vertices 48-51 (5 edges)
  * A paw on vertices 52-55 (4 edges)
+ * Four isolated vertices 56-59
  */
 UndirectedGraph test_graph("test-graph");
 

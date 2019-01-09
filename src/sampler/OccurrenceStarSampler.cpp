@@ -9,8 +9,8 @@
 #include <queue>
 #include <algorithm>
 #include "OccurrenceStarSampler.h"
-#include "../common/common.h"
-#include "../common/SpanningTreeCounter.h"
+#include "../common/util.h"
+#include "SpanningTreeCounter.h"
 #include "../sampler/SampleTable.h"
 
 OccurrenceStarSampler::OccurrenceStarSampler(const UndirectedGraph* g, unsigned int size,

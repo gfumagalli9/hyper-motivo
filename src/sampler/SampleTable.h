@@ -8,7 +8,7 @@
 #ifndef SRC_SAMPLER_SAMPLETABLE_H_
 #define SRC_SAMPLER_SAMPLETABLE_H_
 
-#include "../common/Occurrence.h"
+#include "Occurrence.h"
 #include <ostream>
 #include <string>
 #include <sparsehash/dense_hash_map>

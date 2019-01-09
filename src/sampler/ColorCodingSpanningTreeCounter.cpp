@@ -107,7 +107,7 @@ void ColorCodingSpanningTreeCounter::combine(const unsigned int u, const unsigne
 /**
  * The total number of spanning trees of this graphlet.
  */
-uint64_t ColorCodingSpanningTreeCounter::number_of_spanning_trees()
+uint64_t ColorCodingSpanningTreeCounter::number_of_spanning_trees() const
 {
     uint64_t spanning_trees = 0;
     for(unsigned int u = 0; u < occurrence->get_size(); u++)
@@ -120,7 +120,7 @@ uint64_t ColorCodingSpanningTreeCounter::number_of_spanning_trees()
 /**
  * The total number of *rooted* spanning trees of this graphlet; that is, k times the number of distinct spanning trees.
  */
-uint64_t ColorCodingSpanningTreeCounter::number_of_rooted_spanning_trees()
+uint64_t ColorCodingSpanningTreeCounter::number_of_rooted_spanning_trees() const
 {
     uint64_t spanning_trees = 0;
     for(unsigned int u = 0; u < occurrence->get_size(); u++)
@@ -134,7 +134,7 @@ uint64_t ColorCodingSpanningTreeCounter::number_of_rooted_spanning_trees()
  * The total number of spanning trees of this graphlet *rooted* at a given node.
  * Due to TreeletSelector, in this is not simply the number of spanning trees divided by k.
  */
-uint64_t ColorCodingSpanningTreeCounter::number_of_spanning_trees_rooted_at(unsigned int root)
+uint64_t ColorCodingSpanningTreeCounter::number_of_spanning_trees_rooted_at(const unsigned int root) const
 {
     uint64_t spanning_trees = 0;
     for (auto &entry : tables[size-1][root])

@@ -2,7 +2,7 @@
 // Created by steven on 11/13/16.
 //
 
-#include "../Occurrence.h"
+#include "../../sampler/Occurrence.h"
 #include <istream>
 #include <fstream>
 #include <algorithm>
@@ -10,42 +10,7 @@
 #include "UndirectedGraph.h"
 #include "../../platform/platform.h"
 
-/**
- * Convert a graphlet occurrence into an UndirectedGraph.
- */
-UndirectedGraph::UndirectedGraph(const Occurrence& occ) {
-	edges_fd = offsets_fd = nullptr;
-	num_verts = occ.size;
-	num_edges = occ.binary_footprint_bytes;
-	// 1. Compute degrees and offsets of the nodes
-	uint32_t* degrees = new uint32_t[num_verts] { 0 };
-	for (unsigned int i = 1; i < num_verts; i++) {
-		for (unsigned int j = 0; j < i; j++) {
-			if (occ.has_edge(i, j)) {
-				degrees[i]++;
-				degrees[j]++;
-			}
-		}
-	}
-	offsets = new char[(num_verts + 1) * sizeof(vertex_t)] { 0 };
-	for (unsigned int i = 1; i <= num_verts; i++)
-		set_offset(i, static_cast<uint32_t>(get_int_offset(i - 1) + degrees[i - 1]));
-	edges = new char[(get_int_offset(num_verts - 1) + degrees[num_verts - 1]) * sizeof(vertex_t)];
-//	for (unsigned int i = 0; i < num_verts; i++)
-//		std::cout << degrees[i] << "\t" << get_int_offset(i) << std::endl;
-	memset(degrees, 0, num_verts * sizeof(uint32_t));
-	// 1. Fill the edge array
-	for (unsigned int i = 1; i < num_verts; i++) {
-		for (unsigned int j = 0; j < i; j++) {
-			if (occ.has_edge(i, j)) {
-//				std::cout << j << " " << i << std::endl;
-				set_neighbor(j, degrees[j]++, i);
-				set_neighbor(i, degrees[i]++, j);
-			}
-		}
-	}
-	delete[] degrees;
-}
+
 
 UndirectedGraph::UndirectedGraph(const std::string &basename) {
 	std::string offsets_filename = basename + ".gof";

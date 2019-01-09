@@ -48,8 +48,7 @@ public:
         num_elements = e.K;
         total_weight = e.U;
 
-        elements = static_cast<entry*>(motivo_mmap_populate((num_elements + 1) * sizeof(entry), PROT_READ,
-                                                            fileno(elements_fd)));
+        elements = static_cast<entry*>(motivo_mmap_populate((num_elements + 1) * sizeof(entry), PROT_READ, fileno(elements_fd)));
         assert(elements!=MAP_FAILED);
         elements += 1;
 
@@ -176,12 +175,13 @@ public:
             return false;
 
         entry e;
+        //prevent garbage from getting in the file when entry is not aligned
+        memset(&e, 0, sizeof(entry));
         e.K = num_elements;
         e.U = total_weight;
 
         ofs.write(reinterpret_cast<const char*>(&e), sizeof(entry));
         for(E i=0; i<num_elements; i++)
-
             ofs.write(reinterpret_cast<const char*>(&elements[i]), sizeof(entry));
 
         return !ofs.bad();

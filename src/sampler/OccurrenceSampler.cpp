@@ -7,18 +7,20 @@
 #include <queue>
 #include "OccurrenceSampler.h"
 #include "SampleTable.h"
-#include "../common/SpanningTreeCounter.h"
+#include "SpanningTreeCounter.h"
 
-void OccurrenceSampler::do_sample_mt(occ_count_table_t* table, sequencer_t *sequencer,
-		Random *rng) {
+void OccurrenceSampler::do_sample_mt(occ_count_table_t* table, sequencer_t *sequencer, Random *rng)
+{
 	while (true) {
 		sequencer_t::sequence_batch_t batch = sequencer->next_batch();
 		if (batch.from >= batch.to)
 			break;
-		for (uint64_t i = batch.from; i < batch.to; i++) {
+		for (uint64_t i = batch.from; i < batch.to; i++)
+		{
 			Occurrence o;
 			sample_one(&o, rng);
 			(*table)[o]++;
+
 			if ((*table)[o] <= 2)
 				stc->get_spanning_trees(o, sp_counter_selector);
 		}
@@ -55,8 +57,9 @@ SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int 
 		while (i < num_samples || (on_budget && totTime < time_budget)) {
 			sample_one(&o, rng);
 			count_tab[o]++;
-			totTime = (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
-					- totTimeStart)).count();
+			totTime = (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - totTimeStart)).count();
+			if (totTime >= time_budget)
+				break;
 		}
 	} else {
 		/**
@@ -74,10 +77,10 @@ SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int 
 			std::chrono::time_point < std::chrono::steady_clock > roundStart =
 					std::chrono::steady_clock::now();
 			if (num_samples == 0)
-				samples_rem = (uint64_t) batch_size * number_of_threads;
+				samples_rem = batch_size * number_of_threads;
 			const uint64_t round_samples = std::min((uint64_t) batch_size * number_of_threads,
 					samples_rem);
-			auto sequencer = new sequencer_t(0, round_samples, number_of_threads);
+			auto sequencer = new sequencer_t(1, round_samples, number_of_threads);
 			uint64_t thread_samples = std::ceil(1.0 * round_samples / number_of_threads);
 			std::queue<std::thread> thread_q;
 			uint64_t round_samples_rem = round_samples;
@@ -122,27 +125,23 @@ SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int 
 		delete[] count_tabs;
 	}
 	// produce the counts
-//	SpanningTreeCounter stc;
-//	std::cout << "STC cache size: " << stc->size() << std::endl;
-//	std::cout << "fillin sample table" << std::endl;
-//	if (sp_counter_selector)
-//		std::cout << sp_counter_selector->get_size() << std::endl;
-	for (auto &it : count_tab) {
+	SpanningTreeCounter stc;
+	for (auto &it : count_tab)
+	{
 		Occurrence o = it.first;
 		SampleTable::Entry e;
 		e.fingerprint = o.text_footprint();
 		e.occ = o;
 		e.sample_count = it.second;
-		e.num_spanning_trees = stc->get_spanning_trees(o, sp_counter_selector);
+		e.num_spanning_trees = stc.get_spanning_trees(o, sp_counter_selector);
 		table->addEntry(e);
 	}
-//	std::cout << "STC cache size: " << stc->size() << std::endl;
 	return table;
 }
 
 void OccurrenceSampler::set_selector(const TreeletSelector *selector,
-		unsigned int number_of_threads, const TreeletSelector *sp) {
-	if (sp)
-		this->sp_counter_selector = new TreeletSelector(*sp);
-	sampler.set_selector(selector, number_of_threads);
+                                     unsigned int number_of_threads, const TreeletSelector *sp) {
+    if (sp)
+        this->sp_counter_selector = new TreeletSelector(*sp);
+    sampler.set_selector(selector, number_of_threads);
 }

@@ -5,12 +5,12 @@
 #ifndef MOTIVO_OCCURRENCESAMPLER_H
 #define MOTIVO_OCCURRENCESAMPLER_H
 
-#include "../common/Occurrence.h"
+#include "Occurrence.h"
 #include "../common/graph/UndirectedGraph.h"
-#include "../common/SpanningTreeCounter.h"
+#include "SpanningTreeCounter.h"
 #include "TreeletSampler.h"
 #include "../common/sequencer/DynamicSequencer.h"
-#include <google/dense_hash_map>
+#include <sparsehash/dense_hash_map>
 
 class SampleTable;
 

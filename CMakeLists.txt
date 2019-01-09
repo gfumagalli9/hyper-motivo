@@ -23,7 +23,6 @@ option(MOTIVO_OVERFLOW_SAFE "Check for overflows during computation" ON)
 option(MOTIVO_MAY_ALIAS "Turn off if compiler does not support the may_alias attribute" ON)
 option(USE_TCMALLOC "Use tcmalloc allocator library" OFF)
 option(MOTIVO_DENSE_HASHMAP "Use dense hashmaps" OFF)
-option(PROFILE "Enable gprof profiling (-pg)" OFF)
 
 set(MOTIVO_FLAGS "")
 
@@ -69,6 +68,7 @@ check_cxx_source_compiles("int main() { __builtin_popcountl(0xFFFFFFFF); return 
 check_cxx_source_compiles("int main() { int a; __builtin_add_overflow(0, 0, &a); return 0; } " MOTIVO_HAS_BUILTIN_ADD_OVERFLOW)
 check_cxx_source_compiles("int main() { int a; __builtin_mul_overflow(0, 0, &a); return 0; } " MOTIVO_HAS_BUILTIN_MUL_OVERFLOW)
 
+
 INCLUDE(CheckTypeSize)
 check_type_size("short" MOTIVO_SHORT_SIZE LANGUAGE CXX)
 check_type_size("int" MOTIVO_INT_SIZE LANGUAGE CXX)
@@ -99,6 +99,7 @@ if(MOTIVO_OVERFLOW_SAFE)
     message(STATUS "Building with overflow checks")
     set(MOTIVO_FLAGS "${MOTIVO_FLAGS} OS")
 else()
+    message(STATUS "Building without overflow checks")
     set(MOTIVO_FLAGS "${MOTIVO_FLAGS} os")
 endif()
 
@@ -109,17 +110,6 @@ endif()
 if(MOTIVO_OVERFLOW_SAFE AND NOT MOTIVO_HAS_BUILTIN_MUL_OVERFLOW)
     message(WARNING "No builtin function for checking multiplication overflow. Will use slow implementation.")
 endif()
-
-set(COMMON_SOURCE_FILES src/common/common.h src/common/graph/UndirectedGraph.cpp src/common/graph/UndirectedGraph.h src/common/treelets/Treelet.h src/common/graph/GraphColoring.cpp src/common/graph/GraphColoring.h src/common/graph/FullGraphColoring.h src/common/graph/FullGraphColoring.cpp src/common/Random.h src/common/treelets/Treelet.cpp src/common/treelets/TreeletTableCollection.cpp src/common/treelets/TreeletTableCollection.h src/common/treelets/TreeletTable.cpp src/common/treelets/TreeletTable.h src/platform/platform.h src/platform/platform.cpp src/common/AliasMethodSampler.h src/common/OptionsParser.cpp src/common/OptionsParser.h src/common/io/CompressedRecordFile.cpp src/common/io/CompressedRecordFile.h src/common/io/RecordCompressor.cpp src/common/io/RecordCompressor.h src/common/io/BaseRecordSource.h src/common/sequencer/BaseSequencer.h src/common/sequencer/StaticSequencer.h src/common/sequencer/DynamicSequencer.h src/common/io/ConcurrentWriter.cpp src/common/io/ConcurrentWriter.h src/common/treelets/TreeletSelector.h src/common/RangeSampler.h src/common/ValueSortedMap.h src/common/graph/SimpleGraph.cpp src/common/graph/SimpleGraph.h src/common/Occurrence.cpp src/common/Occurrence.h)
-set(MERGER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/merger/merger.cpp)
-set(BUILDER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/builder/TreeletTableBuilder.cpp src/builder/TreeletTableBuilder.h src/common/io/ConcurrentFIFO.h src/builder/builder_main.cpp src/builder/builder.cpp src/builder/builder.h)
-set(SAMPLER_SOURCE_FILES ${COMMON_SOURCE_FILES} src/sampler/TreeletSampler.cpp src/sampler/TreeletSampler.h src/sampler/sampler_main.cpp src/common/include_nauty.h src/sampler/sampler_opts.h src/sampler/sampler_opts.cpp src/sampler/OccurrenceSampler.cpp src/sampler/OccurrenceSampler.h src/common/SpanningTreeCounter.cpp src/common/SpanningTreeCounter.h src/builder/SimpleTreeletTableBuilder.cpp src/builder/SimpleTreeletTableBuilder.h src/sampler/OccurrenceStarSampler.h src/sampler/OccurrenceStarSampler.cpp src/common/DiscreteDistribution.h src/sampler/SampleTable.h src/sampler/SampleTable.cpp src/sampler/AdaptiveSampler.h src/sampler/AdaptiveSampler.cpp src/sampler/ColorCodingSpanningTreeCounter.h src/sampler/ColorCodingSpanningTreeCounter.cpp src/common/CachedSTC.h src/common/CachedSTC.cpp) #FIXME Sigh... common files added under the sampler.
-set(GRAPH_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/graph.cpp)
-set(DECOMPOSE_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/decompose.cpp)
-set(HOMOMORPHISM_SOURCE_FILES ${COMMON_SOURCE_FILES} src/tools/homomorphism.cpp)
-set(TREELET_COUNTS_SOURCE_FILES  ${COMMON_SOURCE_FILES} src/tools/treelet-counts.cpp)
-
-set(TEST_SOURCE_FILES ${COMMON_SOURCE_FILES} tests/tests.cpp tests/Treelet.cpp tests/Treelet.cpp tests/Occurrence.cpp tests/ColorCodingSpanningTreeCounter.cpp tests/leftmost_bit_tie.cpp tests/CompressedRecordFile.cpp tests/UndirectedGraph.cpp tests/SpanningTreeCounter.cpp src/common/SpanningTreeCounter.cpp src/common/SpanningTreeCounter.h src/builder/SimpleTreeletTableBuilder.cpp src/builder/SimpleTreeletTableBuilder.h src/sampler/ColorCodingSpanningTreeCounter.h src/sampler/ColorCodingSpanningTreeCounter.cpp)
 
 string(REPLACE ":" ";" LIBRARY_PATH_STR "$ENV{LIBRARY_PATH}")
 set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} ${LIBRARY_PATH_STR})
@@ -210,66 +200,31 @@ else()
     message(FATAL_ERROR "Could not find sparsehash header files")
 endif()
 
-if(PROFILE)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
-  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lprofiler" )
-  message(STATUS "profiling enabled")
-endif()
 
 
-set(SAMPLER_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
-set(BUILDER_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
-set(MERGER_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
-set(GRAPH_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
-set(DECOMPOSE_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
-set(HOMOMORPHISM_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
-set(TREELET_COUNTS_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
-
-set(TEST_LIBRARIES ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
-
-
-add_executable(motivo-build ${BUILDER_SOURCE_FILES})
-add_executable(motivo-merge ${MERGER_SOURCE_FILES})
-add_executable(motivo-sample ${SAMPLER_SOURCE_FILES})
-add_executable(motivo-graph ${GRAPH_SOURCE_FILES})
-add_executable(motivo-decompose ${DECOMPOSE_SOURCE_FILES})
-add_executable(motivo-homomorphism ${HOMOMORPHISM_SOURCE_FILES})
-add_executable(motivo-treelet-counts ${TREELET_COUNTS_SOURCE_FILES})
-
-add_executable(motivo-tests ${TEST_SOURCE_FILES})
-
-target_link_libraries(motivo-build ${BUILDER_LIBRARIES})
-target_link_libraries(motivo-merge ${MERGER_LIBRARIES})
-target_link_libraries(motivo-sample ${SAMPLER_LIBRARIES})
-target_link_libraries(motivo-graph ${GRAPH_LIBRARIES})
-target_link_libraries(motivo-decompose ${DECOMPOSE_LIBRARIES})
-target_link_libraries(motivo-homomorphism ${HOMOMORPHISM_LIBRARIES})
-target_link_libraries(motivo-treelet-counts ${TREELET_COUNTS_LIBRARIES})
-
-target_link_libraries(motivo-tests ${TEST_LIBRARIES})
 
 add_custom_target(hg_id COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/hg_id.cmake)
-
-add_dependencies(motivo-build hg_id)
-add_dependencies(motivo-merge hg_id)
-add_dependencies(motivo-sample hg_id)
-add_dependencies(motivo-decompose hg_id)
-add_dependencies(motivo-homomorphism hg_id)
-add_dependencies(motivo-treelet-counts hg_id)
-add_dependencies(motivo-tests hg_id)
-
-
-if(PROFILE)
-  set_target_properties(motivo-build PROPERTIES LINK_FLAGS "-lprofiler")
-  set_target_properties(motivo-merge PROPERTIES LINK_FLAGS "-lprofiler")
-  set_target_properties(motivo-sample PROPERTIES LINK_FLAGS "-lprofiler")
-endif()
 
 file(COPY scripts/build-and-sample.sh DESTINATION .)
 file(COPY scripts/build-many.sh DESTINATION .)
 file(COPY scripts/loe_to_graph.py DESTINATION .)
+
+string(STRIP "${MOTIVO_FLAGS}" MOTIVO_FLAGS)
+configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
+include(src/common/CMakeLists.txt)
+include(src/merger/CMakeLists.txt)
+include(src/builder/CMakeLists.txt)
+include(src/sampler/CMakeLists.txt)
+include(src/tools/CMakeLists.txt)
+include(tests/CMakeLists.txt)
+
+
+
+include(testing.cmake)
+
+
 
 INSTALL(TARGETS motivo-build DESTINATION bin)
 INSTALL(TARGETS motivo-merge DESTINATION bin)
@@ -282,14 +237,6 @@ INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/build-and-sample.sh DESTINATION share/
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/loe_to_graph.py DESTINATION share/motivo)
 
 
-string(STRIP "${MOTIVO_FLAGS}" MOTIVO_FLAGS)
-configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
-
-enable_testing()
-add_test(NAME build-graph COMMAND motivo-graph --input ../graphs/test-graph.txt --output test-graph)
-add_test(NAME motivo-tests COMMAND motivo-tests "-tce=leftmost_bit_tie,CompressedRecordFile Multiblock")
-set_tests_properties(motivo-tests PROPERTIES DEPENDS build-graph)
 
 SET(CPACK_GENERATOR "DEB")
 SET(CPACK_PACKAGE_CONTACT "Stefano Leucci")

@@ -74,7 +74,7 @@ int main(const int argc, const char** argv)
         if(root_opt->is_found())
         {
             root = std::stoi(root_opt->get_value());
-            if(root<0 || static_cast<unsigned int>(root)>=g.n())
+            if(root<0 || static_cast<unsigned int>(root)>= g.number_of_vertices())
                 throw std::runtime_error("Invalid root");
         }
 
