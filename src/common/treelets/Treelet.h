@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <cassert>
 #include <utility>
-#include "../../platform/platform.h"
+#include "../platform/platform.h"
 
 //The following classsis already packed.
 //See: https://en.wikipedia.org/wiki/Data_structure_alignment#Typical_alignment_of_C_structs_on_x86

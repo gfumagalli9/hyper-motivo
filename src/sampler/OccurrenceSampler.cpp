@@ -22,7 +22,7 @@ void OccurrenceSampler::do_sample_mt(occ_count_table_t* table, sequencer_t *sequ
 			(*table)[o]++;
 
 			if ((*table)[o] <= 2)
-				stc->get_spanning_trees(o, sp_counter_selector);
+				spanning_tree_counter->get_spanning_trees(o, sp_counter_selector);
 		}
 	}
 	delete rng;

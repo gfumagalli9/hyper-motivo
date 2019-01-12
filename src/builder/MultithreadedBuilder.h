@@ -1,73 +1,64 @@
 //
-// Created by steven on 12/21/18.
+// Created by steven on 1/4/19.
 //
 
-#ifndef MOTIVO_MULTITHREADED_BUILDER_H
-#define MOTIVO_MULTITHREADED_BUILDER_H
+#ifndef MOTIVO_MULTITHREADEDBUILDER_H
+#define MOTIVO_MULTITHREADEDBUILDER_H
 
-#include <mutex>
-#include <thread>
-#include <cassert>
+#include <atomic>
+#include "ColorCodingHashmap.h"
+#include "ColorCodingBuilder.h"
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/io/ConcurrentWriter.h"
-#include "ColorCodingBuilder.h"
-#include "ColorCodingHashmap.h"
 
 class MultithreadedBuilder
 {
 private:
-    struct vertex_info_t
+    struct phase1_thread_state_t
     {
-        UndirectedGraph::vertex_t vertex;
-        UndirectedGraph::vertex_t next_edge;
-        unsigned int assigned_threads;
-        unsigned int slot_index;
-
-        ColorCodingHashmap* tables;
-        unsigned int ntables;
+        UndirectedGraph::vertex_t current_vertex = UndirectedGraph::INVALID_VERTEX;
+        UndirectedGraph::vertex_t degree = UndirectedGraph::INVALID_VERTEX;
+        UndirectedGraph::vertex_t next_edge = UndirectedGraph::INVALID_VERTEX;
+        ColorCodingHashmap table;
+        std::atomic<bool> terminate_flag {false};
     };
 
-    struct thread_state_t
+    struct phase2_vertex_state_t
     {
-        vertex_info_t *vertex_info = nullptr;
         UndirectedGraph::vertex_t vertex = UndirectedGraph::INVALID_VERTEX;
-        UndirectedGraph::vertex_t from_edge = UndirectedGraph::INVALID_VERTEX;
-        UndirectedGraph::vertex_t to_edge = UndirectedGraph::INVALID_VERTEX;
-        ColorCodingHashmap* table = nullptr;
+        UndirectedGraph::vertex_t degree = UndirectedGraph::INVALID_VERTEX;
+        std::atomic<UndirectedGraph::vertex_t> next_edge {UndirectedGraph::INVALID_VERTEX};
+        std::atomic<UndirectedGraph::vertex_t> processed_edges {UndirectedGraph::INVALID_VERTEX};
+        std::atomic<unsigned int> num_workers {0};
+        ColorCodingHashmap **tables = nullptr;
     };
 
-    const UndirectedGraph* const G;
+    const UndirectedGraph *const G;
     const UndirectedGraph::vertex_t from_vertex;
     UndirectedGraph::vertex_t to_vertex;
-    const TreeletTableCollection* const ttc;
+    const TreeletTableCollection *const ttc;
     const bool store_only_0;
-    std::ostream* const output;
-    const unsigned int nthreads;
+    std::ostream *const output;
     ColorCodingBuilder builder;
 
-    vertex_info_t **slots;
-    unsigned int nbusy_slots = 0;
-    UndirectedGraph::vertex_t next_vertex;
-    UndirectedGraph::vertex_t remaining_edges;
+    unsigned int nthreads;
+    std::atomic<UndirectedGraph::vertex_t> next_vertex {UndirectedGraph::INVALID_VERTEX};
 
-    std::mutex mutex;
-
-
-    void update_state [[gnu::hot]] (thread_state_t* state);
-
-    void thread_loop [[gnu::hot]] (ConcurrentWriter *writer);
-
-    void merge_and_write(ConcurrentWriter *writer, vertex_info_t* info);
 
 public:
-    MultithreadedBuilder(const UndirectedGraph* G, UndirectedGraph::vertex_t from_vertex,
-                             UndirectedGraph::vertex_t to_vertex, unsigned int size, const TreeletTableCollection* ttc,
-                             bool store_only_0, TreeletSelector* selector, std::ostream* output, unsigned int nthreads);
+    MultithreadedBuilder(const UndirectedGraph *G, UndirectedGraph::vertex_t from_vertex, UndirectedGraph::vertex_t to_vertex,
+            unsigned int size, const TreeletTableCollection *ttc, bool store_only_0, TreeletSelector *selector,
+            std::ostream *output, unsigned int nthreads);
 
-    ~MultithreadedBuilder();
+    void phase1_thread_loop [[gnu::hot]] (unsigned int thread_no, phase1_thread_state_t *states, ConcurrentWriter *writer);
+
+    void phase2_thread_loop [[gnu::hot]] (unsigned int thread_no, phase2_vertex_state_t *states, const unsigned int nstates,ConcurrentWriter *writer);
+
+    void merge_and_write(ConcurrentWriter *writer, phase2_vertex_state_t *state);
 
     void build();
+
 };
 
 
-#endif //MOTIVO_MULTITHREADED_BUILDER_H
+#endif //MOTIVO_MULTITHREADEDBUILDER_H

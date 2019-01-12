@@ -9,10 +9,11 @@
 #define SRC_SAMPLER_SAMPLETABLE_H_
 
 #include "Occurrence.h"
+#include "../common/treelets/TreeletSelector.h"
 #include <ostream>
 #include <string>
+#include <vector>
 #include <sparsehash/dense_hash_map>
-#include "OccurrenceSampler.h"
 
 class SampleTable
 {

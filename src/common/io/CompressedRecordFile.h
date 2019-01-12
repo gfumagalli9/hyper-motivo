@@ -15,7 +15,7 @@
 #include <stdexcept>
 #include "RecordCompressor.h"
 #include "BaseRecordSource.h"
-#include "../../platform/platform.h"
+#include "../platform/platform.h"
 
 template<typename T, bool RAW> class CompressedRecordFileReader : public BaseRecordSource<T>
 {

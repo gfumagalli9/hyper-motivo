@@ -5,16 +5,16 @@
 #ifndef MOTIVO_OCCURRENCESAMPLER_H
 #define MOTIVO_OCCURRENCESAMPLER_H
 
-#include "Occurrence.h"
+#include <sparsehash/dense_hash_map>
 #include "../common/graph/UndirectedGraph.h"
+#include "Occurrence.h"
 #include "SpanningTreeCounter.h"
 #include "TreeletSampler.h"
-#include "../common/sequencer/DynamicSequencer.h"
-#include <sparsehash/dense_hash_map>
+#include "DynamicSequencer.h"
+#include "SampleTable.h"
 
-class SampleTable;
-
-class OccurrenceSampler {
+class OccurrenceSampler
+{
 public:
 	typedef DynamicSequencer<uint64_t> sequencer_t;
 	typedef google::dense_hash_map<Occurrence, int, Occurrence::OccurrenceFootprintHash,
@@ -29,12 +29,12 @@ private:
 	const bool graphlets;
 	const bool canonicize;
 	const bool no_rejection;
-	bool delete_stc = true;
 
 	TreeletSampler sampler;
-	TreeletSelector *sp_counter_selector = nullptr;
 
-	SpanningTreeCounter* stc;
+    SpanningTreeCounter* spanning_tree_counter;
+    TreeletSelector *sp_counter_selector = nullptr;
+    bool delete_stc = true;
 
 	void do_sample_mt [[gnu::hot, gnu::flatten]] (occ_count_table_t* table, sequencer_t *sequencer, Random *rng);
 public:
@@ -47,20 +47,23 @@ public:
             graph(graph), ttc(ttc), size(size), vertices(vertices), graphlets(graphlets), canonicize(canonicize),
             no_rejection(no_rejection), sampler(graph, ttc, size)
     {
-    	stc = new SpanningTreeCounter();
+    	spanning_tree_counter = new SpanningTreeCounter();
     }
 
-    void setSpanningTreeCounter(SpanningTreeCounter* stc) {
-    	if (this->stc) {
-    		delete this->stc;
-    		this->delete_stc = false;
+    void setSpanningTreeCounter(SpanningTreeCounter* stc)
+    {
+    	if (delete_stc)
+    	{
+    		delete spanning_tree_counter;
+    		delete_stc = false;
     	}
-    	this->stc = stc;
+    	spanning_tree_counter = stc;
     }
 
-    ~OccurrenceSampler() {
-    	if (this->delete_stc)
-    		delete stc;
+    ~OccurrenceSampler()
+    {
+    	if (delete_stc)
+    		delete spanning_tree_counter;
     }
 
     /**

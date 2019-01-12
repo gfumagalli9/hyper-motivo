@@ -9,8 +9,6 @@ set(BUILDER_SOURCE_FILES
         src/builder/SequentialBuilder.cpp
         src/builder/ColorCodingHashmap.h
         src/builder/ColorCodingBuilder.h
-        src/builder/SimpleMultithreadedBuilder.cpp
-        src/builder/SimpleMultithreadedBuilder.h
         )
 
 add_executable(motivo-build ${BUILDER_SOURCE_FILES})

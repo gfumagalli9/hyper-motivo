@@ -5,10 +5,11 @@
 #ifndef MOTIVO_TREELETSAMPLER_H
 #define MOTIVO_TREELETSAMPLER_H
 
+#include <atomic>
 #include "../common/treelets/Treelet.h"
 #include "../common/treelets/TreeletTableCollection.h"
 #include "../common/treelets/TreeletSelector.h"
-#include "../common/sequencer/DynamicSequencer.h"
+#include "DynamicSequencer.h"
 
 class TreeletSampler
 {
@@ -21,14 +22,14 @@ private:
     RangeSampler<TreeletTable::treelet_count_t>** range_samplers = nullptr;
     AliasMethodSampler<UndirectedGraph::vertex_t,TreeletTable::treelet_count_t>* root_sampler = nullptr;
 
-    void populate_root_and_range_sampler_mt(DynamicSequencer<UndirectedGraph::vertex_t>* sequencer);
+    void populate_root_and_range_sampler_mt(DynamicSequencer<UndirectedGraph::vertex_t> &sequencer);
 
 public:
-    TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, const unsigned int size);
+    TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, unsigned int size);
     ~TreeletSampler();
 
     ///Samples an occurrence of @param t rooted in @param u
-    bool sample_rooted_occurrence [[gnu::hot]] (const Treelet& t, const UndirectedGraph::vertex_t u, UndirectedGraph::vertex_t* occurrence, Random *rng);
+    bool sample_rooted_occurrence [[gnu::hot]] (const Treelet& t, UndirectedGraph::vertex_t u, UndirectedGraph::vertex_t* occurrence, Random *rng);
 
     UndirectedGraph::vertex_t sample_root [[gnu::hot]] (Random* rng)
     {
@@ -56,7 +57,6 @@ public:
     }
 
     void set_selector(const TreeletSelector *selector, unsigned int nthreads);
-    const TreeletSelector* get_selector() {return selector;}
 };
 
 

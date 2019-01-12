@@ -3,7 +3,7 @@
 
 #include <sparsehash/dense_hash_map>
 #include "Occurrence.h"
-#include "../platform/platform.h"
+#include "../common/platform/platform.h"
 #include "../common/treelets/Treelet.h"
 #include "../builder/ColorCodingBuilder.h"
 #include "../common/treelets/TreeletSelector.h"

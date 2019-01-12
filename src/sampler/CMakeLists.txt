@@ -23,6 +23,7 @@ set(SAMPLER_SOURCE_FILES
         src/sampler/ValueSortedMap.h
         src/sampler/CachedSTC.h
         src/sampler/CachedSTC.cpp
+        src/sampler/DynamicSequencer.h
         )
 
 add_executable(motivo-sample ${SAMPLER_SOURCE_FILES})

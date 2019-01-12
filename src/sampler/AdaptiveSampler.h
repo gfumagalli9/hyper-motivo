@@ -18,7 +18,7 @@
 #include "sampler_opts.h"
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/graph/SimpleGraph.h"
-#include "../common/RangeSampler.h"
+#include "../common/random/RangeSampler.h"
 #include "../common/treelets/Treelet.h"
 #include "../common/treelets/TreeletTable.h"
 #include "../common/treelets/TreeletSelector.h"

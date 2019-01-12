@@ -1,18 +1,19 @@
 set(COMMON_SOURCE_FILES
-        src/platform/platform.h
-        src/platform/platform.cpp
+        src/common/platform/platform.h
+        src/common/platform/platform.cpp
         src/common/util.cpp
         src/common/util.h
         src/common/graph/UndirectedGraph.cpp
         src/common/graph/UndirectedGraph.h
         src/common/treelets/Treelet.h
-        src/common/Random.h
+        src/common/random/Random.h
+        src/common/random/AliasMethodSampler.h
+        src/common/random/RangeSampler.h
         src/common/treelets/Treelet.cpp
         src/common/treelets/TreeletTableCollection.cpp
         src/common/treelets/TreeletTableCollection.h
         src/common/treelets/TreeletTable.cpp
         src/common/treelets/TreeletTable.h
-        src/common/AliasMethodSampler.h
         src/common/OptionsParser.cpp
         src/common/OptionsParser.h
         src/common/io/ConcurrentFIFO.h
@@ -23,11 +24,7 @@ set(COMMON_SOURCE_FILES
         src/common/io/RecordCompressor.cpp
         src/common/io/RecordCompressor.h
         src/common/io/BaseRecordSource.h
-        src/common/sequencer/BaseSequencer.h
-        src/common/sequencer/StaticSequencer.h
-        src/common/sequencer/DynamicSequencer.h
         src/common/treelets/TreeletSelector.h
-        src/common/RangeSampler.h
         src/common/graph/SimpleGraph.h
         src/common/graph/SimpleGraph.cpp
         )

@@ -3,8 +3,8 @@
 //
 
 #include "TreeletTable.h"
-#include "../../platform/platform.h"
-#include "../RangeSampler.h"
+#include "../platform/platform.h"
+#include "../random/RangeSampler.h"
 
 TreeletTable::TreeletTable(BaseRecordSource<const treelet_count_pair_maybe_alias>* record_sorce) : reader(record_sorce)
 {

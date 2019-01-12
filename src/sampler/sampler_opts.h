@@ -8,7 +8,7 @@
 #include <config.h>
 #include <cstdint>
 #include <string>
-#include "../common/Random.h"
+#include "../common/random/Random.h"
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/treelets/TreeletTableCollection.h"
 

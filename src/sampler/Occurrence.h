@@ -6,7 +6,7 @@
 #define MOTIVO_OCCURRENCE_H
 
 #include <climits>
-#include "../platform/platform.h"
+#include "../common/platform/platform.h"
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/treelets/Treelet.h"
 #include "include_nauty.h"

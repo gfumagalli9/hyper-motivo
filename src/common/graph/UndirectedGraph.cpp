@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <sys/mman.h>
 #include "UndirectedGraph.h"
-#include "../../platform/platform.h"
+#include "../platform/platform.h"
 
 
 

@@ -8,7 +8,7 @@
 #ifndef SRC_COMMON_UTIL_H_
 #define SRC_COMMON_UTIL_H_
 
-#include "../platform/platform.h"
+#include "platform/platform.h"
 
 unsigned int uint128_bits_needed(uint128_t n);
 

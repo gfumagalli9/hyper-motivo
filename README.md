@@ -26,7 +26,7 @@ And, if you want to use the tcmalloc allocator:
 # apt-get install libgoogle-perftools-dev
 ~~~~
 
-A C++14 aware compiler is required along with support for [u]int{8,16,32,64} types.
+A C++14 aware compiler is required along with support for [u]int{8,16,32,64,128} types.
 Support for [mmap](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mmap.html) (POSIX.1-2001 and later) function is also currently required.
 
 ###Compiling

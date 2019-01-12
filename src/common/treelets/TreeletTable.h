@@ -8,13 +8,13 @@
 #include <cstdint>
 #include <string>
 #include "Treelet.h"
-#include "../Random.h"
+#include "../random/Random.h"
 #include "../graph/UndirectedGraph.h"
-#include "../AliasMethodSampler.h"
-#include "../../platform/platform.h"
+#include "../random/AliasMethodSampler.h"
+#include "../platform/platform.h"
 #include "../io/CompressedRecordFile.h"
 #include "TreeletSelector.h"
-#include "../RangeSampler.h"
+#include "../random/RangeSampler.h"
 
 class TreeletTable
 {

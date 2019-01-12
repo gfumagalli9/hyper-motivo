@@ -12,7 +12,7 @@
 #include <memory.h>
 #include <limits>
 #include <sys/mman.h>
-#include "../generated/leftmost_bit_tie_lut.h"
+#include "../../generated/leftmost_bit_tie_lut.h"
 #include "config.h"
 
 #define FAIL_OVERFLOW do { std::cerr << "Overflow in " << __FILE__ <<":"<< __LINE__ << std::endl << std::flush; std::abort(); } while(false)

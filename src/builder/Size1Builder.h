@@ -6,7 +6,7 @@
 #define MOTIVO_SIZE1BUILDER_H
 
 #include <ostream>
-#include "../common/Random.h"
+#include "../common/random/Random.h"
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/treelets/TreeletTable.h"
 

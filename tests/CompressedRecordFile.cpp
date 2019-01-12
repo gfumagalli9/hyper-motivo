@@ -7,7 +7,7 @@
 #include <chrono>
 #include "doctest.h"
 #include "../src/common/io/CompressedRecordFile.h"
-#include "../src/common/Random.h"
+#include "../src/common/random/Random.h"
 
 void test(const uint64_t data_size, const unsigned int nrecords, const bool random)
 {

@@ -1,223 +1,175 @@
 //
-// Created by steven on 12/21/18.
+// Created by steven on 1/4/19.
 //
 
 #include "MultithreadedBuilder.h"
 
-MultithreadedBuilder::MultithreadedBuilder(const UndirectedGraph *G, UndirectedGraph::vertex_t from_vertex,
-                                                   UndirectedGraph::vertex_t to_vertex, const unsigned int size,
-                                                   const TreeletTableCollection *ttc, bool store_only_0,
-                                                   TreeletSelector *selector, std::ostream *output, unsigned int nthreads)
-        : G(G), from_vertex(from_vertex), to_vertex(to_vertex), ttc(ttc), store_only_0(store_only_0),
-          output(output), nthreads(nthreads), builder(size, ttc, selector)
+void MultithreadedBuilder::build()
 {
-    slots = new vertex_info_t*[nthreads];
-    for(unsigned int i=0; i<nthreads; i++)
+    //Write header to output file
+    UndirectedGraph::vertex_t num_verts = G->number_of_vertices();
+    output->write(reinterpret_cast<const char*>(&num_verts), sizeof(UndirectedGraph::vertex_t));
+
+    auto *writer = new ConcurrentWriter(output, 100*nthreads);
+
+    //Phase 1
+    next_vertex = from_vertex;
+    auto *phase1_states = new phase1_thread_state_t[nthreads];
+    auto *phase1_threads = new std::thread[nthreads];
+    for (unsigned int i = 0; i<nthreads; i++)
     {
-        slots[i] = new vertex_info_t();
-        slots[i]->tables = new ColorCodingHashmap[nthreads];
+        assert(phase1_states[i].terminate_flag.is_lock_free());
+        phase1_threads[i] = std::thread([this, i, phase1_states, writer] { phase1_thread_loop(i, phase1_states, writer); });
     }
 
+    for (unsigned int i = 0; i<nthreads; i++)
+        phase1_threads[i].join();
+
+    assert(next_vertex>to_vertex);
+    delete[] phase1_threads;
+    //End of Phase 1
+
+    //Phase 2
+    unsigned int missing_vertices=0;
+    auto phase2_states = new phase2_vertex_state_t[nthreads-1];
+    for (unsigned int i = 0; i<nthreads; i++)
+    {
+        if(phase1_states[i].current_vertex==UndirectedGraph::INVALID_VERTEX)
+            continue;
+
+        assert(missing_vertices<nthreads-1);
+
+        phase2_states[missing_vertices].vertex = phase1_states[i].current_vertex;
+        phase2_states[missing_vertices].degree = phase1_states[i].degree;
+
+        phase2_states[missing_vertices].next_edge = phase1_states[i].next_edge;
+        phase2_states[missing_vertices].processed_edges = phase1_states[i].next_edge;
+        phase2_states[missing_vertices].num_workers = 0;
+
+        assert(phase2_states[missing_vertices].next_edge.is_lock_free());
+        assert(phase2_states[missing_vertices].processed_edges.is_lock_free());
+        assert(phase2_states[missing_vertices].num_workers.is_lock_free());
+
+        phase2_states[missing_vertices].tables = new ColorCodingHashmap *[nthreads];
+        phase2_states[missing_vertices].tables[0] = &phase1_states[i].table;
+
+        missing_vertices++;
+    }
+
+    auto *phase2_threads = new std::thread[nthreads];
+    for (unsigned int i = 0; i<nthreads; i++)
+        phase2_threads[i] = std::thread([this, i, missing_vertices, phase2_states, writer] { phase2_thread_loop(i, phase2_states, missing_vertices, writer); });
+
+    for (unsigned int i = 0; i<nthreads; i++)
+        phase2_threads[i].join();
+    delete[] phase2_threads;
+
+    for (unsigned int i = 0; i<missing_vertices; i++)
+        delete[] phase2_states[i].tables;
+    delete[] phase2_states;
+    //End of Phase 2
+
+    delete writer;
 }
 
-MultithreadedBuilder::~MultithreadedBuilder()
-{
-    for(unsigned int i=0; i<nthreads; i++)
-        delete[] slots[i]->tables;
-
-    delete[] slots;
-}
-
-void MultithreadedBuilder::update_state(MultithreadedBuilder::thread_state_t *const state)
-{
-    std::lock_guard<std::mutex> lock(mutex);
-
-    //Try to assign this many edges to the thread
-    UndirectedGraph::vertex_t batch_size = remaining_edges/(nthreads*1000);
-    if(batch_size==0)
-        batch_size=1;
-
-    if(state->from_edge !=UndirectedGraph::INVALID_VERTEX) //The thread was working on some batch of edges
-    {
-        //Prefer the vertex the thread was currently working on
-        assert(state->vertex==state->vertex_info->vertex);
-        assert(state->vertex_info->next_edge < G->degree(state->vertex) || state->vertex_info->next_edge == UndirectedGraph::INVALID_VERTEX);
-        if (state->vertex_info->next_edge < G->degree(state->vertex))
-        {
-            state->from_edge = state->vertex_info->next_edge;
-
-            if(state->vertex_info->next_edge + batch_size  >= G->degree(state->vertex))
-            {
-                state->vertex_info->next_edge = UndirectedGraph::INVALID_VERTEX;
-                state->to_edge = G->degree(state->vertex);
-            }
-            else
-            {
-                state->vertex_info->next_edge += batch_size;
-                state->to_edge = state->vertex_info->next_edge;
-            }
-
-            assert(remaining_edges >= (state->to_edge - state->from_edge));
-            remaining_edges -= (state->to_edge - state->from_edge);
-            return;
-        }
-
-        //All the edges of the that vertex have been assigned. Stop working on it.
-        assert(state->vertex_info->assigned_threads>0);
-        state->vertex_info->assigned_threads--;
-
-        //If the whole vertex has been processed.
-        if (state->vertex_info->assigned_threads == 0)
-        {
-            //Signal the thread that he is responsible for writing the vertex's table(s)
-            state->from_edge = UndirectedGraph::INVALID_VERTEX;
-            return;
-        }
-    }
-    else //The thread is free
-    {
-        if(state->vertex_info != nullptr)
-        {
-            //The descriptor slot is now free.
-            nbusy_slots--;
-            slots[nbusy_slots]->slot_index = state->vertex_info->slot_index;
-            slots[state->vertex_info->slot_index] = slots[nbusy_slots];
-
-            slots[nbusy_slots] = state->vertex_info;
-            state->vertex_info->slot_index = nbusy_slots;
-        }
-    }
-
-    //Look for a new vertex for the thread
-    while(next_vertex<=to_vertex && (G->degree(next_vertex)==0 || (store_only_0 && ttc->get_table(1)->begin(next_vertex).treelet().get_colors() != 1)) )
-        next_vertex++;
-
-    if(next_vertex<=to_vertex) //A new vertex is available
-    {
-        //There must be an empty info slot
-        assert(nbusy_slots<nthreads);
-        vertex_info_t* info = slots[nbusy_slots++];
-        info->vertex=next_vertex++;
-
-        state->vertex_info = info;
-        state->vertex=info->vertex;
-        state->from_edge=0;
-        if(batch_size>=G->degree(info->vertex))
-        {
-            info->next_edge=UndirectedGraph::INVALID_VERTEX;
-            state->to_edge = G->degree(state->vertex);
-        }
-        else
-        {
-            info->next_edge=batch_size;
-            state->to_edge=batch_size;
-        }
-
-        info->assigned_threads=1;
-        info->ntables=1;
-        state->table=info->tables;
-
-        assert(remaining_edges >= (state->to_edge - state->from_edge));
-        remaining_edges -= (state->to_edge - state->from_edge);
-
-        return;
-    }
-
-    //All the vertices are being worked on. Go help some other thread.
-    unsigned int slot=0;
-    while(slot<nbusy_slots && slots[slot]->next_edge == UndirectedGraph::INVALID_VERTEX)
-        slot++;
-
-    assert(slot==nbusy_slots || slots[slot]->next_edge < G->degree(slots[slot]->vertex));
-
-    if(slot==nbusy_slots) //All other threads are on their last edge... nothing to do.
-    {
-        state->vertex = UndirectedGraph::INVALID_VERTEX; //Signal the thread to terminate
-        return;
-    }
-
-    //Assign a single edge
-    state->vertex_info = slots[slot];
-    state->vertex_info->assigned_threads++;
-    state->vertex = state->vertex_info->vertex;
-
-    assert(state->vertex_info->next_edge < G->degree(state->vertex));
-    state->from_edge = state->vertex_info->next_edge++;
-    state->to_edge = state->vertex_info->next_edge;
-
-    if(state->vertex_info->next_edge == G->degree(state->vertex_info->vertex))
-        state->vertex_info->next_edge = UndirectedGraph::INVALID_VERTEX;
-
-    state->table = state->vertex_info->tables + state->vertex_info->ntables;
-    state->vertex_info->ntables++;
-
-    remaining_edges--;
-}
-
-void MultithreadedBuilder::thread_loop(ConcurrentWriter *writer)
-{
-    thread_state_t state;
-    update_state(&state);
-
-    while(state.vertex != UndirectedGraph::INVALID_VERTEX)
-    {
-        if(state.from_edge != UndirectedGraph::INVALID_VERTEX)
-        {
-            assert(state.to_edge > state.from_edge);
-            assert(state.to_edge <= G->degree(state.vertex));
-
-            for(UndirectedGraph::vertex_t i=state.from_edge; i<state.to_edge; i++)
-                builder.combine(state.vertex, G->neighbor(state.vertex, i), *state.table);
-        }
-        else
-            merge_and_write(writer, state.vertex_info);
-
-        update_state(&state);
-    }
-}
-
-void MultithreadedBuilder::merge_and_write(ConcurrentWriter *writer, MultithreadedBuilder::vertex_info_t *info)
+void MultithreadedBuilder::merge_and_write(ConcurrentWriter *writer, phase2_vertex_state_t *state)
 {
     //Merge tables
-    ColorCodingHashmap &table = info->tables[0];
-    for(unsigned int i=1; i<info->ntables; i++)
+    ColorCodingHashmap &table = *state->tables[0];
+    for(unsigned int i=1; i<state->num_workers; i++)
     {
-        for(const auto&  tcp : info->tables[i])
+        for(const auto&  tcp : *state->tables[i])
             table[tcp.first]+=tcp.second;
 
-        info->tables[i].clear();
+        delete state->tables[i];
     }
 
-    auto to_write = builder.to_normalized_sorted_byte_array(info->vertex, table);
+    auto to_write = builder.to_normalized_sorted_byte_array(state->vertex, table);
     table.clear();
     writer->write(to_write.first, to_write.second);
 }
 
-void MultithreadedBuilder::build()
+void MultithreadedBuilder::phase1_thread_loop(const unsigned int thread_no, phase1_thread_state_t *states, ConcurrentWriter *writer)
 {
-    UndirectedGraph::vertex_t num_verts = G->number_of_vertices();
-    output->write(reinterpret_cast<const char*>(&num_verts), sizeof(UndirectedGraph::vertex_t));
+    phase1_thread_state_t &state = states[thread_no];
 
-    next_vertex = from_vertex;
-    if(from_vertex==0 && to_vertex==G->number_of_vertices() - 1)
-        remaining_edges = 2*G->number_of_edges();
-    else
+    do
+        state.current_vertex = next_vertex.fetch_add(1);
+    while( (state.current_vertex <= to_vertex) && ( (state.degree = G->degree(state.current_vertex))==0 || (store_only_0 && ttc->get_table(1)->begin(state.current_vertex).treelet().get_colors() != 1)) );
+    state.next_edge = 0;
+
+    if(state.current_vertex > to_vertex)
     {
-        remaining_edges=0;
-        for(UndirectedGraph::vertex_t u=from_vertex; u<=to_vertex; u++)
-            remaining_edges += G->degree(u);
+        state.current_vertex = UndirectedGraph::INVALID_VERTEX;
+        return;
     }
 
-    auto *writer = new ConcurrentWriter(output, 100*nthreads);
-    auto *worker_threads = new std::thread[nthreads];
-    for (unsigned int i = 0; i<nthreads; i++)
-        worker_threads[i] = std::thread([this, writer] { thread_loop(writer); });
+    while(!state.terminate_flag)
+    {
+        builder.combine(state.current_vertex, G->neighbor(state.current_vertex, state.next_edge), state.table);
+        state.next_edge++;
 
-    for (unsigned int i = 0; i<nthreads; i++)
-        worker_threads[i].join();
+        if(state.next_edge==state.degree)
+        {
+            std::pair<char*, std::size_t> to_write = builder.to_normalized_sorted_byte_array(state.current_vertex, state.table);
+            writer->write(to_write.first, to_write.second);
+            state.table.clear();
 
-    assert(remaining_edges==0);
+            do
+                state.current_vertex = next_vertex.fetch_add(1);
+            while( (state.current_vertex <= to_vertex) && ( (state.degree = G->degree(state.current_vertex))==0 || (store_only_0 && ttc->get_table(1)->begin(state.current_vertex).treelet().get_colors() != 1)) );
+            state.next_edge = 0;
 
-    delete[] worker_threads;
-    delete writer;
+            if(state.current_vertex > to_vertex)
+            {
+                state.current_vertex = UndirectedGraph::INVALID_VERTEX;
+                for(unsigned int i=0; i<nthreads; i++)
+                    states[i].terminate_flag=true;
+            }
+        }
+    }
 }
+
+void MultithreadedBuilder::phase2_thread_loop(const unsigned int thread_no, phase2_vertex_state_t *states, const unsigned int nstates, ConcurrentWriter *writer)
+{
+    for(unsigned int i=0; i<nstates; i++)
+    {
+        phase2_vertex_state_t &state = states[(thread_no+i)%nstates];
+
+        UndirectedGraph::vertex_t d = state.next_edge.fetch_add(1);
+        if(d >= state.degree)
+            continue;
+
+        unsigned int worker_no = state.num_workers.fetch_add(1);
+        if(worker_no>0)
+        {
+            assert(worker_no<nthreads);
+            state.tables[worker_no] = new ColorCodingHashmap();
+        }
+
+        assert(!store_only_0 || ttc->get_table(1)->begin(state.vertex).treelet().get_colors() == 1);
+
+        UndirectedGraph::vertex_t processed_edges=0;
+        do
+        {
+            builder.combine(state.vertex, G->neighbor(state.vertex, d), *state.tables[worker_no]);
+            d = state.next_edge.fetch_add(1);
+            processed_edges++;
+        }
+        while(d < state.degree);
+
+        processed_edges += state.processed_edges.fetch_add(processed_edges);
+        assert(processed_edges <= state.degree);
+        if(processed_edges == state.degree)
+            merge_and_write(writer, &state);
+    }
+}
+
+MultithreadedBuilder::MultithreadedBuilder(const UndirectedGraph *G, UndirectedGraph::vertex_t from_vertex,
+                                                       UndirectedGraph::vertex_t to_vertex, const unsigned int size,
+                                                       const TreeletTableCollection *ttc, const bool store_only_0,
+                                                       TreeletSelector *selector, std::ostream *output,
+                                                       unsigned int nthreads)
+        : G(G), from_vertex(from_vertex), to_vertex(to_vertex), ttc(ttc), store_only_0(store_only_0),
+          output(output), builder(size, ttc, selector), nthreads(nthreads)
+{}
