@@ -257,4 +257,3 @@ echo "Samples are in $OUTPUT.csv:"
 head -5 $OUTPUT.csv
 
 exit 0
-

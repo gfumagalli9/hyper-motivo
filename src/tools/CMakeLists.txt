@@ -1,22 +1,9 @@
-set(GRAPH_SOURCE_FILES
-        ${COMMON_SOURCE_FILES}
-        src/tools/graph.cpp
-        )
+list(TRANSFORM COMMON_SOURCE_FILES PREPEND ../common/)
 
-set(DECOMPOSE_SOURCE_FILES
-        ${COMMON_SOURCE_FILES}
-        src/tools/decompose.cpp
-        )
-
-set(HOMOMORPHISM_SOURCE_FILES
-        ${COMMON_SOURCE_FILES}
-        src/tools/homomorphism.cpp
-        )
-
-set(TREELET_COUNTS_SOURCE_FILES
-        ${COMMON_SOURCE_FILES}
-        src/tools/treelet-counts.cpp
-        )
+set(GRAPH_SOURCE_FILES ${COMMON_SOURCE_FILES} graph.cpp)
+set(DECOMPOSE_SOURCE_FILES ${COMMON_SOURCE_FILES} decompose.cpp)
+set(HOMOMORPHISM_SOURCE_FILES ${COMMON_SOURCE_FILES} homomorphism.cpp)
+set(TREELET_COUNTS_SOURCE_FILES ${COMMON_SOURCE_FILES} treelet-counts.cpp)
 
 add_executable(motivo-graph ${GRAPH_SOURCE_FILES})
 add_executable(motivo-decompose ${DECOMPOSE_SOURCE_FILES})
@@ -32,3 +19,8 @@ add_dependencies(motivo-graph hg_id)
 add_dependencies(motivo-decompose hg_id)
 add_dependencies(motivo-homomorphism hg_id)
 add_dependencies(motivo-treelet-counts hg_id)
+
+set_target_properties(motivo-graph PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+set_target_properties(motivo-decompose PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+set_target_properties(motivo-homomorphism PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+set_target_properties(motivo-treelet-counts PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

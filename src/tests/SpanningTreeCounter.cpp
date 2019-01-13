@@ -5,13 +5,12 @@
  *      Author: brix
  */
 
-#include "../src/sampler/Occurrence.h"
-
 #include "doctest.h"
 #include <sstream>
 #include <cmath>
-#include "../src/common/graph/UndirectedGraph.h"
-#include "../src/sampler/SpanningTreeCounter.h"
+#include "../common/graph/UndirectedGraph.h"
+#include "../sampler/SpanningTreeCounter.h"
+#include "../sampler/Occurrence.h"
 
 /* Graph test contains 56 vertices and 159 edges:
  * A clique of 16 vertices on vertices 0-15 (120 edges)

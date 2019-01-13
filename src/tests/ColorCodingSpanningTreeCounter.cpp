@@ -1,7 +1,7 @@
-#include "../src/sampler/Occurrence.h"
+#include "../sampler/Occurrence.h"
 
 #include "doctest.h"
-#include "../src/sampler/ColorCodingSpanningTreeCounter.h"
+#include "../sampler/ColorCodingSpanningTreeCounter.h"
 
 /* Graph test contains 56 vertices and 159 edges:
  * A clique of 16 vertices on vertices 0-15 (120 edges)

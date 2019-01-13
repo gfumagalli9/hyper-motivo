@@ -1,5 +1,5 @@
-#ifndef LEFTMOST_BIT_TIE_LUT
-#define LEFTMOST_BIT_TIE_LUT
+#ifndef MOTIVO_LEFTMOST_BIT_TIE_LUT
+#define MOTIVO_LEFTMOST_BIT_TIE_LUT
 
 const int8_t leftmost_bit_tie_LUT0[] = {
   ~2,   ~2,   ~2,   ~2,   ~2,   ~2,   ~2,   ~2,   ~2,   ~2,   ~2,   ~2,   ~2,   ~2,   ~2,   ~2, 
@@ -533,5 +533,4 @@ const int8_t leftmost_bit_tie_LUT3[] = {
 ~127, ~127, ~127, ~127, ~127, ~127, ~127, ~127, ~127, ~127, ~127, ~127, ~127, ~127, ~127, ~127
 };
 
-#endif
-
+#endif //MOTIVO_LEFTMOST_BIT_TIE_LUT

@@ -11,8 +11,8 @@ def leftmost_bit_tie(x, sum):
             return  (True, pos)
     return (False, sum)
 
-print("#ifndef LEFTMOST_BIT_TIE_LUT")
-print("#define LEFTMOST_BIT_TIE_LUT")
+print("#ifndef MOTIVO_LEFTMOST_BIT_TIE_LUT")
+print("#define MOTIVO_LEFTMOST_BIT_TIE_LUT")
 
 print()
 
@@ -48,5 +48,4 @@ for tableno in range(1,4):
                     print("~127", end="")
     print("\n};\n")
 
-print("#endif")
-print()
+print("#endif //MOTIVO_LEFTMOST_BIT_TIE_LUT")

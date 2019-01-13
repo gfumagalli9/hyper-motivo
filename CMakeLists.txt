@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.12)
 project(Motivo)
 
 set(MOTIVO_VERSION_MAJOR 0)
@@ -205,25 +205,19 @@ endif()
 
 add_custom_target(hg_id COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/hg_id.cmake)
 
-file(COPY scripts/build-and-sample.sh DESTINATION .)
-file(COPY scripts/build-many.sh DESTINATION .)
-file(COPY scripts/loe_to_graph.py DESTINATION .)
-
 string(STRIP "${MOTIVO_FLAGS}" MOTIVO_FLAGS)
 configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-include(src/common/CMakeLists.txt)
-include(src/merger/CMakeLists.txt)
-include(src/builder/CMakeLists.txt)
-include(src/sampler/CMakeLists.txt)
-include(src/tools/CMakeLists.txt)
-include(tests/CMakeLists.txt)
 
-
+add_subdirectory(src/common/)
+add_subdirectory(src/builder/)
+add_subdirectory(src/merger/)
+add_subdirectory(src/sampler/)
+add_subdirectory(src/tools/)
+add_subdirectory(src/tests/)
 
 include(testing.cmake)
-
 
 
 INSTALL(TARGETS motivo-build DESTINATION bin)
@@ -232,10 +226,6 @@ INSTALL(TARGETS motivo-sample DESTINATION bin)
 INSTALL(TARGETS motivo-graph DESTINATION bin)
 INSTALL(TARGETS motivo-decompose DESTINATION bin)
 INSTALL(TARGETS motivo-homomorphism DESTINATION bin)
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/build-many.sh DESTINATION share/motivo)
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/build-and-sample.sh DESTINATION share/motivo)
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/loe_to_graph.py DESTINATION share/motivo)
-
 
 
 SET(CPACK_GENERATOR "DEB")
