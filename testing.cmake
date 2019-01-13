@@ -1,3 +1,4 @@
+include(CTest)
 enable_testing()
 
 add_test(NAME build-graph COMMAND motivo-graph --input ${CMAKE_SOURCE_DIR}/graphs/test-graph.txt --output test-graph WORKING_DIRECTORY tests)

@@ -14,8 +14,8 @@ void MultithreadedBuilder::build()
 
     //Phase 1
     next_vertex = from_vertex;
-    auto *phase1_states = new phase1_thread_state_t[nthreads];
-    auto *phase1_threads = new std::thread[nthreads];
+    auto phase1_states = new phase1_thread_state_t[nthreads];
+    auto phase1_threads = new std::thread[nthreads];
     for (unsigned int i = 0; i<nthreads; i++)
     {
         assert(phase1_states[i].terminate_flag.is_lock_free());
@@ -56,7 +56,7 @@ void MultithreadedBuilder::build()
         missing_vertices++;
     }
 
-    auto *phase2_threads = new std::thread[nthreads];
+    auto phase2_threads = new std::thread[nthreads];
     for (unsigned int i = 0; i<nthreads; i++)
         phase2_threads[i] = std::thread([this, i, missing_vertices, phase2_states, writer] { phase2_thread_loop(i, phase2_states, missing_vertices, writer); });
 
@@ -66,7 +66,9 @@ void MultithreadedBuilder::build()
 
     for (unsigned int i = 0; i<missing_vertices; i++)
         delete[] phase2_states[i].tables;
+
     delete[] phase2_states;
+    delete[] phase1_states;
     //End of Phase 2
 
     delete writer;

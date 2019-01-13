@@ -31,7 +31,7 @@ Support for [mmap](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mma
 
 ###Compiling
 
-Install CMake (>= 3.5), checkout the source files and run:
+Install CMake (>= 3.12), checkout the source files and run:
 
 ~~~~
 $ mkdir build
@@ -40,7 +40,9 @@ $ cmake ..
 $ make
 ~~~~
 
-If you want to use tcmalloc add the option -DUSE_TCMALLOC=yes to the cmake command line, i.e.:
+The compiled files will be in the `bin` subdirectory.
+
+If you want to use tcmalloc add the option `-DUSE_TCMALLOC=yes` to the cmake command line, i.e.:
 ~~~~
 cmake -DUSE_TCMALLOC=yes
 ~~~~
@@ -54,7 +56,7 @@ $ CC=clang CXX=clang++ cmake -D_CMAKE_TOOLCHAIN_PREFIX=llvm- ..
 ###Running the tests
 
 ~~~~
-$ make test
+$ ctest
 ~~~~
 
 Hopefully you will get an output similar to the following:
@@ -72,13 +74,19 @@ Test project /home/steven/Projects/motivo/build
 Total Test time (real) =  32.25 sec
 ~~~~
 
+If you want to run the tests with a memory checker (e.g., [valgrind](http://valgrind.org/)) use:
+
+~~~~
+$ ctest -T memcheck
+~~~~
+
 ###Installing
 
 ~~~
 # make install
 ~~~
 
-On Linux motivo is installed in /usr/local by default. If you wish to chose another directory you can pass the option -DCMAKE_INSTALL_PREFIX:PATH=/your/path to the cmake invocation, e.g.:
+On Linux, motivo is installed in /usr/local by default. If you wish to chose another directory you can pass the option -DCMAKE_INSTALL_PREFIX:PATH=/your/path to the cmake invocation, e.g.:
 
 ~~~
 $ cmake -DCMAKE_INSTALL_PREFIX:PATH=~/motivo ..
@@ -101,11 +109,11 @@ This will generate a package named "Motivo-<version>-Linux.deb", to install it r
 
 ###Additional options
 
-In addition to -DCMAKE_BUILD_TYPE=... you can pass the option -DOPTIMIZE_MORE=YES to cmake to enable additional optimization flags including -march=native. The resulting binaries might not work on other machines.
+In addition to `-DCMAKE_BUILD_TYPE=...` you can pass the option `-DOPTIMIZE_MORE=YES` to cmake to enable additional optimization flags including `-march=native`. The resulting binaries might not work on other machines.
 
-The option -DENABLE_ASSERTS=YES enables asserts even when the code is compiled in release mode (the default setting). These perform additional sanity checks during the computation but result in slower code.
+The option `-DENABLE_ASSERTS=YES` enables asserts even when the code is compiled in release mode (the default setting). These perform additional sanity checks during the computation but result in slower code.
 
-The option -DMOTIVO_OVERFLOW_SAFE=NO disables overflow checks on arithmetic operations involving large numbers. This results in faster (but less safe) code. 
+The option `-DMOTIVO_OVERFLOW_SAFE=NO` disables overflow checks on arithmetic operations involving large numbers. This results in faster (but less safe) code. 
 
 Example:
 
