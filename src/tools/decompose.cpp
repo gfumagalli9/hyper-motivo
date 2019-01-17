@@ -51,7 +51,7 @@ int main(const int argc, const char** argv)
         }
 
         if(path_opt->is_found() && star_opt->is_found())
-            throw new std::runtime_error("Options 'path' and 'star' cannot be used at the same time");
+            throw std::runtime_error("Options 'path' and 'star' cannot be used at the same time");
 
         if(path_opt->is_found())
         {
@@ -79,7 +79,7 @@ int main(const int argc, const char** argv)
         }
 
         SimpleGraph::treelet_set_t treelets;
-        treelets.set_empty_key(Treelet::invalid_treelet);
+        treelets.set_empty_key(invalid_treelet);
         g.decompose(&treelets, root);
 
         Treelet::treelet_structure_t previous_structure = Treelet::invalid_structure;

@@ -82,8 +82,7 @@ void CompressedRecordFileWriter::write_record(char *record, uint64_t length, dou
         bytes_compressed += length;
     }
 
-    if(buffer!=nullptr)
-        delete[] buffer;
+    delete[] buffer;
 
     written_records++;
     bytes_uncompressed += length;

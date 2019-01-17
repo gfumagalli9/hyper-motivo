@@ -24,15 +24,14 @@
 void test_stc(unsigned int from, unsigned int size)
 {
 	UndirectedGraph test_graph("test-graph");
-	UndirectedGraph::vertex_t* subgraph = new UndirectedGraph::vertex_t[size];
+	auto subgraph = new UndirectedGraph::vertex_t[size];
 	for (unsigned int i = 0; i < size; i++)
 		subgraph[i] = from + i;
 	Occurrence occ(size, &test_graph, subgraph);
 
 	SpanningTreeCounter stc;
 	CHECK_EQ(stc.num_spanning_trees(occ), occ.number_of_spanning_trees());
-	uint64_t tc = stc.num_spanning_trees(occ, nullptr);
-	CHECK_EQ(tc, occ.number_of_spanning_trees());
+	CHECK_EQ(SpanningTreeCounter::num_spanning_trees(occ, nullptr), occ.number_of_spanning_trees());
 
 	delete[] subgraph;
 }

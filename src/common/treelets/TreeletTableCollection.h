@@ -17,11 +17,12 @@ private:
     unsigned int size;
     TreeletTable** tables;
 
+public:
     TreeletTableCollection(const TreeletTableCollection&) = delete;
     void operator=(const TreeletTableCollection&) = delete;
 
-public:
-    TreeletTableCollection(const unsigned int capacity=default_capacity);
+    explicit TreeletTableCollection(unsigned int capacity=default_capacity);
+
     ~TreeletTableCollection();
 
     void add(TreeletTable* table) { tables[size++] = table; }

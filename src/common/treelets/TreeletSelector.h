@@ -7,9 +7,9 @@
 
 #include <cstdint>
 #include <algorithm>
-#include "Treelet.h"
 #include <fstream>
 #include <set>
+#include "Treelet.h"
 
 class TreeletSelector {
 public:
@@ -22,17 +22,17 @@ private:
 	uint64_t capacity = 0;
 	Treelet* treelets = nullptr;
 	mode_t mode;
-	mode_t special_mode;
 
 	const unsigned int treelet_size; //0 for any size. >0 to restrict to the given size
 
 public:
-	TreeletSelector(const mode_t mode, const unsigned int treelet_size = 0) :
-			mode(mode), special_mode(mode), treelet_size(treelet_size) {
-	}
+	explicit TreeletSelector(const mode_t mode, const unsigned int treelet_size = 0) :
+			mode(mode), treelet_size(treelet_size)
+	{}
 
-	TreeletSelector(const std::string& filename, const unsigned int treelet_size = 0) :
-			treelet_size(treelet_size) {
+	explicit TreeletSelector(const std::string& filename, const unsigned int treelet_size = 0) :
+			treelet_size(treelet_size)
+	{
 		std::ifstream ifs(filename, std::ifstream::binary);
 		if (!ifs.is_open())
 			throw std::runtime_error("Could not open file " + filename);
@@ -61,26 +61,24 @@ public:
 		}
 	}
 
-	~TreeletSelector() {
+	~TreeletSelector()
+	{
 		delete[] treelets;
 	}
 
-	uint64_t get_size() const {
-		return size;
-	}
+	uint64_t number_of_treelets() const { return size; }
 
-	mode_t get_mode() const {
-		return mode;
-	}
+	mode_t get_mode() const { return mode; }
 
-	void add_treelet(Treelet treelet, bool sort_treelets = false)
+	void add_treelet(Treelet treelet)
 	{
 		if (treelet_size != 0 && treelet.number_of_vertices() != treelet_size)
 			return;
 
-		if (size == capacity) {
+		if (size == capacity)
+		{
 			capacity = (capacity == 0) ? 2 : (capacity * 2);
-			Treelet *t = new Treelet[capacity];
+			auto t = new Treelet[capacity];
 
 			std::copy(treelets, treelets + size, t);
 			delete[] treelets;
@@ -88,40 +86,28 @@ public:
 		}
 
 		treelets[size++] = treelet;
-		if (sort_treelets)
-			std::sort(treelets, treelets + size);
 	}
 
-	const Treelet* get_treelets() const {
-		return treelets;
-	}
-	;
+	const Treelet* get_treelets() const { return treelets; }
 
-	unsigned int get_treelet_size() const {
-		return treelet_size;
-	}
-	;
+	unsigned int get_treelet_size() const { return treelet_size; }
 
 	bool is_included(Treelet t) const
 	{
 		//FIXME: Binary search? Stop early?
-		bool found = false;
-		for (uint64_t i = 0; i < size; i++) {
-			if (treelets[i].get_structure() == t.get_structure()
-					&& (!treelets[i].is_colored() || treelets[i].get_colors() == t.get_colors())) {
-				found = true;
-				break;
-			}
-		}
+		for (uint64_t i = 0; i < size; i++)
+			if (treelets[i].get_structure() == t.get_structure() && (!treelets[i].is_colored() || treelets[i].get_colors() == t.get_colors()))
+				return (mode == MODE_INCLUDE); //Treelet found
 
-		return (mode == MODE_INCLUDE) == found;
+		return (mode != MODE_INCLUDE); //Treelet not found
 	}
 
 	/**
 	 * A selector that only includes/excludes the stars on k nodes
 	 */
 	//FIXME: Returning a copy
-	static TreeletSelector get_star_selector(unsigned int k, TreeletSelector::mode_t mode) {
+	static TreeletSelector get_star_selector(unsigned int k, TreeletSelector::mode_t mode)
+	{
 		TreeletSelector ts(mode, k);
 		Treelet::treelet_structure_t structure = 0;
 
@@ -129,17 +115,16 @@ public:
 		for (unsigned int i = 0; i < k - 1; i++)
 			structure |= (Treelet::treelet_structure_highest_bit >> (i * 2));
 
-		ts.add_treelet(Treelet(structure, 0), true);
+		ts.add_treelet(Treelet(structure, 0) );
 
 		// the k-star rooted at one leaf
 		if (k > 2) {
-			structure = (structure << 1) | Treelet::treelet_structure_highest_bit;
-			ts.add_treelet(Treelet(structure, 0), true);
+			structure = (structure << 1u) | Treelet::treelet_structure_highest_bit;
+			ts.add_treelet(Treelet(structure, 0) );
 		}
 
 		return ts;
 	}
-
 
 };
 

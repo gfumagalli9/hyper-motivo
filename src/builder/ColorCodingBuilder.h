@@ -55,7 +55,7 @@ public:
                         safe_mul(u_it.count(), v_it.count(), &tmp);
                         safe_add(count, tmp, &count);
                     }
-                    else if(merged == Treelet::invalid_merge_structure)
+                    else if(merged == invalid_merge_structure)
                         break; //All the remaining treelets t2 will have a structure that is too small.
                 }
             }
@@ -75,7 +75,7 @@ public:
 
         //Make sure array is properly aligned
         static_assert( (sizeof(UndirectedGraph::vertex_t) + sizeof(uint64_t)) % alignof(TreeletTable::treelet_count_pair) == 0, "treelet_count_pair not aligned in buffer" );
-        TreeletTable::treelet_count_pair *counts = new(result.first+sizeof(UndirectedGraph::vertex_t)+sizeof(uint64_t)) TreeletTable::treelet_count_pair[size];
+        auto counts = new(result.first+sizeof(UndirectedGraph::vertex_t)+sizeof(uint64_t)) TreeletTable::treelet_count_pair[size];
         TreeletTable::treelet_count_t i=0;
         typename T::const_iterator u_it = table.begin();
         while(u_it != table.end())

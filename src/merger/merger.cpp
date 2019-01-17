@@ -17,17 +17,17 @@
 struct vertex_info
 {
     char* ptr;
-    uint64_t count=0;
+    uint64_t count;
 };
 
-void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, vertex_info* info, double compression_threshold);
+void write_table(const std::string &output_basename, UndirectedGraph::vertex_t num_vertices, vertex_info* info, double compression_threshold);
 
 void merge(const std::vector<std::string>& count_filenames, const std::string& output_basename, double compression_threshold)
 {
     const unsigned long no_files = count_filenames.size();
     UndirectedGraph::vertex_t num_vertices = 0;
-    std::pair<char*, size_t>* cnt_map = new std::pair<char*, size_t>[no_files];
-    FILE** count_files = new FILE*[no_files];
+    auto cnt_map = new std::pair<char*, size_t>[no_files];
+    auto count_files = new FILE*[no_files];
     vertex_info* info = nullptr;
     std::vector<bool> seen_vertices;
     for(unsigned int i=0; i<no_files; i++)
@@ -35,7 +35,7 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
         const std::string &filename = count_filenames[i];
         count_files[i] = fopen(filename.c_str(), "rb");
 
-        if(count_files[i]==NULL)
+        if(count_files[i]== nullptr)
             throw std::runtime_error("Unable to open file " + filename );
 
         UndirectedGraph::vertex_t nv;
@@ -121,9 +121,9 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
     for(UndirectedGraph::vertex_t u=0; u < num_vertices; u++)
     {
         num_treelet_count_pairs+=info[u].count;
-        TreeletTable::treelet_count_pair *to_write = new TreeletTable::treelet_count_pair[info[u].count + 1];
-        TreeletTable::treelet_count_pair *p = to_write;
-        p->treelet = Treelet::invalid_treelet;
+        auto to_write = new TreeletTable::treelet_count_pair[info[u].count + 1];
+        auto p = to_write;
+        p->treelet = invalid_treelet;
         p->count = 0;
         for (TreeletTable::treelet_count_t i = 0; i < info[u].count; i++)
         {
@@ -217,7 +217,7 @@ int main(const int argc, const char** argv)
 
 
     const std::vector<std::string> &count_files = op.positional_arguments();
-    if (count_files.size() == 0)
+    if (count_files.empty())
     {
         std::cout << "No inputs specified" << std::endl;
         return EXIT_FAILURE;

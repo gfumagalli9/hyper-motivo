@@ -9,7 +9,6 @@
 #include <string>
 #include <cassert>
 #include <cstring>
-class Occurrence; //FIXME
 
 ///Represents an immutable undirected unweighted graph
 ///Vertices are numbered with consecutive integers, starting from 0
@@ -26,18 +25,17 @@ private:
 	char *offsets;
 	char *edges;
 
-	UndirectedGraph(const UndirectedGraph &) = delete;
-
-	void operator=(const UndirectedGraph &) = delete;
-
-private:
-	char *offset_of(const vertex_t v, vertex_t i = 0) const {
+	char *offset_of(const vertex_t v, vertex_t i = 0) const
+	{
 		uint32_t offset;
 		memcpy(&offset, offsets + sizeof(uint32_t) * static_cast<uint64_t>(v), sizeof(uint32_t));
 		return edges + static_cast<uint64_t>(offset + i) * sizeof(vertex_t);
 	}
 
 public:
+	UndirectedGraph(const UndirectedGraph &) = delete;
+	void operator=(const UndirectedGraph &) = delete;
+
 	explicit UndirectedGraph(const std::string &filename);
 
 	~UndirectedGraph();
@@ -73,7 +71,7 @@ public:
 	}
 
 	///@returns true iff there is an edge between vertex @param u and vertex @param v
-	bool has_edge(const vertex_t u, const vertex_t v) const;
+	bool has_edge(vertex_t u, vertex_t v) const;
 };
 
 #endif //MOTIVO_UNDIRECTEDGRAPH_H

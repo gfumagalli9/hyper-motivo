@@ -81,7 +81,7 @@ void SimpleGraph::decompose(treelet_set_t *treelets, int root, bool unique)
 
 SimpleGraph SimpleGraph::from_stdin() {
 	SimpleGraph g;
-    bool seen[16]={0};
+    bool seen[16]={false};
     unsigned int nedges=0;
 
     unsigned int  u,v;

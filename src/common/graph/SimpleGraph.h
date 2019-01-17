@@ -27,7 +27,7 @@ private:
 	unsigned int adj_lists[16][16] = {0};
 
 public:
-	typedef google::dense_hash_set<Treelet, Treelet::TreeletHash, Treelet::compare_eq> treelet_set_t;
+	typedef google::dense_hash_set<Treelet, Treelet::TreeletHash> treelet_set_t;
 
 	unsigned int number_of_vertices() { return nverts; };
 

@@ -1,3 +1,9 @@
+#include <utility>
+
+#include <utility>
+
+#include <utility>
+
 //
 // Created by steven on 2/27/17.
 //
@@ -31,10 +37,12 @@ public:
         std::string get_value() { return found?value:default_value; }
 
         void set_found() {found=true;}
-        void set_value(std::string value) { this->value = value; }
+        void set_value(const std::string &value) { this->value = value; }
 
-        Option(bool required, bool requires_argument, std::string name, char short_name, const std::string& default_value, const std::string& help)
-            : required(required), requires_argument(requires_argument), name(name), short_name(short_name), default_value(default_value), help(help) {};
+        Option(bool required, bool requires_argument, std::string name, char short_name, std::string default_value, std::string help)
+            : required(required), requires_argument(requires_argument), name(std::move(name)), short_name(short_name),
+            default_value(std::move(default_value)), help(std::move(help))
+            {};
     };
 
 private:
@@ -43,7 +51,7 @@ private:
 
 public:
     Option* add_option(bool requred, bool requires_argument, std::string name, char short_name, const std::string& default_value, const std::string& help);
-    bool parse(const int argc, const char** argv);
+    bool parse(int argc, const char** argv);
     bool has_required_options();
     std::string help();
 

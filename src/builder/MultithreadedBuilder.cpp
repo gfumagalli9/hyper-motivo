@@ -17,10 +17,7 @@ void MultithreadedBuilder::build()
     auto phase1_states = new phase1_thread_state_t[nthreads];
     auto phase1_threads = new std::thread[nthreads];
     for (unsigned int i = 0; i<nthreads; i++)
-    {
-        assert(phase1_states[i].terminate_flag.is_lock_free());
         phase1_threads[i] = std::thread([this, i, phase1_states, writer] { phase1_thread_loop(i, phase1_states, writer); });
-    }
 
     for (unsigned int i = 0; i<nthreads; i++)
         phase1_threads[i].join();
@@ -45,10 +42,6 @@ void MultithreadedBuilder::build()
         phase2_states[missing_vertices].next_edge = phase1_states[i].next_edge;
         phase2_states[missing_vertices].processed_edges = phase1_states[i].next_edge;
         phase2_states[missing_vertices].num_workers = 0;
-
-        assert(phase2_states[missing_vertices].next_edge.is_lock_free());
-        assert(phase2_states[missing_vertices].processed_edges.is_lock_free());
-        assert(phase2_states[missing_vertices].num_workers.is_lock_free());
 
         phase2_states[missing_vertices].tables = new ColorCodingHashmap *[nthreads];
         phase2_states[missing_vertices].tables[0] = &phase1_states[i].table;

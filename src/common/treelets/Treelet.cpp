@@ -6,17 +6,13 @@
 #include <climits>
 #include "Treelet.h"
 
-const Treelet Treelet::invalid_treelet = Treelet(invalid_structure, 0); //A generic invalid treelet representation
-const Treelet Treelet::invalid_merge_colors = Treelet(invalid_structure, 1); //Merge failed due to intersecting colors
-const Treelet Treelet::invalid_merge_structure = Treelet(invalid_structure, 2); //Merge failed due to wrong structure order
-
 Treelet Treelet::merge(const Treelet other) const
 {
     if(colors & other.colors) //colors intersect
         return invalid_merge_colors;
 
     const unsigned int other_size = other.number_of_vertices();
-    treelet_structure_t new_structure = treelet_structure_highest_bit + (other.structure >> 1) + (structure >> (2*other_size));
+    treelet_structure_t new_structure = treelet_structure_highest_bit + (other.structure >> 1u) + (structure >> (2*other_size));
 
     //Let x be the first child of this. Let |t| denote the num_vertices of t.
     //If x and t2 coincide then there the first 2*max(|x|,|t2|) bits of the structure of this and t2 coincide

@@ -6,10 +6,13 @@
 #define MOTIVO_DYNAMICSEQUENCER_H
 
 #include <mutex>
+#include <limits>
 
 template <typename T> class DynamicSequencer
 {
 public:
+    static constexpr T to_max = std::numeric_limits<T>::max() - 2*(std::numeric_limits<T>::max()/100);
+
     struct sequence_batch_t
     {
         T from;

@@ -11,7 +11,7 @@
 
 void test(const uint64_t data_size, const unsigned int nrecords, const bool random)
 {
-    char *data = new char[data_size]; //uninitialized data
+    auto data = new char[data_size]; //uninitialized data
 
     Random r;
     for (uint64_t i = 0; i < data_size; i++)

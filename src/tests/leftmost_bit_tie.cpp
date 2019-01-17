@@ -18,7 +18,7 @@ int reference (uint32_t x)
         else
             count--;
 
-        x = x << 1;
+        x = x << 1u;
     } while (count && bits<32);
 
     return count?127:bits;

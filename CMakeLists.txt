@@ -26,7 +26,7 @@ option(MOTIVO_DENSE_HASHMAP "Use dense hashmaps" OFF)
 
 set(MOTIVO_FLAGS "")
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wconversion -Wall -Wextra -Wpedantic -pedantic-errors -Wdisabled-optimization -Wfloat-equal -Wold-style-cast -Wsign-conversion -Winline -Wzero-as-null-pointer-constant -Wuseless-cast -Wno-zero-as-null-pointer-constant -Wno-unknown-warning-option")
 
 if(ENABLE_ASSERTS)

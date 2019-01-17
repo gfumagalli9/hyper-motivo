@@ -15,7 +15,7 @@ public:
 private:
     //The number of spanning trees in a complete graph of 16 vertices is 16^14.
     //Considering overcounting we get values thar are <= 16^15 < 2^(15 log 16) = 2^60
-#define COLORCODINGSPANNINGTREECOUNTER_INIT_HASHMAP(hm) do { (hm).set_empty_key(Treelet::invalid_treelet); } while(false)
+#define COLORCODINGSPANNINGTREECOUNTER_INIT_HASHMAP(hm) do { (hm).set_empty_key(invalid_treelet); } while(false)
 
     const Occurrence *occurrence;
     const TreeletSelector *selector;

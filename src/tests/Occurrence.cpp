@@ -16,11 +16,12 @@
  * A paw on vertices 52-55 (4 edges)
  * Four isolated vertices 56-59
  */
-UndirectedGraph test_graph("test-graph");
 
 void test(unsigned int from, unsigned int size, uint64_t expected)
 {
-    UndirectedGraph::vertex_t* subgraph = new UndirectedGraph::vertex_t[size];
+    UndirectedGraph test_graph("test-graph");
+
+    auto subgraph = new UndirectedGraph::vertex_t[size];
     for(unsigned int i=0; i<size; i++)
         subgraph[i]=from+i;
 

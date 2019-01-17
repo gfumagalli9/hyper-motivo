@@ -39,8 +39,7 @@ void graph2bin(const std::string &graph_filename, const std::string &output_base
             stream >> num_verts >> num_edges;
             offsets.write(reinterpret_cast<const char*>(&num_verts), sizeof(UndirectedGraph::vertex_t));
             offsets.write(reinterpret_cast<const char*>(&num_edges), sizeof(UndirectedGraph::vertex_t));
-            std::vector<UndirectedGraph::vertex_t>* adj =
-                    new std::vector<UndirectedGraph::vertex_t>[num_verts];
+            auto adj = new std::vector<UndirectedGraph::vertex_t>[num_verts];
             // Read edges
             while (!stream.eof()) {
                 UndirectedGraph::vertex_t u;

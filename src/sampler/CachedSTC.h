@@ -24,9 +24,9 @@
 class CachedSTC
 {
 public:
-	typedef google::dense_hash_map<Treelet, uint64_t, Treelet::TreeletHash, Treelet::compare_eq> treelet_table_t;
+	typedef google::dense_hash_map<Treelet, uint64_t, Treelet::TreeletHash> treelet_table_t;
 	typedef google::dense_hash_map<Occurrence, uint64_t, Occurrence::OccurrenceFootprintHash, Occurrence::OccurrenceFootprintEquality> occ_table_t;
-    typedef google::dense_hash_map<Treelet, occ_table_t*, Treelet::TreeletHash, Treelet::compare_eq> treelet_occurrence_table_t;
+    typedef google::dense_hash_map<Treelet, occ_table_t*, Treelet::TreeletHash> treelet_occurrence_table_t;
     typedef google::dense_hash_map<Occurrence, treelet_table_t*, Occurrence::OccurrenceFootprintHash, Occurrence::OccurrenceFootprintEquality> occurrence_treelet_table_t;
 //	typedef std::map<Treelet, uint64_t, Treelet::compare_less> treelet_table_t;
 //	typedef std::map<Occurrence, treelet_table_t*, OcurrenceFootprintLess> occurrence_treelet_table_t;
@@ -42,7 +42,7 @@ private:
 public:
 	CachedSTC() {
 		table.set_empty_key(Occurrence());
-		reverse_table.set_empty_key(Treelet::invalid_treelet);
+		reverse_table.set_empty_key(invalid_treelet);
 	}
 
 	~CachedSTC() {
@@ -95,8 +95,6 @@ public:
 	inline occ_table_t* get_reverse_table(const Treelet &t) {
 		return reverse_table[t];
 	}
-
-//	uint64_t num_spanning_trees(const Occurrence &o, const Treelet &t);
 
 };
 

@@ -30,12 +30,14 @@ private:
 public:
     typedef table_t::const_iterator const_iterator;
 
+#ifdef MOTIVO_DENSE_HASHMAP
     ColorCodingHashmap()
     {
-    #ifdef MOTIVO_DENSE_HASHMAP
         hashmap.set_empty_key(Treelet::invalid_treelet);
-    #endif
     }
+#else
+    ColorCodingHashmap() = default;
+#endif
 
     inline TreeletTable::treelet_count_t& operator[](const Treelet& k)
     {

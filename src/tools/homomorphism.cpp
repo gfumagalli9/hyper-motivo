@@ -10,21 +10,24 @@
 class SJTPermutationGenerator
 {
 private:
-    int n;
+    const unsigned int n;
     unsigned int* elements;
     signed char* direction;
 
 public:
-    SJTPermutationGenerator(int n) : n(n)
+    explicit SJTPermutationGenerator(const unsigned int n) : n(n)
     {
+        if(n==0)
+            throw std::runtime_error("n must be positive");
+
         elements = new unsigned int[n];
         direction = new signed char[n];
 
         elements[0] = 0;
         direction[0] = 0;
-        for(int i=1; i<n; i++)
+        for(unsigned int i=1; i<n; i++)
         {
-            elements[i]= static_cast<unsigned int>(i);
+            elements[i]=i;
             direction[i]=-1;
         }
     }
@@ -39,29 +42,37 @@ public:
 
     bool next()
     {
-        int i,j=-1;
+        unsigned int j=0;
         unsigned int x=0;
-        for(i=0; i<n; i++) // finds the largest element with a nonzero direction
-            if(direction[i]!=0 && elements[i]>=x)
-                x=elements[j=i];
+        bool found=false;
+        for(unsigned int i=0; i<n; i++) // finds the largest element with a nonzero direction
+        {
+            if(direction[i] != 0 && elements[i] >= x)
+            {
+                found=true;
+                j=i;
+                x=elements[i];
+            }
+        }
 
-        if(j==-1)
+        if(!found)
             return false;
 
-        int k = j + direction[j];
+        unsigned int k = (direction[j]>0)?(j+1):(j-1);
 
         {unsigned int t=elements[j]; elements[j]=elements[k]; elements[k]=t;}
         {signed char t=direction[j]; direction[j]=direction[k]; direction[k]=t;}
 
-        //If this causes the chosen element to reach the first or last position within the permutation, or if the next element in the same direction is larger than the chosen element, the direction of the chosen element is set to zero
-        if(k==0 || k==n-1 || elements[k+direction[k]] > x)
+        //If this causes the chosen element to reach the first or last position within the permutation,
+        //or if the next element in the same direction is larger than the chosen element, the direction of the chosen element is set to zero
+        if(k==0 || k==n-1 || elements[(direction[k]>0)?(k+1):(k-1)] > x)
             direction[k]=0;
 
-        for(i=0; i<k; i++)
+        for(unsigned int i=0; i<k; i++)
             if(elements[i]>x)
                 direction[i]=1;
 
-        for(i=k+1; i<n; i++)
+        for(unsigned int i=k+1; i<n; i++)
             if(elements[i]>x)
                 direction[i]=-1;
 
@@ -72,7 +83,7 @@ public:
 
 unsigned int nverts=0;
 unsigned int parents[16] = {0};
-bool adj_matrix[16][16] = {0};
+bool adj_matrix[16][16] = {{false}};
 
 inline bool is_homomorfism(const unsigned int* perm)
 {
@@ -88,7 +99,7 @@ inline bool is_homomorfism(const unsigned int* perm)
 uint64_t compute()
 {
     uint64_t count=0;
-    SJTPermutationGenerator P(static_cast<int>(nverts));
+    SJTPermutationGenerator P(nverts);
     do
     {
         count+=is_homomorfism(P.permutation());
@@ -173,7 +184,7 @@ int main(const int argc, const char** argv)
     if(!parse_ok || help_opt->is_found())
     {
         std::cout << "motivo-homomorphism [OPTION]..." << std::endl;
-        std::cout << "  Counts the number of induced homomorfisms from a treelet to an occurrence" << std::endl << std::endl;
+        std::cout << "  Counts the number of induced homomorphisms from a treelet to an occurrence" << std::endl << std::endl;
         std::cout << op.help() << std::endl;
 
         return parse_ok?EXIT_SUCCESS:EXIT_FAILURE;

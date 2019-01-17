@@ -13,10 +13,9 @@ ConcurrentWriter::ConcurrentWriter(std::ostream *output, unsigned long capacity)
 
 void ConcurrentWriter::write_loop()
 {
-    record_t record;
     while(true)
     {
-        record = queue.pop();
+        record_t record = queue.pop();
         if(record.buffer==nullptr)
             return;
 

@@ -37,7 +37,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *estimate_occurrences_opt = op.add_option(false, false, "estimate-occurrences", '\0', "", "Estimate the number of occurrences of graphlets in the graph (implies: --graphlets, --norejection)"); //FIXME: Can this be used with treelets?
     OptionsParser::Option *adaptive_opt = op.add_option(false, false, "estimate-occurrences-adaptive", '\0', "", "Estimate the number of occurrences of graphlets in the graph using adaptive sampling (implies: --graphlets, --norejection, and --canonicize)");
     OptionsParser::Option *time_budget_opt = op.add_option(false, true, "time-budget", '\0', "", "Time budget in seconds");
-    OptionsParser::Option *sptrees_db_opt = op.add_option(false, true, "sptrees", '\0', "", "Read graphlet spanning tree counts from/to this file");
+    OptionsParser::Option *sptrees_db_opt = op.add_option(false, true, "sptrees", '\0', "", "Read graphlet spanning tree counts from/to file ARG");
 
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())

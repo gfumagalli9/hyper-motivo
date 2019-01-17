@@ -5,7 +5,7 @@
 
 void* motivo_mmap_populate(size_t length, int prot, int fd)
 {
-    return mmap(nullptr, length, prot, MAP_PRIVATE | MAP_POPULATE, fd, 0);
+    return mmap(nullptr, length, prot, MAP_PRIVATE | MAP_POPULATE, fd, 0); // NOLINT
 }
 
 void* motivo_mmap(size_t length, int prot, int fd)
@@ -19,7 +19,8 @@ void motivo_prefault(off_t off, size_t length, int fd)
 
     off_t aligned_off = (off/page_size)*page_size;
     size_t aligned_len = length + static_cast<size_t>(off-aligned_off);
-    void* m=mmap(nullptr, aligned_len, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, aligned_off);
+    void* m=mmap(nullptr, aligned_len, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, aligned_off); // NOLINT
+
     if(m==MAP_FAILED)
         throw std::runtime_error("Map failed with error " + std::to_string(errno));
 

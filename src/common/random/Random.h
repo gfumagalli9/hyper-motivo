@@ -47,8 +47,7 @@ public:
     }
 
 
-
-    const std::string& get_seed()
+    const std::string& get_seed() const
     {
         return seed;
     }

@@ -5,11 +5,6 @@
 #include "Occurrence.h"
 #include <lapacke.h>
 
-
-constexpr unsigned int Occurrence::binary_footprint_bits;
-constexpr unsigned int Occurrence::binary_footprint_bytes;
-constexpr unsigned int Occurrence::text_footprint_bytes;
-
 Occurrence::Occurrence(const unsigned int size, const UndirectedGraph *graph, const UndirectedGraph::vertex_t *occ) : size(size)
 {
     for(unsigned int i=0; i<size; i++)

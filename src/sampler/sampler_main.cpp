@@ -60,8 +60,7 @@ int main(const int argc, const char** argv) {
 		tables = new TreeletTable *[opts.size];
 
 		for (unsigned int i = 0; i < opts.size; i++) {
-			readers[i].open(
-					std::string(opts.tables_basename) + "." + std::to_string(i + 1) + ".dtz");
+			readers[i].open(std::string(opts.tables_basename) + "." + std::to_string(i + 1) + ".dtz");
 			readers[i].prefault(0, G.number_of_vertices() - 1);
 			tables[i] = new TreeletTable(&readers[i]);
 			ttc.add(tables[i]);
@@ -85,7 +84,7 @@ int main(const int argc, const char** argv) {
 				full_selector = new TreeletSelector(opts.selective_filename, opts.size);
 			std::cout << "Selectively "
 					<< ((selector->get_mode() == TreeletSelector::MODE_INCLUDE) ?
-							"sampling only " : "ignoring ") << selector->get_size()
+							"sampling only " : "ignoring ") << selector->number_of_treelets()
 					<< " treelet(s) of the given size" << std::endl;
 		}
 
@@ -130,13 +129,12 @@ int main(const int argc, const char** argv) {
 		uint64_t nonstar_nsamples = opts.number_of_samples - star_nsamples;
 
 		// 2. SAMPLING THE REST
-		if (opts.adaptive) {
+		if (opts.adaptive)
+		{
 			std::cout << "adaptive sampler" << std::endl;
 			std::chrono::time_point < std::chrono::steady_clock > sampstart =
 					std::chrono::steady_clock::now();
-			AdaptiveSampler sampler(&G,
-					std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".dtz",
-					nullptr, opts.size, &ttc, store_only_on_0);
+			AdaptiveSampler sampler(&G, opts.size, &ttc, store_only_on_0);
 			SampleTable* samples = sampler.sample(nonstar_nsamples, opts.threads, &rng, time_bud);
 			std::chrono::duration<double> el = std::chrono::steady_clock::now() - sampstart;
 			std::cout << "adaptive sampler: taken " << samples->get_num_samples() << " samples in "
@@ -159,7 +157,7 @@ int main(const int argc, const char** argv) {
 				delete samples;
 			}
 		} else {
-			std::cout << "Naive sampler" << std::endl;
+			std::cout << "Using naive sampler" << std::endl;
 			std::chrono::time_point < std::chrono::steady_clock > sampstart =
 					std::chrono::steady_clock::now();
 			OccurrenceSampler sampler(&G, &ttc, opts.size, opts.vertices, opts.graphlets,
@@ -169,7 +167,7 @@ int main(const int argc, const char** argv) {
 			if (opts.smart_stars && !selector)
 				full_selector = &fs;
 			sampler.set_selector(selector, opts.threads, full_selector);
-			SpanningTreeCounter *stc = new SpanningTreeCounter();
+			auto *stc = new SpanningTreeCounter();
 			if (!opts.sptrees_file.empty())
 			{
 				stc->read_from_file(opts.sptrees_file);

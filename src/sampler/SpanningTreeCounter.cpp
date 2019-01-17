@@ -33,7 +33,7 @@ uint64_t SpanningTreeCounter::num_spanning_trees_nostars(const Occurrence& occ) 
  */
 uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, const TreeletSelector* ts)
 {
-	if (ts == nullptr || ts->get_size() == 0)
+	if (ts == nullptr || ts->number_of_treelets() == 0)
 		return occ.number_of_spanning_trees();
 	ColorCodingSpanningTreeCounter ccstc(&occ, ts);
 	ccstc.count();
@@ -72,7 +72,8 @@ uint64_t SpanningTreeCounter::get_spanning_trees(const Occurrence& occ, const Tr
 			cache[occ] = SpanningTreeCounter::num_spanning_trees(occ, ts);
 			m_mutex.unlock();
 	}
-		return cache[occ];
+
+	return cache[occ];
 }
 
 void SpanningTreeCounter::save_to_file(std::string filename)
@@ -86,7 +87,7 @@ void SpanningTreeCounter::save_to_file(std::string filename)
         Occurrence o = itr->first;
         unsigned int k = o.get_size();
         std::fwrite(&k, sizeof(k), 1, fd);
-        std::fwrite(&o.binary_footprint_bytes, sizeof(o.binary_footprint_bytes), 1, fd);
+        std::fwrite(&Occurrence::binary_footprint_bytes, sizeof(Occurrence::binary_footprint_bytes), 1, fd);
         const char* bf = o.binary_footprint();
         std::fwrite(bf, sizeof(*bf), o.binary_footprint_bytes, fd);
         std::fwrite(&(itr->second), sizeof(itr->second), 1, fd);

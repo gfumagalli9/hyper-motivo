@@ -21,7 +21,7 @@ private:
     std::condition_variable not_empty;
 
 public:
-    ConcurrentFIFO(unsigned long capacity) : capacity(capacity)
+    explicit ConcurrentFIFO(unsigned long capacity) : capacity(capacity)
     {
         buffer = new T[capacity];
     }

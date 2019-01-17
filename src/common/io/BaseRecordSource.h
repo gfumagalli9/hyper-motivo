@@ -22,7 +22,7 @@ public:
     uint64_t length() const noexcept { return len; }
     const T* begin() const noexcept { return ptr; }
     const T* end() const noexcept { return ptr+len; }
-    void free() { if(free_ptr) delete[] free_ptr; free_ptr=nullptr; }
+    void free() { delete[] free_ptr; free_ptr=nullptr; }
 };
 
 struct [[gnu::packed]] record_offset_t
@@ -36,9 +36,9 @@ static_assert( sizeof(record_offset_t) == 6, "Structure record_offset_t is not p
 template<typename T> class BaseRecordSource
 {
 public:
-    virtual Record<T> get_record(const uint64_t record_no) const = 0;
+    virtual Record<T> get_record(uint64_t record_no) const = 0;
     virtual uint64_t number_of_records() const = 0;
-    virtual ~BaseRecordSource() {};
+    virtual ~BaseRecordSource() = default;
 };
 
 #endif //MOTIVO_BASERECORDSOURCE_H

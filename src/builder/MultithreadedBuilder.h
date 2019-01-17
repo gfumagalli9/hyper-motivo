@@ -14,6 +14,10 @@
 class MultithreadedBuilder
 {
 private:
+    static_assert(std::atomic<bool>::is_always_lock_free, "std::atomic<bool> is not always lock free");
+    static_assert(std::atomic<UndirectedGraph::vertex_t>::is_always_lock_free, "std::atomic<UndirectedGraph::vertex_t> is not always lock free");
+    static_assert(std::atomic<unsigned int>::is_always_lock_free, "std::atomic<unsigned int> is not always lock free");
+
     struct phase1_thread_state_t
     {
         UndirectedGraph::vertex_t current_vertex = UndirectedGraph::INVALID_VERTEX;
@@ -52,7 +56,7 @@ public:
 
     void phase1_thread_loop [[gnu::hot]] (unsigned int thread_no, phase1_thread_state_t *states, ConcurrentWriter *writer);
 
-    void phase2_thread_loop [[gnu::hot]] (unsigned int thread_no, phase2_vertex_state_t *states, const unsigned int nstates,ConcurrentWriter *writer);
+    void phase2_thread_loop [[gnu::hot]] (unsigned int thread_no, phase2_vertex_state_t *states, unsigned int nstates,ConcurrentWriter *writer);
 
     void merge_and_write(ConcurrentWriter *writer, phase2_vertex_state_t *state);
 

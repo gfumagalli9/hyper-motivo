@@ -14,12 +14,10 @@ void Size1Builder::build()
     constexpr uint64_t one=1;
     memcpy(buffer+sizeof(UndirectedGraph::vertex_t), &one, sizeof(uint64_t));
 
-    TreeletTable::treelet_count_pair tcp;
-    tcp.count=1;
-
+    TreeletTable::treelet_count_pair tcp {invalid_treelet, 1};
     for (UndirectedGraph::vertex_t u = from_vertex; u<=to_vertex; u++)
     {
-        uint8_t color = static_cast<uint8_t>(rng->random_uint(0, number_of_colors-1));
+        auto color = static_cast<uint8_t>(rng->random_uint(0, number_of_colors-1));
         if (store_only_0 && color != 0)
             continue;
 

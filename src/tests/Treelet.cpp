@@ -11,14 +11,7 @@ void test(const Treelet& treelet, Treelet::treelet_structure_t structure, Treele
     {
         Treelet::treelet_structure_t s;
         Treelet::treelet_colors_t c;
-    } r;
-
-    r.s = structure;
-    r.c = colors;
-
-
-    //*reinterpret_cast<uint8_t*>(pr+6) = norm;
-    //*reinterpret_cast<uint8_t*>(pr+7) = num_vertices;
+    } r{structure, colors};
 
     static_assert(sizeof(r) == sizeof(Treelet), "Structure size mismatch");
     CHECK( memcmp(&r, &treelet, sizeof(r)) == 0 );
@@ -44,23 +37,23 @@ TEST_CASE("Treelet merges")
     Treelet t5 = Treelet::singleton(5);
     Treelet t6 = Treelet::singleton(6);
 
-    CHECK(t0.merge(t0) == Treelet::invalid_merge_colors);
+    CHECK(t0.merge(t0) == invalid_merge_colors);
 
     //A path 0--1
     Treelet t0_1 = t0.merge(t1);
     test(t0_1, 0b10000000000000000000000000000000, 0b0000000000000011, 1, 2);
 
-    CHECK(t0_1.merge(t0) == Treelet::invalid_merge_colors);
-    CHECK(t0_1.merge(t1) == Treelet::invalid_merge_colors);
-    CHECK(t0.merge(t0_1) == Treelet::invalid_merge_colors);
-    CHECK(t1.merge(t0_1) == Treelet::invalid_merge_colors);
+    CHECK(t0_1.merge(t0) == invalid_merge_colors);
+    CHECK(t0_1.merge(t1) == invalid_merge_colors);
+    CHECK(t0.merge(t0_1) == invalid_merge_colors);
+    CHECK(t1.merge(t0_1) == invalid_merge_colors);
 
     //A star 0--1, 0--2
     Treelet t0_12 = t0_1.merge(t2);
     test(t0_12, 0b10100000000000000000000000000000, 0b0000000000000111, 2, 3);
-    CHECK(t0_12.merge(t0) == Treelet::invalid_merge_colors);
-    CHECK(t0_12.merge(t1) == Treelet::invalid_merge_colors);
-    CHECK(t0_12.merge(t0_1) == Treelet::invalid_merge_colors);
+    CHECK(t0_12.merge(t0) == invalid_merge_colors);
+    CHECK(t0_12.merge(t1) == invalid_merge_colors);
+    CHECK(t0_12.merge(t0_1) == invalid_merge_colors);
 
     //A star 0--1, 0--2, 0--3
     Treelet t0_123 = t0_12.merge(t3);
@@ -84,7 +77,7 @@ TEST_CASE("Treelet merges")
 
     //Invalid because we are merging with a "smaller" child
     Treelet t2_3_4__0_1__5 = t2_3_4__0_1.merge(t5);
-    CHECK(t2_3_4__0_1__5 == Treelet::invalid_merge_structure);
+    CHECK(t2_3_4__0_1__5 == invalid_merge_structure);
 
     //A path 5--6
     Treelet t5_6 = t5.merge(t6);
@@ -102,7 +95,7 @@ TEST_CASE("Treelet merges")
 
     //Invalid because we are merging with a "smaller" child
     Treelet t5_2_3_4__0_1 = t5_2_3_4.merge(t0_1);
-    CHECK(t5_2_3_4__0_1 == Treelet::invalid_merge_structure);
+    CHECK(t5_2_3_4__0_1 == invalid_merge_structure);
 
     //A star 0--1, 0--6
     Treelet t0_16 = t0_1.merge(t6);
@@ -110,5 +103,5 @@ TEST_CASE("Treelet merges")
 
     //Invalid because we are merging with a "smaller" child
     Treelet t5_2_3_4__0_16 = t5_2_3_4.merge(t0_16);
-    CHECK(t5_2_3_4__0_16 == Treelet::invalid_merge_structure);
+    CHECK(t5_2_3_4__0_16 == invalid_merge_structure);
 }

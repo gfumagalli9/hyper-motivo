@@ -1,3 +1,5 @@
+#include <utility>
+
 //
 // Created by steven on 2/27/17.
 //
@@ -18,7 +20,7 @@ bool OptionsParser::parse(const int argc, const char **argv)
             continue;
         }
 
-        if(!arg.compare("--")) //option is "--". End of option arguments
+        if(arg == "--") //option is "--". End of option arguments
         {
             end_of_options = true;
             i++;
@@ -47,7 +49,7 @@ bool OptionsParser::parse(const int argc, const char **argv)
             std::string name = arg.substr(2);
             for (unsigned int j = 0; j < options.size(); j++)
             {
-                if (!name.compare(options[j]->name))
+                if(name == options[j]->name)
                 {
                     found = true;
                     opt_idx = j;
@@ -76,44 +78,44 @@ bool OptionsParser::parse(const int argc, const char **argv)
 
 OptionsParser::Option *OptionsParser::add_option(bool required, bool requires_argument, std::string name, char short_name, const std::string& default_value, const std::string& help)
 {
-    Option* opt = new Option(required, requires_argument, name, short_name, default_value, help);
+    Option* opt = new Option(required, requires_argument, std::move(name), short_name, default_value, help);
     options.push_back(opt);
     return opt;
 }
 
 OptionsParser::~OptionsParser()
 {
-    for(unsigned int j=0; j<options.size(); j++)
-        delete options[j];
+    for(auto &option : options)
+        delete option;
 }
 
 std::string OptionsParser::help()
 {
-    std::string h="";
-    for(unsigned int j=0; j<options.size(); j++)
+    std::string h;
+    for(auto &option : options)
     {
-        std::string line="";
-        if(options[j]->name.length()!=0)
+        std::string line;
+        if(option->name.length()!=0)
         {
             line += "--";
-            line += options[j]->name;
+            line += option->name;
         }
 
-        if(options[j]->short_name!='\0')
+        if(option->short_name!='\0')
         {
             line += (h.length() ? " | " : "");
             line += "-";
-            line += options[j]->short_name;
+            line += option->short_name;
         }
 
-        if(options[j]->requires_argument)
+        if(option->requires_argument)
             line += " ARG";
 
         if(line.length()<20)
             line += std::string(20-line.length(), ' ');
 
         line += "\t";
-        line += options[j]->help;
+        line += option->help;
         line += "\n";
 
         h += line;
@@ -124,9 +126,9 @@ std::string OptionsParser::help()
 
 bool OptionsParser::has_required_options()
 {
-    for(unsigned int j=0; j<options.size(); j++)
+    for(auto &option : options)
     {
-        if(options[j]->required && !options[j]->is_found())
+        if(option->required && !option->is_found())
             return false;
     }
 

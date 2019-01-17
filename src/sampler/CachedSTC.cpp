@@ -19,7 +19,7 @@ CachedSTC::treelet_table_t* CachedSTC::compute_t_table(const Occurrence &o)
 	ccstc.count();
 
 	CachedSTC::treelet_table_t* tab = new treelet_table_t();
-	tab->set_empty_key(Treelet::invalid_treelet);
+	tab->set_empty_key(invalid_treelet);
 	for (unsigned int u = 0; u < o.get_size(); u++)
 		for (auto &it : ccstc.get_table(u))
 			(*tab)[it.first] += it.second;

@@ -21,8 +21,7 @@ void TreeletTable::load_root_sampler(const std::string& filename)
 
 TreeletTable::~TreeletTable()
 {
-    if(root_sampler)
-        delete root_sampler;
+    delete root_sampler;
 }
 
 ///@returns a pointer to the first treelet_count_pair in the range [begin, end) whose treelet is greater than or equal to "treelet"
@@ -105,7 +104,7 @@ const Treelet TreeletTable::get_random_treelet(UndirectedGraph::vertex_t root, R
     if(record.length()==0)
     {
         record.free();
-        return Treelet::invalid_treelet;
+        return invalid_treelet;
     }
 
     assert((record.end()-1)->count!=0);
@@ -127,7 +126,7 @@ const Treelet TreeletTable::get_treelet_no(UndirectedGraph::vertex_t root, Treel
     if(record.length()==0)
     {
         record.free();
-        return Treelet::invalid_treelet;
+        return invalid_treelet;
     }
 
     const treelet_count_pair_maybe_alias *tcp = count_upper_bound(record.begin()+1, record.end(), no+1);
@@ -182,7 +181,7 @@ RangeSampler<TreeletTable::treelet_count_t>* TreeletTable::build_range_sampler(c
     if(selector)
     {
         const Treelet *t = selector->get_treelets();
-        for (uint64_t i = 0; i < selector->get_size(); i++)
+        for (uint64_t i = 0; i < selector->number_of_treelets(); i++)
         {
 
             //FIXME: start binary search from last added treelet

@@ -3,145 +3,128 @@
 //
 
 #include <thread>
-#include <cinttypes>
-#include <queue>
 #include "OccurrenceSampler.h"
 #include "SampleTable.h"
 #include "SpanningTreeCounter.h"
 
-void OccurrenceSampler::do_sample_mt(occ_count_table_t* table, sequencer_t *sequencer, Random *rng)
+void OccurrenceSampler::sample_thread(occ_count_table_t *table, sequencer_t *sequencer, Random *rng, std::atomic<bool> &terminate_flag, ThreadSync &sync)
 {
-	while (true) {
+	while(true)
+	{
 		sequencer_t::sequence_batch_t batch = sequencer->next_batch();
 		if (batch.from >= batch.to)
 			break;
-		for (uint64_t i = batch.from; i < batch.to; i++)
+
+		for (uint64_t i = batch.from; i<batch.to; i++)
 		{
 			Occurrence o;
 			sample_one(&o, rng);
 			(*table)[o]++;
 
-			if ((*table)[o] <= 2)
-				spanning_tree_counter->get_spanning_trees(o, sp_counter_selector);
+			if(terminate_flag) //FIXME: Do we want to check at every iteration?
+				goto end;
 		}
 	}
-	delete rng;
+
+	end:
+	sync.terminate();
 }
 
 /***
  * Main entry method for sampling, both single- and multi-threaded.
  *
  */
-SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int number_of_threads,
-		Random *rng, double time_budget) {
-	SampleTable* table = new SampleTable();
-	bool on_budget = (num_samples == 0 && time_budget > 0
-			&& time_budget != std::numeric_limits<double>::infinity());
-	if (num_samples == 0 && !on_budget)
-		return table;
-	if (!on_budget && num_samples < 10 * number_of_threads)
-		number_of_threads = std::ceil(1.0 * num_samples / 10);
-	std::chrono::time_point < std::chrono::steady_clock > totTimeStart =
-			std::chrono::steady_clock::now();
-	double totTime = 0;
-	occ_count_table_t count_tab;
-	count_tab.set_empty_key(Occurrence());
-	OccurrenceCanonicizer canon(size);
+SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int number_of_threads, Random *rng, double time_budget)
+{
+	if(std::isnan(time_budget) || time_budget<=0 || (num_samples == 0 && std::isinf(time_budget)) ) //Either nothing to do or infinite samples
+		return new SampleTable();
 
-	if (number_of_threads <= 1) {
-		/**
-		 * Single-threaded sampling.
-		 */
-		Occurrence o;
-		uint64_t i = 0;
-		while (i < num_samples || (on_budget && totTime < time_budget)) {
-			sample_one(&o, rng);
-			count_tab[o]++;
-			totTime = (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - totTimeStart)).count();
-			if (totTime >= time_budget)
-				break;
-		}
-	} else {
-		/**
-		 * Multi-threaded sampling.
-		 * It is done in (small) batches; each thread saves its results into a count
-		 * table, and tables are then summed.
-		 */
-		uint64_t batch_size = 10; // samples batch size (per thread)
-		uint64_t samples_rem = num_samples;
-		occ_count_table_t* count_tabs = new occ_count_table_t[number_of_threads];
-		for (int id = 0; id < number_of_threads; id++)
-			count_tabs[id].set_empty_key(Occurrence());
-		while (samples_rem > 0 || (on_budget && totTime < time_budget)) {
-//			std::cout << "elapsed " << totTime << "/" << time_budget << std::endl;
-			std::chrono::time_point < std::chrono::steady_clock > roundStart =
-					std::chrono::steady_clock::now();
-			if (num_samples == 0)
-				samples_rem = batch_size * number_of_threads;
-			const uint64_t round_samples = std::min((uint64_t) batch_size * number_of_threads,
-					samples_rem);
-			auto sequencer = new sequencer_t(1, round_samples, number_of_threads);
-			uint64_t thread_samples = std::ceil(1.0 * round_samples / number_of_threads);
-			std::queue<std::thread> thread_q;
-			uint64_t round_samples_rem = round_samples;
-			int id = 0;
-			while (id < number_of_threads && round_samples_rem > 0) {
-				thread_samples = std::min(thread_samples, round_samples_rem);
-//				std::cout << "Thread " << id << " samples " << thread_samples << std::endl;
-				Random* r = rng->derived_rng();
-				auto ct = &count_tabs[id];
-				thread_q.push(
-						std::thread([this, ct, sequencer, r] {do_sample_mt(ct, sequencer, r);}));
-				round_samples_rem -= thread_samples;
-				samples_rem -= thread_samples;
-				id++;
-			}
-			while (!thread_q.empty()) { // join threads
-				thread_q.front().join();
-				thread_q.pop();
-			}
-			delete sequencer;
-			for (int id = 0; id < number_of_threads; id++) { // cumulate counts
-				for (auto &it : count_tabs[id]) {
-					Occurrence o = it.first;
-					count_tab[o] += it.second;
-				}
-				count_tabs[id].clear();
-			}
-			totTime = (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
-					- totTimeStart)).count();
-			if (totTime >= time_budget)
-				break;
-			double roundElapsed =
-					(static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
-							- roundStart)).count();
-			// Adapt the batch size so to make the time per round approx 5% of the budget
-			if (on_budget
-					&& ((roundElapsed < 0.05 * time_budget) || (roundElapsed > 0.1 * time_budget)))
-				batch_size *= (0.05 * time_budget / roundElapsed);
-			batch_size = std::max(batch_size, 10ul);
+	if (num_samples != 0 && num_samples < 10 * number_of_threads)
+		number_of_threads = static_cast<unsigned int>((num_samples + 9) / 10 ); //ceil(samples/10)
 
-		}
-		delete[] count_tabs;
+	//Init per-thread structures
+	static_assert(std::atomic<bool>::is_always_lock_free, "std::atomic<bool> is not always lock-free");
+
+	auto threads = new std::thread[number_of_threads];
+	auto terminate_flags = new std::atomic<bool>[number_of_threads];
+	auto rngs = new Random *[number_of_threads];
+	occ_count_table_t *count_tabs = new occ_count_table_t[number_of_threads];
+	for (unsigned int i = 0; i < number_of_threads; i++)
+	{
+		terminate_flags[i] = false;
+		rngs[i] = rng->derived_rng();
+		count_tabs[i].set_empty_key(Occurrence());
 	}
-	// produce the counts
+
+	ThreadSync sync(number_of_threads);
+
+
+	//Launch threads
+	sequencer_t sequencer(1, (num_samples!=0)?num_samples:sequencer_t::to_max, number_of_threads);
+	for (unsigned int i = 0; i < number_of_threads; i++)
+		threads[i] = std::thread([this, i, count_tabs, &sequencer, rngs, terminate_flags, &sync] {
+			sample_thread(&count_tabs[i], &sequencer, rngs[i], terminate_flags[i], sync);
+		});
+
+
+	//Wait for the threads to be done or for time_budget seconds
+	if (!std::isinf(time_budget))
+		sync.wait_timeout(time_budget);
+	else
+		sync.wait();
+
+	//Either all the threads are done already or we hit a timeout. Ask the threads to terminate regardless
+	for (unsigned int i = 0; i < number_of_threads; i++)
+		terminate_flags[i] = true;
+
+	//Wait for threads to terminate (if not already)
+	for (unsigned int i = 0; i < number_of_threads; i++)
+		threads[i].join();
+
+
+	// cumulate counts into the first table
+	occ_count_table_t &count_tab = count_tabs[0];
+	for (unsigned int i = 1; i < number_of_threads; i++)
+	{
+		for (const auto &[occ, count] : count_tabs[i])
+			count_tab[occ] += count;
+
+		count_tabs[i].clear();
+	}
+
+	auto sample_table = build_sample_table(count_tab);
+
+	//cleanup
+	delete[] threads;
+	delete[] count_tabs;
+	delete[] terminate_flags;
+	for (unsigned int i = 0; i < number_of_threads; i++)
+		delete rngs[i];
+	delete[] rngs;
+
+	return sample_table;
+}
+
+SampleTable *OccurrenceSampler::build_sample_table(const OccurrenceSampler::occ_count_table_t &count_tab) const
+{
+	auto table = new SampleTable();
 	SpanningTreeCounter stc;
-	for (auto &it : count_tab)
+	for (const auto &it : count_tab)
 	{
 		Occurrence o = it.first;
 		SampleTable::Entry e;
 		e.fingerprint = o.text_footprint();
-		e.occ = o;
+		e.occurrence = o;
 		e.sample_count = it.second;
-		e.num_spanning_trees = stc.get_spanning_trees(o, sp_counter_selector);
+		e.num_spanning_trees = stc.get_spanning_trees(o, sp_counter_selector); //FIXME: ?? Handle this. Make multi-threaded?
 		table->addEntry(e);
 	}
 	return table;
 }
 
-void OccurrenceSampler::set_selector(const TreeletSelector *selector,
-                                     unsigned int number_of_threads, const TreeletSelector *sp) {
-    if (sp)
+void OccurrenceSampler::set_selector(const TreeletSelector *selector, unsigned int number_of_threads, const TreeletSelector *sp)
+{
+    if (sp) //FIXME: Leaking memory?
         this->sp_counter_selector = new TreeletSelector(*sp);
     sampler.set_selector(selector, number_of_threads);
 }

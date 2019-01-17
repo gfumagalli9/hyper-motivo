@@ -21,10 +21,10 @@ template<typename T, bool RAW> class CompressedRecordFileReader : public BaseRec
 {
 private:
     FILE* fd = nullptr;
-    char* fdmap;
-    size_t file_length;
-    uint64_t num_of_records;
-    char* offsets;
+    char* fdmap = nullptr;
+    size_t file_length = 0;
+    uint64_t num_of_records = 0;
+    char* offsets = nullptr;
 
 public:
     CompressedRecordFileReader() = default;
@@ -69,7 +69,7 @@ public:
 
     void prefault(const uint64_t from, const uint64_t to)
     {
-        record_offset_t from_offset,to_offset;
+        record_offset_t from_offset, to_offset; // NOLINT
         memcpy(&from_offset, offsets + from*sizeof(record_offset_t), sizeof(record_offset_t));
         memcpy(&to_offset, offsets + (to+1)*sizeof(record_offset_t), sizeof(record_offset_t));
 
@@ -86,7 +86,7 @@ public:
 
     Record<const char> get_raw(const uint64_t record_no)
     {
-        record_offset_t offset,next_offset;
+        record_offset_t offset, next_offset; // NOLINT
         memcpy(&offset, offsets + record_no*sizeof(record_offset_t), sizeof(record_offset_t));
         memcpy(&next_offset, offsets + (record_no+1)*sizeof(record_offset_t), sizeof(record_offset_t));
 
@@ -95,7 +95,7 @@ public:
 
     Record<T> get_record(const uint64_t record_no) const
     {
-        record_offset_t offset,next_offset;
+        record_offset_t offset, next_offset; // NOLINT
         memcpy(&offset, offsets + record_no*sizeof(record_offset_t), sizeof(record_offset_t));
         memcpy(&next_offset, offsets + (record_no+1)*sizeof(record_offset_t), sizeof(record_offset_t));
 
@@ -118,7 +118,7 @@ private:
     uint64_t bytes_uncompressed;
 
 public:
-    CompressedRecordFileWriter(const std::string &filename, const uint64_t num_records);
+    CompressedRecordFileWriter(const std::string &filename, uint64_t num_records);
     ~CompressedRecordFileWriter();
 
     uint64_t get_compressed_size() const { return bytes_compressed; }

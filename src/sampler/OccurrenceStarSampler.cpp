@@ -191,7 +191,7 @@ SampleTable* OccurrenceStarSampler::sample(uint64_t num_samples, Random *rng, do
 		Occurrence o = it.first;
 		SampleTable::Entry e;
 		e.fingerprint = o.text_footprint();
-		e.occ = o;
+		e.occurrence = o;
 		e.sample_count = it.second;
 		e.num_spanning_trees = stc.num_spanning_stars(o);
 		table->addEntry(e);

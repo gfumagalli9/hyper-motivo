@@ -31,9 +31,7 @@ public:
 
     struct [[gnu::packed]] header_t
     {
-        static constexpr const uint64_t mantissa_mask = 0x00000000000000FF;
-        header_t() = default;
-
+        static constexpr uint64_t mantissa_mask = 0x00000000000000FF;
 
         uint8_t mantissa; //mantissa * 2^exp + (2^exp-1) is an upper-bound to the uncompressed size
         uint8_t exp : 6;
@@ -42,9 +40,9 @@ public:
     };
 
     static_assert( sizeof(header_t) == 2, "Structure record_offset_t is not packed." );
-    static constexpr const header_t uncompressed_header = {0, 0, false, false};
+    static constexpr header_t uncompressed_header {0, 0, false, false};
 
-    static char* compress(const char *record, const uint64_t length, uint64_t *compressed_size);
+    static char* compress(const char *record, uint64_t length, uint64_t *compressed_size);
 
     template<typename T, bool RAW> static decompress_result_t<T> decompress(const char *record, const uint64_t length)
     {
@@ -54,7 +52,7 @@ public:
         if(length<sizeof(header_t))
             return decompress_result_t<T>{nullptr, 0, nullptr};
 
-        header_t header;
+        header_t header; // NOLINT
         memcpy(&header, record, sizeof(header_t));
 
         if (!header.compressed)
@@ -81,8 +79,8 @@ public:
              * corresponding deallocatio function)
              *
              * TLDR: The next pointer is properly aligned. */
-            char* buffer = new char[length- sizeof(header_t)];
-            typename std::remove_const<T>::type* buffer_T = new (buffer) typename std::remove_const<T>::type[(length- sizeof(header_t))/sizeof(T)];
+            auto buffer = new char[length- sizeof(header_t)];
+            auto buffer_T = new (buffer) typename std::remove_const<T>::type[(length- sizeof(header_t))/sizeof(T)];
             memcpy(buffer, record+sizeof(header_t), (length- sizeof(header_t)));
             return decompress_result_t<T>{buffer_T, (length- sizeof(header_t))/sizeof(T), buffer};
         }
@@ -94,8 +92,8 @@ public:
         assert(uncompressed_size_ub%sizeof(T)==0);
 
         //Properly aligned
-        char* buffer = new char[uncompressed_size_ub];
-        typename std::remove_const<T>::type* buffer_T = new (buffer) typename std::remove_const<T>::type[uncompressed_size_ub/sizeof(T)];
+        auto buffer = new char[uncompressed_size_ub];
+        auto buffer_T = new (buffer) typename std::remove_const<T>::type[uncompressed_size_ub/sizeof(T)];
         assert(buffer==reinterpret_cast<char*>(buffer_T));
 
         LZ4_streamDecode_t decoder;

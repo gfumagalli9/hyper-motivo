@@ -182,7 +182,7 @@ int main(const int argc, const char** argv)
         if(selective)
         {
             selector = new TreeletSelector(opts.selective_filename, opts.size);
-            std::cout << "Selectively " << ((selector->get_mode()==TreeletSelector::MODE_INCLUDE)?"counting only ":"ignoring ") << selector->get_size() << " treelet(s) of the given size" << std::endl;
+            std::cout << "Selectively " << ((selector->get_mode()==TreeletSelector::MODE_INCLUDE)?"counting only ":"ignoring ") << selector->number_of_treelets() << " treelet(s) of the given size" << std::endl;
         }
 
         std::chrono::time_point<std::chrono::steady_clock> tstart;

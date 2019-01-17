@@ -95,9 +95,9 @@ public:
             throw std::runtime_error("Table has already been built or is read only");
 
         E noverfull=0;
-        E* overfull = new E[num_elements];
+        auto overfull = new E[num_elements];
         E nunderfull=0;
-        E* underfull = new E[num_elements];
+        auto underfull = new E[num_elements];
 
 #ifndef NDEBUG
         W of_weight=0;
