@@ -19,7 +19,7 @@ void Size1Builder::build()
 
     for (UndirectedGraph::vertex_t u = from_vertex; u<=to_vertex; u++)
     {
-        uint8_t color = static_cast<uint8_t>(rng->random_uint(0, number_of_colors-1));
+        uint8_t color = (rng->random_uint<unsigned int>(1, number_of_colors*bias)==1)?0:static_cast<uint8_t>(rng->random_uint(1, number_of_colors-1));
         if (store_only_0 && color != 0)
             continue;
 
@@ -31,11 +31,14 @@ void Size1Builder::build()
 }
 
 Size1Builder::Size1Builder(UndirectedGraph::vertex_t number_of_vertices, UndirectedGraph::vertex_t from_vertex,
-                                   UndirectedGraph::vertex_t to_vertex, uint8_t number_of_colors, bool store_only_0, Random *rng,
-                                   std::ostream *output)
+                                   UndirectedGraph::vertex_t to_vertex, uint8_t number_of_colors, bool store_only_0,
+                                   unsigned int bias, Random *rng, std::ostream *output)
         : number_of_vertices(number_of_vertices), from_vertex(from_vertex), to_vertex(to_vertex), number_of_colors(number_of_colors),
-          store_only_0(store_only_0), rng(rng), output(output)
+          store_only_0(store_only_0), bias(bias), rng(rng), output(output)
 {
     if(number_of_colors<=1)
         throw std::runtime_error("Invalid number of colors");
+
+    if(bias==0)
+        throw std::runtime_error("Invalid bias");
 }

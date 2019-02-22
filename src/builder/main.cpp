@@ -25,6 +25,7 @@ struct builder_opts
     char output_basename[MOTIVO_ARG_MAX];
     bool store0;
     char selective_filename[MOTIVO_ARG_MAX];
+    unsigned int coloring_bias;
 };
 
 bool parse_builder_args(const int argc, const char **argv, const std::string &name, builder_opts *opts)
@@ -42,6 +43,8 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
     OptionsParser::Option *store0_opt  = op.add_option(false, false, "store-on-0-colored-vertices-only", '0', "", "Store treelet counts only for the vertices with color 0 (default: false)");
     OptionsParser::Option *selective_opt = op.add_option(false, true, "selective", '\0', "", "Count only treelets whose structures are allowed in file ARG");
+    OptionsParser::Option *coloring_bias_opt = op.add_option(false, true, "coloring-bias", '\0', "1", "Assigns color 0 with probability P=1/(size*ARG) instead of 1/size. The other colors have probability (1-P)/(size-1) (default: 1, ignored if size=1)");
+
 
     if (!op.parse(argc, argv) || help_opt->is_found())
     {
@@ -135,6 +138,11 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     else
         *(opts->selective_filename)='\0';
 
+    int bias = std::stoi(coloring_bias_opt->get_value());
+    if (bias < 1)
+        throw std::runtime_error("'coloring-bias' option is invalid");
+    opts->coloring_bias = static_cast<unsigned int>(bias);
+
     return true;
 }
 
@@ -190,7 +198,7 @@ int main(const int argc, const char** argv)
         if(opts.size==1)
         {
             Random rng(opts.seed);
-            Size1Builder builder(G.number_of_vertices(), opts.from_vertex, opts.to_vertex, opts.colors, opts.store0, &rng, &out);
+            Size1Builder builder(G.number_of_vertices(), opts.from_vertex, opts.to_vertex, opts.colors, opts.store0, opts.coloring_bias, &rng, &out);
             tstart = std::chrono::steady_clock::now();
             builder.build();
         }
