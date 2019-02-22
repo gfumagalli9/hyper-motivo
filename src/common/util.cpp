@@ -57,6 +57,28 @@ double pcol(const unsigned int k, const unsigned int c)
     return p;
 }
 
+double pcolb1(const unsigned int k, double b)
+{
+	// the formula is:  k! * q * ((1-q)/(k-1))^(k-1)
+	// where  q = 1/kb  is the probability of color 0 and every other color has prob  (1-q)/(k-1)
+    double q = 1/(b*k);
+    double p = 1/b;  // equals k*q, now we multiply this by  (k-1)! * ((1-q)/(k-1))^(k-1)
+    for (unsigned int i = 1; i <= k-1; i++)
+        p *= i*(1-q)/(k-1);
+    return p;
+}
+
+double pcolb(const unsigned int k, double b)
+{
+	// the formula is:  k! * q * ((1-q)/(k-1))^(k-1)
+	// where  q = kb/(kb+k-1)  is the probability of color 0 and every other color has prob  (1-q)/(k-1)
+    double q = b/(b+k-1);
+    double p = k*q;  // equals k*q, now we multiply this by  (k-1)! * ((1-q)/(k-1))^(k-1)
+    for (unsigned int i = 1; i <= k-1; i++)
+      p *= i*(1-q)/(k-1);
+    return p;
+}
+
 double binomial(const unsigned long n, unsigned long m)
 {
     if (n < m)

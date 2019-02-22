@@ -19,11 +19,17 @@ SELECTIVE_FILE=""
 POSITIONAL=()
 THREADS=0
 REPEATS=1
+BIAS=1
 EQUALIZE_BUILD_SAMPLE_TIMES=no
 while [[ $# -gt 0 ]]
 do
     key="$1"
     case $key in
+	--bias)
+	    BIAS="$2"
+	    shift
+	    shift
+	    ;;
 	-k)
 	    SIZE="$2"
 	    shift # past argument
@@ -169,6 +175,11 @@ run_once()
     fi
     
     for i in $(seq 1 "$SIZE"); do
+
+	if [ $i -eq "1" ]; then
+#	    echo > /dev/null
+	    EXTRA_BUILD_OPTS+=(--coloring-bias $BIAS)
+	fi
 	
 	if [ $i -eq "$SIZE" ]; then
 	    #	if [ "$ADAPTIVE" == "NO" ]; then

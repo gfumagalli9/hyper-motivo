@@ -22,6 +22,8 @@ int main(const int argc, const char** argv) {
 		if (!parse_sampler_args(argc, argv, "motivo-sample", &opts))
 			return EXIT_SUCCESS;
 
+		double p = pcol(opts.size, opts.size); // the coloring probability
+
 		// Read info file
 		bool store_only_on_0 = false;
 		uint128_t tot_treelets = 0; // the total number of colored treelets
@@ -38,13 +40,15 @@ int main(const int argc, const char** argv) {
 					store_only_on_0 = (val == "1");
 				if (key == "TotTreelets")
 					tot_treelets = atoi128(val); //FIXME
+				if (key == "ColProb")
+					p = std::stod(val);
 			}
 			catch (std::exception &e) {
 				std::cerr << "Error reading info file!" << std::endl;
 			}
 		}
 		infofile.close();
-
+		std::cerr << "coloring probability: " << p << std::endl;
 		UndirectedGraph G(opts.graph);
 		G.prefault();
 		std::cerr << "Loaded graph with " << G.number_of_vertices() << " vertices and "
@@ -99,7 +103,6 @@ int main(const int argc, const char** argv) {
 		 *********************/
 		std::chrono::time_point < std::chrono::steady_clock > tstart =
 				std::chrono::steady_clock::now();
-		double p = pcol(opts.size, opts.size); // the coloring probability
 		std::cerr << "Sampling using " << opts.threads << " thread(s)" << std::endl;
 
 		// 1. FAST STAR SAMPLING

@@ -19,7 +19,7 @@ void Size1Builder::build()
 
     for (UndirectedGraph::vertex_t u = from_vertex; u<=to_vertex; u++)
     {
-        uint8_t color = (rng->random_uint<unsigned int>(1, number_of_colors*bias)==1)?0:static_cast<uint8_t>(rng->random_uint(1, number_of_colors-1));
+        uint8_t color = (rng->random_uint<unsigned int>(1, number_of_colors+bias-1) <= bias)?0:static_cast<uint8_t>(rng->random_uint(1, number_of_colors-1));
         if (store_only_0 && color != 0)
             continue;
 

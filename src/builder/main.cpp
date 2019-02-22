@@ -1,10 +1,13 @@
 #include <cstdlib>
 #include <limits>
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 #include <fstream>
 #include <thread>
 #include <chrono>
 #include "config.h"
+#include "../common/util.h"
 #include "../common/OptionsParser.h"
 #include "../common/graph/UndirectedGraph.h"
 #include "Size1Builder.h"
@@ -25,7 +28,7 @@ struct builder_opts
     char output_basename[MOTIVO_ARG_MAX];
     bool store0;
     char selective_filename[MOTIVO_ARG_MAX];
-    unsigned int coloring_bias;
+    double coloring_bias;
 };
 
 bool parse_builder_args(const int argc, const char **argv, const std::string &name, builder_opts *opts)
@@ -138,10 +141,10 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     else
         *(opts->selective_filename)='\0';
 
-    int bias = std::stoi(coloring_bias_opt->get_value());
+    double bias = std::stod(coloring_bias_opt->get_value());
     if (bias < 1)
         throw std::runtime_error("'coloring-bias' option is invalid");
-    opts->coloring_bias = static_cast<unsigned int>(bias);
+    opts->coloring_bias = static_cast<double>(bias);
 
     return true;
 }
@@ -225,6 +228,10 @@ int main(const int argc, const char** argv)
         std::ofstream infofile;
         infofile.open(std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".info", std::ofstream::trunc);
         infofile << "StoreOnlyOn0 " << std::to_string(opts.store0) << std::endl;
+        std::ostringstream streamObj;
+        streamObj << std::setprecision(20) << pcolb(opts.colors, opts.coloring_bias);
+        infofile << "ColProb " << streamObj.str() << std::endl;
+
         infofile.close();
 
         delete selector;

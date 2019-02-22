@@ -28,6 +28,11 @@ uint128_t atoi128(const std::string &s);
 double pcol(unsigned int k, unsigned int c);
 
 /**
+ * The probability that a coloring with bias b makes k nodes colorful
+ */
+double pcolb(unsigned int k, double b);
+
+/**
  * Binomial coefficient with *some* care for numeric stability.
  */
 double binomial(unsigned long n, unsigned long m); //FIXME: types?
