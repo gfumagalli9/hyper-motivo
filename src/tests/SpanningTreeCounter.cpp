@@ -11,6 +11,7 @@
 #include "../common/graph/UndirectedGraph.h"
 #include "../sampler/SpanningTreeCounter.h"
 #include "../sampler/Occurrence.h"
+#include "../common/util.h"
 
 /* Graph test contains 56 vertices and 159 edges:
  * A clique of 16 vertices on vertices 0-15 (120 edges)
@@ -21,34 +22,64 @@
  * Four isolated vertices 56-59
  */
 
-void test_stc(unsigned int from, unsigned int size)
+void test(unsigned int from, unsigned int size, uint64_t expected)
 {
-	UndirectedGraph test_graph("test-graph");
-	auto subgraph = new UndirectedGraph::vertex_t[size];
-	for (unsigned int i = 0; i < size; i++)
-		subgraph[i] = from + i;
-	Occurrence occ(size, &test_graph, subgraph);
+    UndirectedGraph test_graph("test-graph");
 
-	SpanningTreeCounter stc;
-	CHECK_EQ(stc.num_spanning_trees(occ), occ.number_of_spanning_trees());
-	CHECK_EQ(SpanningTreeCounter::num_spanning_trees(occ, nullptr), occ.number_of_spanning_trees());
+    auto subgraph = new UndirectedGraph::vertex_t[size];
+    for(unsigned int i=0; i<size; i++)
+        subgraph[i]=from+i;
 
-	delete[] subgraph;
+    Occurrence occ(size, &test_graph,  subgraph);
+   CHECK( SpanningTreeCounter::number_of_spanning_trees_kirchhoff(occ) == expected );
+   CHECK( SpanningTreeCounter::number_of_spanning_trees_colorcoding(occ) == expected );
+
+    delete[] subgraph;
 }
 
-TEST_CASE("SpanningTreeCounter.clique")
+TEST_CASE("SpanningTreeCounter misc")
 {
-	test_stc(0, 3);
-	test_stc(0, 4);
-	test_stc(0, 5);
-	test_stc(0, 12);
+    //Size 1 subgraph
+    test(1, 1, 1);
+
+    //A diamond
+    test(48, 4, 8);
+
+    //A paw
+    test(52, 4, 3);
 }
 
-TEST_CASE("SpanningTreeCounter.star")
+TEST_CASE("SpanningTreeCounter stars fast")
 {
-	// stars
-	test_stc(16, 3);
-	test_stc(16, 4);
-	test_stc(16, 5);
-	test_stc(16, 14);
+    for(unsigned int i=2; i<=13; i++)
+        test(16, i, 1);
 }
+
+TEST_CASE("SpanningTreeCounter stars slow")
+{
+    for(unsigned int i=14; i<=16; i++)
+        test(16, i, 1);
+}
+
+TEST_CASE("SpanningTreeCounter paths")
+{
+    //Look at the subgraph induced by the first i vertices of the path
+    for(unsigned int i=2; i<=16; i++)
+        test(32, i, 1);
+}
+
+
+TEST_CASE("SpanningTreeCounter cliques fast")
+{
+    //The number of spanning trees in K_n is num_elements**(num_elements-2) by Cayley's formula
+    for(unsigned int i=2; i<=9; i++)
+        test(0, i, ipow<uint64_t>(i, i-2));
+}
+
+TEST_CASE("SpanningTreeCounter cliques slow")
+{
+    //The number of spanning trees in K_n is num_elements**(num_elements-2) by Cayley's formula
+    for(unsigned int i=10; i<=12; i++)
+        test(0, i, ipow<uint64_t>(i, i-2));
+}
+

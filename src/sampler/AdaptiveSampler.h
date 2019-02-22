@@ -12,13 +12,12 @@
 #include <sparsehash/dense_hash_map>
 #include <sparsehash/dense_hash_set>
 #include <map>
-#include <set>
+#include <unordered_set>
 
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/graph/SimpleGraph.h"
 #include "../common/treelets/Treelet.h"
 #include "../common/treelets/TreeletTable.h"
-#include "../common/treelets/TreeletSelector.h"
 #include "CachedSTC.h"
 #include "OccurrenceSampler.h"
 #include "SampleTable.h"
@@ -29,41 +28,11 @@ class AdaptiveSampler
 private:
 	struct occurrent_info_t
 	{
-		int num_occurrences = 0;
+		uint64_t num_occurrences = 0;
 		double weight = 0;
 	};
 
-	typedef google::dense_hash_map<Occurrence, occurrent_info_t, Occurrence::OccurrenceFootprintHash, Occurrence::OccurrenceFootprintEquality> occ_pair_table_t;
-	typedef google::dense_hash_map<Occurrence, int, Occurrence::OccurrenceFootprintHash, Occurrence::OccurrenceFootprintEquality> occ_count_table_t;
-	typedef google::dense_hash_set<Occurrence, Occurrence::OccurrenceFootprintHash, Occurrence::OccurrenceFootprintEquality> occ_set_t;
-	typedef google::dense_hash_map<Treelet, uint64_t, Treelet::TreeletHash> treelet_uint64_table_t;
-	typedef google::dense_hash_set<Treelet, Treelet::TreeletHash> treelet_set_t;
-
-	/**
-	 * It represents a treelet with all its possible rootings.
-	 */
-	class TreeletClass
-	{
-	private:
-		treelet_set_t all;
-
-	public:
-		TreeletClass()
-		{
-			all.set_empty_key(invalid_treelet);
-		}
-
-		explicit TreeletClass(Treelet repr)
-		{
-			all.set_empty_key(invalid_treelet);
-			SimpleGraph::from_treelet(repr).decompose(&all, -1, true);
-		}
-
-		const treelet_set_t& get_all() const { return all; }
-
-		//See remark in builder/ColorCodingHashmap.h
-		unsigned long size() const { return all.size(); }
-	};
+	typedef google::dense_hash_map<Occurrence, occurrent_info_t, Occurrence::OccurrenceFootprintHash, Occurrence::OccurrenceFootprintEquality> occ_info_table_t;
 
 	constexpr static unsigned int suffSamples = 1000;
 
@@ -72,24 +41,26 @@ private:
 	const TreeletTableCollection *ttc;
 	const bool store_only_on_0 = false;
 
-	std::map<Treelet, TreeletTable::treelet_count_t> numTreelets; // as computed by the build
+	std::map<Treelet::treelet_structure_t, TreeletTable::treelet_count_t> numTreelets; // as computed by the build
 	TreeletTable::treelet_count_t totTreelets = 0; // the sum of the map values above
-	ValueSortedMap<Treelet, double> treeletPriority; // function of efficiency, we always take the highest value
-	Treelet currentTreelet; // the treelet in use for sampling
-	google::dense_hash_map<Treelet, TreeletClass, Treelet::TreeletHash> treeletClassMap; // each treelet has many rooted versions, here in a class mapped by a representant
-	std::map<Treelet, Treelet> treeletToRepresentant; // each treelet mapped to its representant, so treeletClassMap[treeletToRepresentant[t]].all() contains t
+	ValueSortedMap<Treelet::treelet_structure_t, double> treeletPriority; // function of efficiency, we always take the highest value
+	Treelet::treelet_structure_t current_treelet_structure; // the treelet in use for sampling
+
+	std::map<Treelet::treelet_structure_t , Treelet::treelet_structure_t > structure_to_representant; // each treelet structure is mapped to its representant
+    std::map<Treelet::treelet_structure_t , std::vector<Treelet::treelet_structure_t>> representant_to_structures; //maps each representant to all the treelets structures it represents //FIXME: std::vector or something else?
+
+    std::map<Treelet::treelet_structure_t, std::vector<Occurrence> > representant_to_containing_occurrences; //maps a representant structure S to all occurrences that are spanned by treelet represented by S
+    std::unordered_map<Occurrence, std::map<Treelet::treelet_structure_t, uint64_t >, Occurrence::OccurrenceFootprintHash, Occurrence::OccurrenceFootprintEquality > occurrences_to_spanning_representants; //maps an occurrence occ to the representants of the treelets of occ, along with the number of occurrences of their represented treelets //FIXME: type?
+
     std::set<Occurrence, Occurrence::OccurrenceFootprintLess> completedGraphlets; // graphlets sampled at least suffSamples times
-    treelet_uint64_table_t treeletSamples; // how many time each treelet has been used
 
 	CachedSTC spTreeCounter;
 	int totTreeletSwitches = 0;
-	TreeletSelector *treeletSelector = nullptr;
+	TreeletStructureSelector *treeletSelector = nullptr;
 	OccurrenceSampler* sampler = nullptr;
 
 	double totManagementTime = 0;
-	double joinTime = 0, mergeTime = 0, weightsTime = 0, effTime = 0, prioTime = 0, samplerTime = 0, totTime = 0;
-
-	void do_sample_mt(uint64_t num_samples, occ_count_table_t* counts, Random *rng, CachedSTC *stc = nullptr);
+	double sampleTime = 0, mergeTime = 0, weightsTime = 0, effTime = 0, prioTime = 0, updateTime = 0, totTime = 0;
 
 	void update_sampler();
 
@@ -105,7 +76,7 @@ public:
 	 */
 	SampleTable* sample(uint64_t n_samples, unsigned int number_of_threads, Random* rng, double time_budget = std::numeric_limits<double>::infinity());
 
-	void recomputeTreeletPriorities(occ_pair_table_t&);
+	void recomputeTreeletPriorities(occ_info_table_t&);
 };
 
 #endif /* SRC_SAMPLER_ADAPTIVESAMPLER_H_ */

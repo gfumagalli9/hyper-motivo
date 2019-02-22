@@ -64,7 +64,7 @@ TEST_CASE("CompressedRecordFile")
     test(10 * 1024L * 1024, 1000, true); //10MB, 1000 records
 }
 
-TEST_CASE("CompressedRecordFile Multiblock")
+TEST_CASE("CompressedRecordFile Multiblock slow")
 {
     test(4 * 1024L * 1024 * 1024 + 1, 1, false); //4GB+1byte, 1 record
 }

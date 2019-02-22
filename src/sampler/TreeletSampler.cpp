@@ -10,7 +10,7 @@ TreeletSampler::TreeletSampler(const UndirectedGraph *graph, const TreeletTableC
 {
 }
 
-void TreeletSampler::set_selector(const TreeletSelector *selector, unsigned int nthreads)
+void TreeletSampler::set_selector(const TreeletStructureSelector *selector, unsigned int nthreads)
 {
     if(this->selector)
     {
@@ -42,7 +42,7 @@ void TreeletSampler::set_selector(const TreeletSelector *selector, unsigned int 
     else
     {
         auto worker_threads = new std::thread[nthreads];
-        DynamicSequencer<UndirectedGraph::vertex_t>  sequencer(0, graph->number_of_vertices()-1, nthreads);
+        DynamicSequencer<UndirectedGraph::vertex_t>  sequencer(0, graph->number_of_vertices(), nthreads);
         for (unsigned int i = 0; i < nthreads; i++)
             worker_threads[i] = std::thread( [this, &sequencer] {populate_root_and_range_sampler_mt(sequencer);});
 
@@ -64,12 +64,11 @@ void TreeletSampler::populate_root_and_range_sampler_mt(DynamicSequencer<Undirec
     while(true)
     {
         DynamicSequencer<UndirectedGraph::vertex_t>::sequence_batch_t batch = sequencer.next_batch();
-        if (batch.from >= batch.to)
+        if (batch.from >= batch.to_exclusive)
             break;
 
-        for (UndirectedGraph::vertex_t u = batch.from; u < batch.to; u++) {
+        for (UndirectedGraph::vertex_t u = batch.from; u < batch.to_exclusive; u++)
             range_samplers[u] = table_collection->get_table(size)->build_range_sampler(u, selector);
-        }
     }
 }
 

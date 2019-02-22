@@ -6,7 +6,7 @@
 #include "../common/platform/platform.h"
 #include "../common/treelets/Treelet.h"
 #include "../builder/ColorCodingBuilder.h"
-#include "../common/treelets/TreeletSelector.h"
+#include "../common/treelets/TreeletStructureSelector.h"
 
 class ColorCodingSpanningTreeCounter
 {
@@ -18,22 +18,22 @@ private:
 #define COLORCODINGSPANNINGTREECOUNTER_INIT_HASHMAP(hm) do { (hm).set_empty_key(invalid_treelet); } while(false)
 
     const Occurrence *occurrence;
-    const TreeletSelector *selector;
     const unsigned int size;
+    const bool store_only_0;
+    const TreeletStructureSelector *selector;
     table_t **tables = nullptr;
 
     void do_build(unsigned int current_size);
     void combine(unsigned int u, unsigned int v, unsigned int current_size);
 
 public:
-    explicit ColorCodingSpanningTreeCounter(const Occurrence* occurrence, const TreeletSelector* selector=nullptr);
+    explicit ColorCodingSpanningTreeCounter(const Occurrence* occurrence, bool store_only_0=false, const TreeletStructureSelector* selector=nullptr);
 
     ~ColorCodingSpanningTreeCounter();
 
     void count();
-    uint64_t number_of_rooted_spanning_trees() const;
-    uint64_t number_of_spanning_trees_rooted_at(unsigned int root) const;
-    uint64_t number_of_spanning_trees() const;
+    uint64_t number_of_counted_rooted_spanning_trees() const;
+    uint64_t number_of_counted_spanning_trees_rooted_at(unsigned int root) const;
 
     // get the spanning tree count table for a given root node
     inline const table_t &get_table(const unsigned int root) const

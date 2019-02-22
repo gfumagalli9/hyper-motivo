@@ -8,12 +8,12 @@
 #include <cstdint>
 #include <string>
 #include "Treelet.h"
+#include "TreeletStructureSelector.h"
 #include "../random/Random.h"
 #include "../graph/UndirectedGraph.h"
 #include "../random/AliasMethodSampler.h"
 #include "../platform/platform.h"
 #include "../io/CompressedRecordFile.h"
-#include "TreeletSelector.h"
 #include "../random/RangeSampler.h"
 
 class TreeletTable
@@ -120,7 +120,7 @@ public:
     treelet_count_t get_count(UndirectedGraph::vertex_t u, Treelet treelet) const;
 
 
-    RangeSampler<treelet_count_t>* build_range_sampler(UndirectedGraph::vertex_t u, const TreeletSelector* selector);
+    RangeSampler<treelet_count_t>* build_range_sampler(UndirectedGraph::vertex_t u, const TreeletStructureSelector* selector);
 
     ///@returns a costant iterator that iterates through all the stored treelets for vertex @param u.
     ///The iterator initially points to the first treelet of @param u.

@@ -24,7 +24,7 @@ private:
 public:
     SequentialBuilder(const UndirectedGraph* G, UndirectedGraph::vertex_t from_vertex, UndirectedGraph::vertex_t to_vertex,
                           unsigned int size, const TreeletTableCollection* ttc, bool store_only_0,
-                          TreeletSelector* selector, std::ostream* output);
+                          TreeletStructureSelector* selector, std::ostream* output);
 
     void build [[gnu::hot]] ();
 };

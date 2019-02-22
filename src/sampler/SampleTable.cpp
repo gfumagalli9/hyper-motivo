@@ -6,11 +6,12 @@
  */
 
 #include <map>
+#include <cmath>
 #include "SampleTable.h"
-#include "SpanningTreeCounter.h"
 #include "../common/util.h"
 
-void SampleTable::addEntry(SampleTable::Entry e) {
+void SampleTable::addEntry(SampleTable::Entry e)
+{
 	entries.push_back(e);
 	num_samples += e.sample_count;
 }
@@ -67,7 +68,8 @@ void SampleTable::sort_by_estimate_occ() {
  *	e.estimate_graph_occurrences is obtained as an appropriate average of the two tables
  *
  */
-SampleTable SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2) {
+SampleTable SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2)
+{
 	SampleTable t;
 	std::map<std::string, SampleTable::Entry> merged;
 	std::map<std::string, double> weights;
@@ -101,7 +103,7 @@ SampleTable SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1,
 		e.estimate_graph_frequency = e.estimate_graph_occurrences / tot_est_occ;
 		t.addEntry(e);
 	}
-	return t;
+	return t; //FIXME: Returning a copy!
 }
 
 /**
@@ -111,8 +113,9 @@ SampleTable SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1,
  *	 e.estimate_graph_frequency = (w1 * t1[e].estimate_graph_frequency + w2 * t2[e].estimate_graph_frequency)
  *	 e.estimate_graph_occurrences = [the same as above]
  *   e.num_spanning_trees = -1
- */
-SampleTable SampleTable::average(SampleTable& t1, SampleTable& t2, double w1, double w2) {
+ */ //FIXME: Why is the fingerprint used as a key?
+SampleTable SampleTable::average(SampleTable& t1, SampleTable& t2, double w1, double w2)
+{
 	SampleTable t;
 	std::map<std::string, SampleTable::Entry> merged;
 
@@ -145,61 +148,21 @@ SampleTable SampleTable::average(SampleTable& t1, SampleTable& t2, double w1, do
 }
 
 /**
- * Sample-weighted average of two count tables.
- * In the output table:
- *   e.sample_count is the sum of the corresponding entries in t1 and t2.
- *	 e.estimate_graph_frequency = (w1 * t1[e].estimate_graph_frequency + w2 * t2[e].estimate_graph_frequency)
- *	 e.estimate_graph_occurrences = [the same as above]
- *   e.num_spanning_trees = -1
- */
-SampleTable SampleTable::saverage(SampleTable& t1, SampleTable& t2) {
-	SampleTable t;
-	std::map<std::string, SampleTable::Entry> merged;
-	std::map<std::string, std::pair<double, double>> weights;
-
-	for (SampleTable::Entry e : t1.entries)
-		weights[e.fingerprint].first = e.sample_count;
-	for (SampleTable::Entry e : t2.entries)
-		weights[e.fingerprint].second = e.sample_count;
-	for (auto &e : weights) {
-		e.second.first /= (e.second.first + e.second.second);
-		e.second.second /= (e.second.first + e.second.second);
-	}
-
-	for (SampleTable::Entry e : t1.entries) {
-		merged[e.fingerprint].fingerprint = e.fingerprint;
-		merged[e.fingerprint].num_spanning_trees = 1;
-		merged[e.fingerprint].sample_count += e.sample_count;
-		merged[e.fingerprint].estimate_graph_frequency += e.estimate_graph_frequency
-				* weights[e.fingerprint].first;
-		merged[e.fingerprint].estimate_graph_occurrences = e.estimate_graph_occurrences
-				* weights[e.fingerprint].first;
-		;
-	}
-	for (SampleTable::Entry e : t2.entries) {
-		merged[e.fingerprint].fingerprint = e.fingerprint;
-		merged[e.fingerprint].num_spanning_trees = 1;
-		merged[e.fingerprint].sample_count += e.sample_count;
-		merged[e.fingerprint].estimate_graph_frequency += e.estimate_graph_frequency
-				* weights[e.fingerprint].second;
-		merged[e.fingerprint].estimate_graph_occurrences += e.estimate_graph_occurrences
-				* weights[e.fingerprint].second;
-	}
-	for (auto &it : merged) {
-		merged[it.first].num_spanning_trees = 0;
-		t.addEntry(merged[it.first]);
-	}
-//	t.estimateFrequencies();
-	return t;
-}
-
-/**
  * Prints the table in the natural format.
  */
 std::ostream& operator<<(std::ostream& os, const SampleTable& st)
 {
-	for (const SampleTable::Entry& e : st.entries)
+	for (const auto& e : st.entries)
 		os << e.fingerprint << "," << e.sample_count << "," << uint128_to_string(e.num_spanning_trees) << "," << e.estimate_graph_frequency << "," << e.estimate_graph_occurrences << "\n";
 
 	return os;
+}
+
+double SampleTable::norm2() const
+{
+	double norm2 = 0;
+	for (const auto& e : entries)
+		norm2 += static_cast<double>(e.sample_count) * static_cast<double>(e.sample_count);
+
+	return std::sqrt(norm2) / static_cast<double>(num_samples);
 }

@@ -45,7 +45,6 @@ public:
 		return root_sampler->get_total_weight();
 	}
 
-//    Occurrence* sample(uint64_t num_samples, Random *rng);
     SampleTable* sample(uint64_t num_samples, Random *rng, double time_budget = std::numeric_limits<double>::infinity());
 };
 

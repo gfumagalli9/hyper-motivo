@@ -5,18 +5,16 @@ set(TEST_SOURCE_FILES
         tests.cpp
         Treelet.cpp
         Treelet.cpp
-        Occurrence.cpp
-        ColorCodingSpanningTreeCounter.cpp
         leftmost_bit_tie.cpp
         CompressedRecordFile.cpp
         SpanningTreeCounter.cpp
         ../sampler/Occurrence.h
         ../sampler/Occurrence.cpp
         ../sampler/include_nauty.h
-        ../sampler/SpanningTreeCounter.h
-        ../sampler/SpanningTreeCounter.cpp
         ../sampler/ColorCodingSpanningTreeCounter.h
         ../sampler/ColorCodingSpanningTreeCounter.cpp
+        ../sampler/SpanningTreeCounter.h
+        ../sampler/SpanningTreeCounter.cpp
         )
 
 add_executable(motivo-tests ${TEST_SOURCE_FILES})

@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <climits>
+#include <algorithm>
 #include "Treelet.h"
 
 Treelet Treelet::merge(const Treelet other) const
@@ -59,4 +60,174 @@ uint8_t Treelet::normalization_factor() const
     return num_occurrences;
 }
 
+Treelet Treelet::canonical_rooting() const
+{
+    assert(is_valid());
 
+    //Find the center(s) of the treelet
+    unsigned int parents[16] = {0};
+    unsigned int current = 0;
+    unsigned int num_vertices = 1;
+
+    unsigned int depth=0; //current depth in the visit
+    unsigned int max_depth=0; //maximum depth in the current subtree of the root
+    unsigned int deepest_leaf=0; //the leaf corresponding to max_depth
+
+    unsigned int depth_subtree_1=0; //the height of the highest subtree of the root so far
+    unsigned int depth_subtree_2=0; //the height of the second highest subtree of the root so far
+    unsigned int deepest_leaf_subtree_1=0; //the leaf corresponding to depth_subtree_1
+
+    unsigned int subtree_bit_start[16] = {0}; //i-th entry = index of the first of the subtree starting at vertex i excluding the leading 1
+    unsigned int subtree_bit_end[16] = {0}; //i-th entry = index of the last of the subtree starting at vertex i (i.e., the "0" leaving i)
+
+    unsigned int index=0;
+    treelet_structure_t remaining = structure;
+    while(true)
+    {
+        if(remaining & treelet_structure_highest_bit) //new edge
+        {
+            parents[num_vertices]=current;
+            subtree_bit_start[num_vertices]=index+1;
+            current=num_vertices;
+            num_vertices++;
+            depth++;
+        }
+        else
+        {
+            subtree_bit_end[current]=index;
+
+            if(current==0)
+                break;
+
+            if(depth>max_depth)
+            {
+                max_depth = depth;
+                deepest_leaf = current;
+            }
+
+            current=parents[current];
+            depth--;
+
+            if(current==0)
+            {
+                if(max_depth>=depth_subtree_1)
+                {
+                    depth_subtree_2=depth_subtree_1;
+
+                    depth_subtree_1=max_depth;
+                    deepest_leaf_subtree_1=deepest_leaf;
+                }
+                else if(max_depth>depth_subtree_2)
+                    depth_subtree_2=max_depth;
+
+                max_depth=0;
+                deepest_leaf=0;
+            }
+        }
+
+        remaining<<=1u;
+        index++;
+    }
+
+    unsigned int deepest_center = deepest_leaf_subtree_1;
+    for(unsigned int i=(depth_subtree_1 + depth_subtree_2)/2; i>0; i--)
+        deepest_center = parents[deepest_center];
+
+
+
+    Treelet rerooting_1 = reroot(deepest_center, parents, subtree_bit_start, subtree_bit_end);
+    if((depth_subtree_1 + depth_subtree_2)%2==0) //there is only one center
+        return rerooting_1;
+    else //2 centers
+    {
+        //the second center is the parent of deepest_center
+        Treelet rerooting_2 = reroot(parents[deepest_center], parents, subtree_bit_start, subtree_bit_end);
+        return (rerooting_1 < rerooting_2)?rerooting_1:rerooting_2;
+    }
+}
+
+//Selects the bits in positions [from, from+len) of src and returns them in positions [pos, pos+len)
+#define STRUCTURE_BITSELECT(src, from, len, pos) ( ( (src) >> (treelet_structure_bits - ((from)+(len)) ) ) << (treelet_structure_bits - (len) + (pos)) )
+
+
+Treelet Treelet::reroot(unsigned int new_root, const unsigned int* parents, const unsigned int* subtree_bit_start, const unsigned int* subtree_bit_end) const
+{
+    assert(is_valid());
+    assert(new_root < number_of_vertices());
+
+    if(new_root==0) //nothing to do
+        return *this;
+
+    //Generate structure corresponding to a dfs visit from new_root
+
+    //Copy the subtree rooted at new_root
+    treelet_structure_t dfs_structure = STRUCTURE_BITSELECT(structure, subtree_bit_start[new_root], subtree_bit_end[new_root]- subtree_bit_start[new_root], 0);
+    unsigned int index = subtree_bit_end[new_root] - subtree_bit_start[new_root];
+
+    //Handle the parents of new_root
+    for(unsigned int completed = new_root; completed!=0; completed=parents[completed])
+    {
+        unsigned int parent = parents[completed];
+        dfs_structure |= (treelet_structure_highest_bit >> index);
+        index++;
+
+        assert(subtree_bit_start[parent]<subtree_bit_start[completed]);
+        assert(subtree_bit_end[parent]>subtree_bit_end[completed]);
+
+        unsigned int len = subtree_bit_start[completed] - subtree_bit_start[parent] - 1;
+        if(len>0)
+        {
+            dfs_structure |= STRUCTURE_BITSELECT(structure, subtree_bit_start[parent], len, index);
+            index+=len;
+        }
+
+        len = subtree_bit_end[parent] - subtree_bit_end[completed] - 1;
+        if(len>0)
+        {
+            dfs_structure |= STRUCTURE_BITSELECT(structure, subtree_bit_end[completed]+1, len, index);
+            index+=len;
+        }
+    }
+
+    assert(number_of_vertices(dfs_structure)==number_of_vertices());
+
+
+    //Now perform a dfs visit and reconstruct the treelet
+    Treelet subtrees[16];
+    unsigned int nsubtrees=0;
+
+    unsigned int dfs_parents[16] = {0};
+    unsigned int num_children[16] = {0};
+    unsigned int current = 0;
+    unsigned int num_vertices = 1;
+
+    while(true)
+    {
+        if(dfs_structure & treelet_structure_highest_bit) //new edge
+        {
+            num_children[current]++;
+            dfs_parents[num_vertices] = current;
+            current = num_vertices;
+            num_vertices++;
+        }
+        else
+        {
+            Treelet t(singleton_structure);
+            nsubtrees-=num_children[current];
+            std::sort(subtrees+nsubtrees, subtrees+nsubtrees+num_children[current]);
+
+            for(unsigned int i=0; i<num_children[current]; i++)
+                t.merge(subtrees[nsubtrees+i]);
+
+            subtrees[nsubtrees++]=t;
+
+            if(current==0)
+                break;
+
+            current = dfs_parents[current];
+        }
+    }
+
+    assert(nsubtrees==1);
+    return Treelet(subtrees[0].structure, colors);
+}

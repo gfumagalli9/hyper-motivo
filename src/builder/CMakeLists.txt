@@ -11,7 +11,7 @@ set(BUILDER_SOURCE_FILES
         SequentialBuilder.cpp
         ColorCodingHashmap.h
         ColorCodingBuilder.h
-        )
+        ../common/io/PropertyStore.cpp ../common/io/PropertyStore.h)
 
 add_executable(motivo-build ${BUILDER_SOURCE_FILES})
 target_link_libraries(motivo-build ${COMMON_LIBRARIES})

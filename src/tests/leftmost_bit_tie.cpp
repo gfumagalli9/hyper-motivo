@@ -24,7 +24,7 @@ int reference (uint32_t x)
     return count?127:bits;
 }
 
-TEST_CASE("leftmost_bit_tie")
+TEST_CASE("leftmost_bit_tie slow")
 {
     CHECK(reference(0)==leftmost_bit_tie(0));
 

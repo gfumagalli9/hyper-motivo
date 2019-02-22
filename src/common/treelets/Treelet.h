@@ -38,6 +38,8 @@ private:
 	treelet_structure_t structure;
 	uint16_t colors;
 
+    Treelet reroot(unsigned int new_root, const unsigned int* parents, const unsigned int* subtree_bit_start, const unsigned int* subtree_bit_end) const;
+
 public:
 	Treelet() noexcept = default; //Required to create treelet array. Does not initialize structure and colors
 
@@ -47,6 +49,11 @@ public:
 
 	///@returns the number of vertices of the treelet
 	inline unsigned int number_of_vertices() const {
+		return static_cast<unsigned int>(popcount32(structure) + 1);
+	}
+
+	static unsigned int number_of_vertices(const treelet_structure_t structure)
+	{
 		return static_cast<unsigned int>(popcount32(structure) + 1);
 	}
 
@@ -107,6 +114,8 @@ public:
 	Treelet split_child() const;
 
 	Treelet complement(Treelet t2) const;
+
+	Treelet canonical_rooting() const;
 
 	inline bool operator==(const Treelet& other) const
 	{

@@ -12,11 +12,13 @@
 #include <sparsehash/dense_hash_map>
 #include "../common/random/Random.h"
 #include "../common/graph/UndirectedGraph.h"
+#include "../common/treelets/Treelet.h"
+#include "../common/treelets/TreeletStructureSelector.h"
 #include "Occurrence.h"
-#include "SpanningTreeCounter.h"
 #include "TreeletSampler.h"
 #include "DynamicSequencer.h"
 #include "SampleTable.h"
+#include "SpanningTreeCounter.h"
 
 class OccurrenceSampler
 {
@@ -68,10 +70,9 @@ private:
 	const bool no_rejection;
 
 	TreeletSampler sampler;
-
-    SpanningTreeCounter* spanning_tree_counter;
-    TreeletSelector *sp_counter_selector = nullptr;
-    bool delete_stc = true;
+	TreeletStructureSelector *sample_selector = nullptr;
+	TreeletStructureSelector *build_selector = nullptr;
+	SpanningTreeCounter *spanning_tree_counter = nullptr;
 
 	void sample_thread [[gnu::hot, gnu::flatten]](occ_count_table_t *table, sequencer_t *sequencer, Random *rng, std::atomic<bool> &terminate_flag, ThreadSync &sync);
 
@@ -88,7 +89,6 @@ public:
 
 		static thread_local OccurrenceCanonicizer canonicizer(size);
 
-
 		while (true)
 		{
 			if (vertices || graphlets) //If we want treelets but not the occurrence vertices we can skip sampling
@@ -104,8 +104,22 @@ public:
 			{
 				new(occurrence) Occurrence(size, graph, sampled_vertices);
 
-				if (!no_rejection && rng->random_uint<uint64_t>(0, occurrence->number_of_spanning_trees() - 1) != 0)
-					continue; //Rejection
+				if(!no_rejection)
+                {
+					if(build_selector)
+					{
+						if(rng->random_uint<uint64_t>(1, spanning_tree_counter->number_of_spanning_trees(*occurrence)) != 1)
+							continue; //Rejection
+					}
+					else
+					{
+						const uint64_t sts = spanning_tree_counter->number_of_spanning_trees(*occurrence);
+						assert(sts % size == 0);
+						if(rng->random_uint<uint64_t>(1,sts) > size)
+							continue; //Rejection
+					}
+                }
+
 			}
 			else
 				new(occurrence) Occurrence(t, sampled_vertices);
@@ -119,40 +133,14 @@ public:
 
 	SampleTable* sample(uint64_t n_samples, unsigned int number_of_threads, Random *rng, double time_budget = std::numeric_limits<double>::infinity());
 
-	OccurrenceSampler(const UndirectedGraph *graph, const TreeletTableCollection* ttc, unsigned int size,
-                                         bool vertices, bool graphlets, bool canonicize, bool no_rejection) :
-            graph(graph), ttc(ttc), size(size), vertices(vertices), graphlets(graphlets), canonicize(canonicize),
-            no_rejection(no_rejection), sampler(graph, ttc, size)
-    {
-    	spanning_tree_counter = new SpanningTreeCounter();
-    }
+	OccurrenceSampler(const UndirectedGraph *graph, const TreeletTableCollection* ttc, unsigned int size, bool vertices, bool graphlets, bool canonicize, bool no_rejection);
 
-    void setSpanningTreeCounter(SpanningTreeCounter* stc)
-    {
-    	if (delete_stc)
-    	{
-    		delete spanning_tree_counter;
-    		delete_stc = false;
-    	}
-    	spanning_tree_counter = stc;
-    }
+    ~OccurrenceSampler();
 
-    ~OccurrenceSampler()
-    {
-    	if (delete_stc)
-    		delete spanning_tree_counter;
-    }
-
-    /**
-     * Set the treelet selector.
-     * - the first specifies the treelets to be used for sampling the graphlets.
-     * - the second specified the treelets to be used to count the spanning trees of
-     *   the graphlets, including all their subtrees. This means that you want this
-     *   second selector to contain all the treelets of the first, plus their subtrees,
-     *   if the first selector is in INCLUDE mode. By default, it uses the first selector
-     *   again, which is correct if in EXCLUDE mode.
-     */
-    void set_selector(const TreeletSelector *selector, unsigned int number_of_threads, const TreeletSelector *sp_counter_selector = nullptr);
+    ///@param sample_selector contains all the structures that we are interested in sampling. Only the ones of the correct size are considered
+    ///@param build_selector contains all the structures used for the build phase
+    ///For both selectors, nullptr means that all treelets are included
+	void set_selector(const TreeletStructureSelector *new_sample_selector,  const TreeletStructureSelector *new_build_selector, unsigned int number_of_threads);
 };
 
 #endif //MOTIVO_OCCURRENCESAMPLER_H

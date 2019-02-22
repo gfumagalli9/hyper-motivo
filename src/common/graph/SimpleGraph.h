@@ -14,30 +14,27 @@
 #include "UndirectedGraph.h"
 #include "../treelets/Treelet.h"
 
-class SimpleGraph;
-
 /**
  * A simple graph(let) that can hold at most 16 vertices
  */
 class SimpleGraph
 {
+public:
+	typedef google::dense_hash_set<Treelet::treelet_structure_t> treelet_structure_set_t;
+
 private:
 	unsigned int nverts=0;
 	unsigned int degrees[16] = {0};
-	unsigned int adj_lists[16][16] = {0};
+	unsigned int adj_lists[16][16] = {{0}};
+
+	Treelet dfs(unsigned int u, unsigned int parent, bool *visited, treelet_structure_set_t &structures);
 
 public:
-	typedef google::dense_hash_set<Treelet, Treelet::TreeletHash> treelet_set_t;
-
 	unsigned int number_of_vertices() { return nverts; };
 
-	Treelet dfs(unsigned int u, unsigned int parent, bool *visited, treelet_set_t *treelets);
-
-	void decompose(treelet_set_t *treelets, int root, bool unique = false);
+	void decompose(treelet_structure_set_t &structures, int root=-1);
 
 	static SimpleGraph from_stdin();
-
-	static SimpleGraph from_treelet(Treelet& t);
 
 	static SimpleGraph path(unsigned int size)
 	{
@@ -62,20 +59,6 @@ public:
 	    }
 	    return g;
 	}
-
-	static SimpleGraph clique(unsigned int size)
-	{
-		SimpleGraph g;
-	    g.nverts=size;
-	    for(unsigned int i=1; i<size; i++)
-		    for(unsigned int j=0; i<j; j++)
-			{
-				g.adj_lists[i][g.degrees[i]++]=j;
-				g.adj_lists[j][g.degrees[j]++]=i;
-			}
-	    return g;
-	}
-
 };
 
 #endif /* SRC_COMMON_GRAPH_SIMPLEGRAPH_H_ */

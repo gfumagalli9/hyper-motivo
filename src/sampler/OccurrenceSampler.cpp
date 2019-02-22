@@ -5,17 +5,16 @@
 #include <thread>
 #include "OccurrenceSampler.h"
 #include "SampleTable.h"
-#include "SpanningTreeCounter.h"
 
 void OccurrenceSampler::sample_thread(occ_count_table_t *table, sequencer_t *sequencer, Random *rng, std::atomic<bool> &terminate_flag, ThreadSync &sync)
 {
 	while(true)
 	{
 		sequencer_t::sequence_batch_t batch = sequencer->next_batch();
-		if (batch.from >= batch.to)
+		if (batch.from >= batch.to_exclusive)
 			break;
 
-		for (uint64_t i = batch.from; i<batch.to; i++)
+		for (uint64_t i = batch.from; i<batch.to_exclusive; i++)
 		{
 			Occurrence o;
 			sample_one(&o, rng);
@@ -94,7 +93,7 @@ SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int 
 
 	auto sample_table = build_sample_table(count_tab);
 
-	//cleanup
+	//Cleanup
 	delete[] threads;
 	delete[] count_tabs;
 	delete[] terminate_flags;
@@ -108,7 +107,6 @@ SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int 
 SampleTable *OccurrenceSampler::build_sample_table(const OccurrenceSampler::occ_count_table_t &count_tab) const
 {
 	auto table = new SampleTable();
-	SpanningTreeCounter stc;
 	for (const auto &it : count_tab)
 	{
 		Occurrence o = it.first;
@@ -116,15 +114,51 @@ SampleTable *OccurrenceSampler::build_sample_table(const OccurrenceSampler::occ_
 		e.fingerprint = o.text_footprint();
 		e.occurrence = o;
 		e.sample_count = it.second;
-		e.num_spanning_trees = stc.get_spanning_trees(o, sp_counter_selector); //FIXME: ?? Handle this. Make multi-threaded?
+		e.num_spanning_trees = 0; //stc.get_spanning_trees(o, sp_counter_selector); //FIXME: ?? Handle this. Make multi-threaded?
 		table->addEntry(e);
 	}
 	return table;
 }
 
-void OccurrenceSampler::set_selector(const TreeletSelector *selector, unsigned int number_of_threads, const TreeletSelector *sp)
+void OccurrenceSampler::set_selector(const TreeletStructureSelector *new_sample_selector, const TreeletStructureSelector *new_build_selector, const unsigned int number_of_threads)
 {
-    if (sp) //FIXME: Leaking memory?
-        this->sp_counter_selector = new TreeletSelector(*sp);
-    sampler.set_selector(selector, number_of_threads);
+ 	delete sample_selector;
+	sample_selector=nullptr;
+
+	delete build_selector;
+	build_selector=nullptr;
+
+	if(new_sample_selector!=nullptr)
+	{
+		sample_selector = new TreeletStructureSelector(new_sample_selector->restrict_to_sizes(size,size));
+
+		if(new_build_selector != nullptr)
+			build_selector = new TreeletStructureSelector(sample_selector->buildable_closure().intersection(*new_build_selector));
+		else
+			build_selector = new TreeletStructureSelector(sample_selector->buildable_closure());
+	}
+	else if(new_build_selector!=nullptr)
+		build_selector = new TreeletStructureSelector(*new_build_selector);
+
+	sampler.set_selector(sample_selector, number_of_threads);
+
+
+	delete spanning_tree_counter;
+	if(!no_rejection)
+		spanning_tree_counter = new SpanningTreeCounter(size, build_selector);
+}
+
+OccurrenceSampler::OccurrenceSampler(const UndirectedGraph *graph, const TreeletTableCollection* ttc, unsigned int size,
+				  bool vertices, bool graphlets, bool canonicize, bool no_rejection) :
+		graph(graph), ttc(ttc), size(size), vertices(vertices), graphlets(graphlets), canonicize(canonicize),
+		no_rejection(no_rejection), sampler(graph, ttc, size)
+{
+	spanning_tree_counter = new SpanningTreeCounter(size);
+}
+
+OccurrenceSampler::~OccurrenceSampler()
+{
+	delete sample_selector;
+	delete build_selector;
+	delete spanning_tree_counter;
 }

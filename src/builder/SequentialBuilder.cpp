@@ -29,7 +29,7 @@ void SequentialBuilder::build()
 SequentialBuilder::SequentialBuilder(const UndirectedGraph *G, UndirectedGraph::vertex_t from_vertex,
                                              UndirectedGraph::vertex_t to_vertex, const unsigned int size,
                                              const TreeletTableCollection *ttc, const bool store_only_0,
-                                             TreeletSelector *selector, std::ostream *output)
+                                             TreeletStructureSelector *selector, std::ostream *output)
         : G(G), from_vertex(from_vertex), to_vertex(to_vertex), size(size), ttc(ttc), store_only_0(store_only_0), output(output), builder(size, ttc, selector)
 
 {}

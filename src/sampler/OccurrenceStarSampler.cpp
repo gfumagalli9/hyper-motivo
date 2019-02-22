@@ -10,11 +10,9 @@
 #include <algorithm>
 #include "OccurrenceStarSampler.h"
 #include "../common/util.h"
-#include "SpanningTreeCounter.h"
 #include "../sampler/SampleTable.h"
 
-OccurrenceStarSampler::OccurrenceStarSampler(const UndirectedGraph* g, unsigned int size,
-		unsigned int number_of_threads, bool canonicize) :
+OccurrenceStarSampler::OccurrenceStarSampler(const UndirectedGraph* g, unsigned int size, unsigned int number_of_threads, bool canonicize) :
 		g(g), size(size), number_of_threads(number_of_threads), canonicize(canonicize) {
 	root_sampler = new AliasMethodSampler<UndirectedGraph::vertex_t, uint128_t>(
 			g->number_of_vertices());
@@ -89,10 +87,10 @@ void OccurrenceStarSampler::do_sample_mt(occ_count_table_t* tab, sequencer_t *se
 		Random* rng) {
 	while (true) {
 		sequencer_t::sequence_batch_t batch = sequencer->next_batch();
-		if (batch.from >= batch.to)
+		if (batch.from >= batch.to_exclusive)
 			break;
 
-		for (uint64_t i = batch.from; i < batch.to; i++) {
+		for (uint64_t i = batch.from; i < batch.to_exclusive; i++) {
 			Occurrence o;
 			sample_one(&o, rng);
 			(*tab)[o]++;
@@ -186,14 +184,14 @@ SampleTable* OccurrenceStarSampler::sample(uint64_t num_samples, Random *rng, do
 		delete[] count_tabs;
 	}
 
-	SpanningTreeCounter stc;
-	for (auto &it : count_tab) {
+	for (auto &it : count_tab)
+	{
 		Occurrence o = it.first;
 		SampleTable::Entry e;
 		e.fingerprint = o.text_footprint();
 		e.occurrence = o;
 		e.sample_count = it.second;
-		e.num_spanning_trees = stc.num_spanning_stars(o);
+		e.num_spanning_trees = 0; //stc.num_spanning_stars(o); //FIXME!
 		table->addEntry(e);
 	}
 	table->estimateFrequencies();

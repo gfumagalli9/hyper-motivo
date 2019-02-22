@@ -2,7 +2,7 @@ include(CTest)
 enable_testing()
 
 add_test(NAME build-graph COMMAND motivo-graph --input ${CMAKE_SOURCE_DIR}/graphs/test-graph.txt --output test-graph WORKING_DIRECTORY tests)
-add_test(NAME motivo-tests COMMAND motivo-tests "-tce=leftmost_bit_tie,CompressedRecordFile Multiblock" WORKING_DIRECTORY tests)
+add_test(NAME motivo-tests COMMAND motivo-tests "-tce=*slow" WORKING_DIRECTORY tests)
 set_tests_properties(motivo-tests PROPERTIES DEPENDS build-graph)
 
 

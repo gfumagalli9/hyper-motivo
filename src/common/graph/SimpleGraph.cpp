@@ -9,7 +9,7 @@
 #include <stack>
 
 
-Treelet SimpleGraph::dfs(unsigned int u, unsigned int parent, bool *visited, treelet_set_t *treelets)
+Treelet SimpleGraph::dfs(unsigned int u, unsigned int parent, bool *visited, treelet_structure_set_t &structures)
 {
     visited[u]=true;
 
@@ -25,7 +25,7 @@ Treelet SimpleGraph::dfs(unsigned int u, unsigned int parent, bool *visited, tre
         if(visited[v])
             throw std::runtime_error("Graph is not a tree");
 
-        child_treelets[nchild_treelets++] = dfs(v, u, visited, treelets);
+        child_treelets[nchild_treelets++] = dfs(v, u, visited, structures);
     }
 
     std::sort(child_treelets, child_treelets+nchild_treelets);
@@ -35,7 +35,7 @@ Treelet SimpleGraph::dfs(unsigned int u, unsigned int parent, bool *visited, tre
     {
         t=t.merge(child_treelets[--nchild_treelets]);
         assert(t.is_valid());
-        treelets->insert(t);
+        structures.insert(t.get_structure());
     }
 
     return t;
@@ -44,42 +44,26 @@ Treelet SimpleGraph::dfs(unsigned int u, unsigned int parent, bool *visited, tre
 /**
  * Return all (sub)treelets found by DFS from the different nodes of the graph, of different sizes.
  * If the graph is a tree, this returns all possible rootings of the tree itself.
- * If moreover unique=true, then only the distinct rootings are stored, only of maximal size (i.e. spanning trees).
  */
-void SimpleGraph::decompose(treelet_set_t *treelets, int root, bool unique)
+void SimpleGraph::decompose(treelet_structure_set_t &structures, int root)
 {
     bool visited[16];
-
     if(root==-1)
     {
         for(UndirectedGraph::vertex_t u=0; u<16; u++)
         {
             memset(visited, 0, sizeof(bool)*16);
-            dfs(u, u, visited, treelets);
+            dfs(u, u, visited, structures);
         }
     }
     else
     {
         memset(visited, 0, sizeof(bool)*16);
-        dfs(0, 0, visited, treelets);
-    }
-
-    if (unique) { // deduplicate
-    	treelet_set_t ts(*treelets);
-    	treelets->clear();
-		Treelet::treelet_structure_t previous_structure = Treelet::invalid_structure;
-		for(const auto &it : ts) {
-//			std::cout << it->get_structure() << std::endl;
-			if (it.get_structure() == previous_structure || it.number_of_vertices() < nverts)
-				continue;
-			else
-				treelets->insert(it);
-			previous_structure = it.get_structure();
-		}
+        dfs(0, 0, visited, structures);
     }
 }
 
-SimpleGraph SimpleGraph::from_stdin() {
+SimpleGraph SimpleGraph::from_stdin() { //TODO: Does this belong here? Also, it only reads trees.
 	SimpleGraph g;
     bool seen[16]={false};
     unsigned int nedges=0;
@@ -132,25 +116,6 @@ SimpleGraph SimpleGraph::from_stdin() {
     return g;
 }
 
-
-SimpleGraph SimpleGraph::from_treelet(Treelet& t) {
-	SimpleGraph g;
-	Treelet::treelet_structure_t tst = t.get_structure();
-	g.nverts = t.number_of_vertices();
-	std::stack<unsigned int> s;
-	unsigned int maxu = 0;
-	s.push(maxu);
-	while (!s.empty()) {
-		if (tst & Treelet::treelet_structure_highest_bit) {
-			g.adj_lists[s.top()][g.degrees[s.top()]++] = ++maxu;
-			g.adj_lists[maxu][g.degrees[maxu]++] = s.top();
-			s.push(maxu);
-		} else
-			s.pop();
-		tst <<= 1;
-	}
-	return g;
-}
 
 
 

@@ -9,7 +9,6 @@
 #define SRC_SAMPLER_SAMPLETABLE_H_
 
 #include "Occurrence.h"
-#include "../common/treelets/TreeletSelector.h"
 #include <ostream>
 #include <string>
 #include <vector>
@@ -18,8 +17,6 @@
 class SampleTable
 {
 public:
-    //typedef google::dense_hash_map<Occurrence, uint64_t, Occurrence::OccurrenceHash, Occurrence::compare_eq> table_t;
-
     class Entry // a table entry
     {
     public:
@@ -30,6 +27,9 @@ public:
         double estimate_graph_frequency = 0;
         double estimate_graph_occurrences = 0;
     };
+
+    typedef std::vector<Entry>::const_iterator const_iterator;
+
 
 private:
     std::vector<Entry> entries;
@@ -50,7 +50,7 @@ public:
 
     static SampleTable merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2); // merge two tables (see source for details)
     static SampleTable average(SampleTable& t1, SampleTable& t2, double w1, double w2); // average two tables (see source for details)
-	static SampleTable saverage(SampleTable& t1, SampleTable& t2);
+
 	friend std::ostream& operator<<(std::ostream& os, const SampleTable& st);
 
 	uint64_t get_num_samples() const
@@ -63,10 +63,10 @@ public:
 		return entries.size();
 	}
 
-	const Entry* get_entries() const
-    {
-        return entries.data();
-    }
+	double norm2() const;
+
+	const_iterator begin() const { return entries.cbegin(); };
+    const_iterator end() const { return entries.cend(); }
 };
 
 #endif /* SRC_SAMPLER_SAMPLETABLE_H_ */

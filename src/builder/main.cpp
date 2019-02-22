@@ -10,6 +10,7 @@
 #include "Size1Builder.h"
 #include "SequentialBuilder.h"
 #include "MultithreadedBuilder.h"
+#include "../common/io/PropertyStore.h"
 
 struct builder_opts
 {
@@ -178,11 +179,11 @@ int main(const int argc, const char** argv)
                   << opts.to_vertex << " using " << opts.threads << " thread(s)" << std::endl;
 
         bool selective = *opts.selective_filename!='\0' && opts.size>1;
-        TreeletSelector* selector = nullptr;
+        TreeletStructureSelector* selector = nullptr;
         if(selective)
         {
-            selector = new TreeletSelector(opts.selective_filename, opts.size);
-            std::cout << "Selectively " << ((selector->get_mode()==TreeletSelector::MODE_INCLUDE)?"counting only ":"ignoring ") << selector->number_of_treelets() << " treelet(s) of the given size" << std::endl;
+            selector = new TreeletStructureSelector(TreeletStructureSelector(opts.selective_filename).restrict_to_sizes(opts.size,opts.size));
+            std::cout << "Selectively " << ((selector->get_mode()==TreeletStructureSelector::MODE_INCLUDE)?"counting only ":"ignoring ") << selector->size() << " treelet(s) of the given size" << std::endl;
         }
 
         std::chrono::time_point<std::chrono::steady_clock> tstart;
@@ -213,10 +214,9 @@ int main(const int argc, const char** argv)
         std::cout << "Output written to " << filename << std::endl;
 
         // write info for later phases
-        std::ofstream infofile;
-        infofile.open(std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".info", std::ofstream::trunc);
-        infofile << "StoreOnlyOn0 " << std::to_string(opts.store0) << std::endl;
-        infofile.close();
+        PropertyStore properties;
+        properties.set_bool("StoreOnlyOn0", opts.store0);
+        properties.save(std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".info");
 
         delete selector;
 

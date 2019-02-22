@@ -1,65 +1,45 @@
-/*
- * SpanningTreeCounter.h
- *
- *  Created on: 15 mag 2018
- *      Author: brix
- */
+//
+// Created by steven on 1/18/19.
+//
 
-#ifndef SRC_SAMPLER_SPANNINGTREECOUNTER_H_
-#define SRC_SAMPLER_SPANNINGTREECOUNTER_H_
+#ifndef MOTIVO_SPANNINGTREECOUNTER_H
+#define MOTIVO_SPANNINGTREECOUNTER_H
 
+#include <cstdint>
 #include "Occurrence.h"
-#include "../common/treelets/TreeletSelector.h"
-#include <google/dense_hash_map>
-#include <mutex>
-#include <cstdio>
+#include "../common/treelets/TreeletStructureSelector.h"
 
-/**
- * Counts the spanning trees of an occurrence via color-coding
- */
-class SpanningTreeCounter {
+class SpanningTreeCounter
+{
+public:
+    typedef unsigned int strategy_t;
+    static constexpr strategy_t STRATEGY_STARS=0;
+    static constexpr strategy_t STRATEGY_KIRCHOFF=1;
+    static constexpr strategy_t STRATEGY_KIRCHOFF_MINUS_STARS=2;
+    static constexpr strategy_t STRATEGY_COLOR_CODING=3;
+    static constexpr strategy_t STRATEGY_ZERO=4;
+
 private:
-	typedef google::dense_hash_map<Occurrence, uint64_t, Occurrence::OccurrenceFootprintHash,
-			Occurrence::OccurrenceFootprintEquality> occ_table_t;
-	occ_table_t cache;
-	std::mutex m_mutex;
+    const unsigned int size;
+    strategy_t strategy;
+    const TreeletStructureSelector *selector;
 
 public:
-	SpanningTreeCounter()
-	{
-		cache.set_empty_key(Occurrence());
-	}
+    static uint64_t number_of_spanning_trees_kirchhoff(const Occurrence &occ);
 
-	/**
-	 * Static methods: on-the-fly computation
-	 */
-	static uint64_t num_spanning_trees(const Occurrence &occ);
-	static uint64_t num_spanning_trees(const Occurrence &occ, const TreeletSelector *ts);
-	static unsigned int num_spanning_stars(const Occurrence &occ);
-	static uint64_t num_spanning_trees_nostars(const Occurrence &occ);
+    static uint64_t number_of_spanning_trees_colorcoding(const Occurrence &occ, const TreeletStructureSelector *ts=nullptr);
 
-	/**
-	 * Instance methods: use the cache
-	 */
-	uint64_t get_spanning_trees(const Occurrence &occ, const TreeletSelector *ts);
+    static unsigned int number_of_spanning_stars(const Occurrence &occ);
 
-	uint64_t size() {
-		return cache.size();
-	}
+    ///Istance methods. Choose a good strategy for the given size an selector.
+    ///The spanning trees to be counted are those of the given size than can be obtained by a build that uses @param selector
+    explicit SpanningTreeCounter(unsigned  int size, const TreeletStructureSelector *selector=nullptr);
 
-	/**
-	 * Save to file, in binary format.
-	 * The record format is:
-	 * <k, fingerprint, edges>
-	 */
-	void save_to_file(std::string filename);
+    strategy_t get_strategy() const { return strategy; }
 
-	/**
-	 * Read from file
-	 * The record format is:
-	 * <k, fingerprint, edges>
-	 */
-	void read_from_file(std::string filename);
+    uint64_t number_of_spanning_trees(const Occurrence &occ);
+
 };
 
-#endif /* SRC_SAMPLER_SPANNINGTREECOUNTER_H_ */
+
+#endif //MOTIVO_SPANNINGTREECOUNTER_H

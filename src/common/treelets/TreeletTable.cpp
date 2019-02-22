@@ -3,6 +3,7 @@
 //
 
 #include "TreeletTable.h"
+#include "TreeletStructureSelector.h"
 #include "../platform/platform.h"
 #include "../random/RangeSampler.h"
 
@@ -171,7 +172,7 @@ const Treelet TreeletTable::get_treelet_no(UndirectedGraph::vertex_t root, Treel
 }*/
 
 
-RangeSampler<TreeletTable::treelet_count_t>* TreeletTable::build_range_sampler(const UndirectedGraph::vertex_t u, const TreeletSelector* selector)
+RangeSampler<TreeletTable::treelet_count_t>* TreeletTable::build_range_sampler(const UndirectedGraph::vertex_t u, const TreeletStructureSelector* selector)
 {
     Record<const treelet_count_pair_maybe_alias> record = reader->get_record(u);
 
@@ -180,30 +181,23 @@ RangeSampler<TreeletTable::treelet_count_t>* TreeletTable::build_range_sampler(c
 
     if(selector)
     {
-        const Treelet *t = selector->get_treelets();
-        for (uint64_t i = 0; i < selector->number_of_treelets(); i++)
+        for(Treelet::treelet_structure_t structure : *selector)
         {
 
             //FIXME: start binary search from last added treelet
             //first treelet of interest (inclusive). If none, next treelet
-            const treelet_count_pair_maybe_alias *tcp_lower = treelet_upper_bound(record.begin() + 1, record.end(), t[i]);
+            const treelet_count_pair_maybe_alias *tcp_lower = treelet_upper_bound(record.begin() + 1, record.end(), Treelet(structure));
             const treelet_count_pair_maybe_alias *tcp_upper; //one after the last treelet of interest
 
-            if(t[i].is_colored())
-                tcp_upper = tcp_lower + ((tcp_lower!=record.end() && tcp_lower->treelet==t[i])?1:0);
-            else
-            {
-                Treelet last(t[i].get_structure(), Treelet::all_colors);
-                tcp_upper = treelet_upper_bound(tcp_lower, record.end(), last);
-                if(tcp_upper!=record.end() && tcp_upper->treelet==last)
-                    tcp_upper++;
-            }
-
+            Treelet last(structure, Treelet::all_colors);
+            tcp_upper = treelet_upper_bound(tcp_lower, record.end(), last);
+            if(tcp_upper!=record.end() && tcp_upper->treelet==last)
+                tcp_upper++;
 
             if(tcp_lower==tcp_upper)
                 continue;
 
-            if(selector->get_mode()==TreeletSelector::MODE_INCLUDE)
+            if(selector->get_mode()==TreeletStructureSelector::MODE_INCLUDE)
                 rs->add_range((tcp_lower - 1)->count, (tcp_upper - 1)->count);
             else
             {
@@ -215,7 +209,7 @@ RangeSampler<TreeletTable::treelet_count_t>* TreeletTable::build_range_sampler(c
         }
     }
 
-    if( (!selector || selector->get_mode()==TreeletSelector::MODE_EXCLUDE) && next_to_add!=record.end() )
+    if( (!selector || selector->get_mode()==TreeletStructureSelector::MODE_EXCLUDE) && next_to_add!=record.end() )
         rs->add_range((next_to_add - 1)->count, (record.end() - 1)->count);
 
 

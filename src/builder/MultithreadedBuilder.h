@@ -51,7 +51,7 @@ private:
 
 public:
     MultithreadedBuilder(const UndirectedGraph *G, UndirectedGraph::vertex_t from_vertex, UndirectedGraph::vertex_t to_vertex,
-            unsigned int size, const TreeletTableCollection *ttc, bool store_only_0, TreeletSelector *selector,
+            unsigned int size, const TreeletTableCollection *ttc, bool store_only_0, TreeletStructureSelector *selector,
             std::ostream *output, unsigned int nthreads);
 
     void phase1_thread_loop [[gnu::hot]] (unsigned int thread_no, phase1_thread_state_t *states, ConcurrentWriter *writer);

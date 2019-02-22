@@ -1,119 +1,236 @@
-/*
- * SpanningTreeCounter.cpp
- *
- *  Created on: 15 mag 2018
- *      Author: brix
- */
+//
+// Created by steven on 1/18/19.
+//
 
-#include <string>
 #include "SpanningTreeCounter.h"
-#include "../common/treelets/TreeletTable.h"
-#include "../common/treelets/TreeletTableCollection.h"
 #include "../common/util.h"
 #include "ColorCodingSpanningTreeCounter.h"
-#include "CachedSTC.h"
 
+#define IDX(x,y) ( ((x)*((x)+1))/2 + (y) )
+#define DIAG(x) ( (x)*((x)+3)/2 )
 
-/**
- * Compute the number of spanning trees of the occurrence
- */
-uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ) {
-	return occ.number_of_spanning_trees();
-}
-
-/**
- * Compute the number of spanning trees of the occurrence, excluding stars
- */
-uint64_t SpanningTreeCounter::num_spanning_trees_nostars(const Occurrence& occ) {
-	return occ.number_of_spanning_trees() - num_spanning_stars(occ);
-}
-
-/**
- * Compute the number of spanning trees of the occurrence, possibly including/excluding some
- */
-uint64_t SpanningTreeCounter::num_spanning_trees(const Occurrence& occ, const TreeletSelector* ts)
+uint64_t SpanningTreeCounter::number_of_spanning_trees_kirchhoff(const Occurrence &occ)
 {
-	if (ts == nullptr || ts->number_of_treelets() == 0)
-		return occ.number_of_spanning_trees();
-	ColorCodingSpanningTreeCounter ccstc(&occ, ts);
-	ccstc.count();
-	return ccstc.number_of_spanning_trees();
-}
+    //if(spanning_trees!=0)
+    //    return spanning_trees;
 
-/**
- * Return the number of spanning stars
- */
-unsigned int SpanningTreeCounter::num_spanning_stars(const Occurrence& occ)
-{
-	unsigned int count = 0;
-	for(unsigned int u=0; u<occ.get_size(); u++)
-	{
-		unsigned int deg=0;
-		for(unsigned int v=0; v<u; v++)
-			deg+=occ.has_edge(u,v);
+    const unsigned int size = occ.get_size();
 
-		for(unsigned int v=u+1; v<occ.get_size(); v++)
-			deg+=occ.has_edge(v,u);
+    //Handle small cases
+    if(size <= 3)
+    {
+        if(size <= 2) //Isolated vertex or 2 vertices and a single edge
+            return 1;
 
-		count += (deg == occ.get_size());
-	}
+        if (occ.has_edge(1, 0) && occ.has_edge(2, 1) && occ.has_edge(2, 0))
+            return 3; //Triangle
 
-	return count;
-}
-
-/**
- * Return the number of spanning trees from the cache (else compute it now).
- */
-uint64_t SpanningTreeCounter::get_spanning_trees(const Occurrence& occ, const TreeletSelector* ts)
-{
-	if (!cache.count(occ))
-	{
-			m_mutex.lock();
-			cache[occ] = SpanningTreeCounter::num_spanning_trees(occ, ts);
-			m_mutex.unlock();
-	}
-
-	return cache[occ];
-}
-
-void SpanningTreeCounter::save_to_file(std::string filename)
-{
-    std::FILE* fd = std::fopen(filename.c_str(), "wb");
-    if (!fd)
-    	throw std::runtime_error("Could not fopen() file to store Spanning Tree Counter");
-
-    occ_table_t::iterator itr = cache.begin();
-    for (; itr != cache.end(); ++itr) {
-        Occurrence o = itr->first;
-        unsigned int k = o.get_size();
-        std::fwrite(&k, sizeof(k), 1, fd);
-        std::fwrite(&Occurrence::binary_footprint_bytes, sizeof(Occurrence::binary_footprint_bytes), 1, fd);
-        const char* bf = o.binary_footprint();
-        std::fwrite(bf, sizeof(*bf), o.binary_footprint_bytes, fd);
-        std::fwrite(&(itr->second), sizeof(itr->second), 1, fd);
+        return 1; //Path on 3 vertices
     }
-    std::fclose(fd);
+
+    //Positive definite 15x15 symmetric matrix stored compactly.
+    static thread_local long double M[120];
+
+    //Use Kirchhoff's method. Prepare M to contain a (size-1)x(size-1) submatrix of the Laplacian matrix of occ
+    unsigned int nedges=0;
+    for(unsigned int i=0; i<size-1; i++)
+    {
+        M[DIAG(i)] = 0;
+        for(unsigned int j=0; j<i; j++)
+        {
+            if(occ.has_edge(i, j))
+            {
+                M[DIAG(i)]++; //Involves only elements already set to 0
+                M[DIAG(j)]++; //Ditto
+                M[IDX(i,j)]=-1;
+                nedges++;
+            }
+            else
+                M[IDX(i,j)]=0;
+        }
+    }
+
+    //The degress of the Laplacian matrix are not accounting for the edges incident to the last vertex of the subgraph, add them
+    for(unsigned int j=0; j<size-1; j++)
+    {
+        if(occ.has_edge(size - 1, j))
+        {
+            M[DIAG(j)]++;
+            nedges++;
+        }
+    }
+
+    if(nedges==size-1) //The subgraph is a tree
+        return 1;
+
+    if(nedges==size*(size-1)/2) //Clique
+        return ipow<uint64_t>(size, size-2); //size>4 here
+
+    if(nedges==size*(size-1)/2-1) //Clique minus one edge
+    {
+        //Let TC = #Spanning trees in a clique of size vertices
+        //Let E = #edges in a clique of size vertices = size * (size-1) / 2
+        //Let Te = #spanning trees containing a fixed edge
+
+        //Each spanning tree in a clique contains size-1 edges
+        //By symmetry each edge is contained in the same number of spanning trees
+        //I.e., TC = E * Te / (size-1)  =>  Te = TC*(size-1)/E
+
+        //The number of spanning trees we are looking for is TC - Te
+        // = TC * ( 1 - (size-1) / E )  =  TC * (E - (size-1)) / E
+        // = TC * (size * (size-1) - 2(size-1) ) / (size * (size-1))
+        // = TC * (size - 2) / size
+        // = size^(size-3) * (size-2)
+
+        return ipow<uint64_t>(size, size-3) * (size-2); //size>4 here
+    }
+
+    //Compute LDLT decomposition in-place
+    //M stores both the input matrix, and the output matrix
+    //D is a diagonal matrix and its diagonal is stored in the diagonal of M
+    //L is a lower unit triangular matrix. Its lower triangular part is stored in the lower triangular part of M
+
+    //Skip D[1][1] since it is already equal to M[1][1]
+    for(unsigned int i=1; i<size; i++)
+    {
+        //L_ij = M_ij - sum_{k=0}{i-1} L_ik * D_kk * Ljk
+        for(unsigned int j = 0; j < i; j++)
+        {
+            for(unsigned int k = 0; k < j; k++)
+                M[IDX(i, j)] -= M[IDX(i, k)] * M[IDX(k, k)] * M[IDX(j, k)];
+
+            M[IDX(i, j)] /= M[IDX(j, j)];
+        }
+
+        //D_ii = M_ii - sum_{k=0}{i-1} L_ik^2 D_kk
+        for(unsigned int k = 0; k < i; k++)
+            M[IDX(i, i)] -= M[IDX(i, k)] * M[IDX(i, k)] * M[IDX(k, k)];
+    }
+
+    //Compute determinant.
+    //If we have a Cholesky decomposition M=C*C' then det(M) = \proid_i C_ii^2
+    //In our case C = L sqrt(D), and hence C_ii = sqrt(D_ii) => det(M) = \prod_i D
+    long double det = M[DIAG(0)];
+    for(unsigned int i=1; i<size; i++)
+        det*=M[DIAG(i)];
+
+    return static_cast<uint64_t>(det+0.5); //fast round(det)
 }
 
-void SpanningTreeCounter::read_from_file(std::string filename)
+uint64_t SpanningTreeCounter::number_of_spanning_trees_colorcoding(const Occurrence &occ, const TreeletStructureSelector *ts)
 {
-	std::FILE* fd = std::fopen(filename.c_str(), "rb");
-	if (!fd)
-		throw std::runtime_error("Could not fopen() file to read Spanning Tree Counter");
+    //FIXME: Figure out when its safe to only count the treelets rooted in 0
+    ColorCodingSpanningTreeCounter ccstc(&occ, true, ts);
+    ccstc.count();
+    return ccstc.number_of_counted_rooted_spanning_trees();
+}
 
-	unsigned int binary_footprint_bytes;
-	uint8_t edges[Occurrence::binary_footprint_bytes];
-	char* bf = reinterpret_cast<char*>(edges);
-	uint64_t sptrees;
-	unsigned int k;
-	while (!std::feof(fd)) {
-		std::fread(&k, sizeof(k), 1, fd);
-		std::fread(&binary_footprint_bytes, sizeof(binary_footprint_bytes), 1, fd);
-		memset(&edges, 0, sizeof(*edges) * binary_footprint_bytes);
-		std::fread(bf, sizeof(*bf), binary_footprint_bytes, fd);
-		std::fread(&sptrees, sizeof(sptrees), 1, fd);
-		Occurrence o(k, reinterpret_cast<uint8_t*>(edges));
-		cache[o] = sptrees;
-	}
-	std::fclose(fd);
+unsigned int SpanningTreeCounter::number_of_spanning_stars(const Occurrence &occ)
+{
+    unsigned int count = 0;
+    for(unsigned int u=0; u<occ.get_size(); u++)
+    {
+        unsigned int deg=0;
+        for(unsigned int v=0; v<u; v++)
+            deg+=occ.has_edge(u,v);
+
+        for(unsigned int v=u+1; v<occ.get_size(); v++)
+            deg+=occ.has_edge(v,u);
+
+        count += (deg == occ.get_size());
+    }
+
+    return count;
+}
+
+SpanningTreeCounter::SpanningTreeCounter(const unsigned int size, const TreeletStructureSelector *selector) : size(size), selector(selector)
+{
+    if(size==0 || size>16)
+        throw std::runtime_error("Invalid size");
+
+    if(selector==nullptr)
+    {
+        strategy = STRATEGY_KIRCHOFF;
+        return;
+    }
+
+    if(!selector->is_included(Treelet::singleton_structure))
+    {
+        strategy = STRATEGY_ZERO;
+        return;
+    }
+
+    if(size>1 && !selector->is_included(Treelet::treelet_structure_highest_bit)) //one edge
+    {
+        strategy = STRATEGY_ZERO;
+        return;
+    }
+
+    if(size<=2)
+    {
+        strategy = STRATEGY_KIRCHOFF;
+        return;
+    }
+
+    Treelet::treelet_structure_t stars[2] = {0, Treelet::treelet_structure_highest_bit};
+    Treelet::treelet_structure_t &star_from_center = stars[0]; //(1)101010...0
+    for(unsigned int i=0; i<size-1; i++)
+        star_from_center |= (Treelet::treelet_structure_highest_bit>>(2*i) );
+
+    Treelet::treelet_structure_t &star_from_leaf = stars[1]; //(1)1101010...00
+    //The first bit is already set in the initialization
+    for(unsigned int i=1; i<size-1; i++)
+        star_from_leaf |= (Treelet::treelet_structure_highest_bit>>(2*i-1) );
+
+    bool only_stars;
+    if(selector->get_mode() == TreeletStructureSelector::MODE_EXCLUDE)
+    {
+        //Check if the only excluded structures are stars of the given size
+        only_stars = (selector->size()==2) && !selector->is_included(star_from_center) && !selector->is_included(star_from_leaf);
+    }
+    else
+    {
+        TreeletStructureSelector star_selector = TreeletStructureSelector(TreeletStructureSelector::MODE_INCLUDE, stars, stars+2).buildable_closure();
+
+        only_stars = true;
+        for(auto it = selector->begin(); only_stars && it!=selector->end(); it++)
+            if(Treelet::number_of_vertices(*it)==size)
+                only_stars = (*it == star_from_center || *it==star_from_leaf);
+
+        for(auto it = star_selector.begin(); only_stars && it!=star_selector.end(); it++)
+            only_stars = selector->is_included(*it);
+    }
+
+
+    if(only_stars)
+    {
+        if(selector->get_mode() == TreeletStructureSelector::MODE_INCLUDE)
+            strategy=STRATEGY_STARS;
+        else
+            strategy=STRATEGY_KIRCHOFF_MINUS_STARS;
+
+        return;
+    }
+
+    strategy=STRATEGY_COLOR_CODING;
+}
+
+uint64_t SpanningTreeCounter::number_of_spanning_trees(const Occurrence &occ)
+{
+    assert(occ.size==size);
+
+    switch(strategy)
+    {
+        case STRATEGY_KIRCHOFF:
+            return number_of_spanning_trees_kirchhoff(occ);
+        case STRATEGY_KIRCHOFF_MINUS_STARS:
+            return number_of_spanning_trees_kirchhoff(occ) - number_of_spanning_stars(occ);
+        case STRATEGY_STARS:
+            return number_of_spanning_stars(occ);
+        case STRATEGY_COLOR_CODING:
+            number_of_spanning_trees_colorcoding(occ, selector);
+        case STRATEGY_ZERO:
+        default:
+            return 0;
+    }
 }

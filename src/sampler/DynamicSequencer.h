@@ -16,41 +16,44 @@ public:
     struct sequence_batch_t
     {
         T from;
-        T to;
+        T to_exclusive;
     };
 
 private:
     T next;
-    const T end;
+    const T end_exclusive;
 
     const unsigned int nthreads;
     std::mutex mutex;
 
 public:
-    DynamicSequencer(T start, T end, unsigned int nthreads) : next(start), end(end+1), nthreads(nthreads)
+    DynamicSequencer(T start, T end_exclusive, unsigned int nthreads) : next(start), end_exclusive(end_exclusive), nthreads(nthreads)
     {}
 
     sequence_batch_t next_batch()
     {
         sequence_batch_t batch;
-        T step;
 
         mutex.lock();
         batch.from = next;
 
-        if(next<end)
+        if(next>=end_exclusive)
         {
-            step = (end-next)/(nthreads*100);
-            if(step<1)
-                step=1;
-
-            next+=step;
+            mutex.unlock();
+            batch.to_exclusive=end_exclusive;
+            return batch;
         }
+
+        T step = (end_exclusive-next)/(nthreads*100);
+        if(step<1)
+            step=1;
+
+        next+=step;
         mutex.unlock();
 
-        batch.to = batch.from + step;
-        if(batch.to > end)
-            batch.to = end;
+        batch.to_exclusive = batch.from + step;
+        if(batch.to_exclusive > end_exclusive)
+            batch.to_exclusive = end_exclusive;
 
         return batch;
     }

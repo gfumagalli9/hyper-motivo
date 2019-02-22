@@ -11,7 +11,8 @@
 #include <set>
 #include "Treelet.h"
 
-class TreeletSelector {
+class TreeletSelector
+{
 public:
 	typedef int mode_t;
 	constexpr static int MODE_INCLUDE = 1;
@@ -30,8 +31,7 @@ public:
 			mode(mode), treelet_size(treelet_size)
 	{}
 
-	explicit TreeletSelector(const std::string& filename, const unsigned int treelet_size = 0) :
-			treelet_size(treelet_size)
+	explicit TreeletSelector(const std::string& filename, const unsigned int treelet_size = 0) : treelet_size(treelet_size)
 	{
 		std::ifstream ifs(filename, std::ifstream::binary);
 		if (!ifs.is_open())

@@ -163,7 +163,7 @@ void MultithreadedBuilder::phase2_thread_loop(const unsigned int thread_no, phas
 MultithreadedBuilder::MultithreadedBuilder(const UndirectedGraph *G, UndirectedGraph::vertex_t from_vertex,
                                                        UndirectedGraph::vertex_t to_vertex, const unsigned int size,
                                                        const TreeletTableCollection *ttc, const bool store_only_0,
-                                                       TreeletSelector *selector, std::ostream *output,
+                                                       TreeletStructureSelector *selector, std::ostream *output,
                                                        unsigned int nthreads)
         : G(G), from_vertex(from_vertex), to_vertex(to_vertex), ttc(ttc), store_only_0(store_only_0),
           output(output), builder(size, ttc, selector), nthreads(nthreads)

@@ -9,8 +9,6 @@ set(SAMPLER_SOURCE_FILES
         sampler_opts.cpp
         OccurrenceSampler.cpp
         OccurrenceSampler.h
-        SpanningTreeCounter.cpp
-        SpanningTreeCounter.h
         OccurrenceStarSampler.h
         OccurrenceStarSampler.cpp
         SampleTable.h
@@ -26,6 +24,9 @@ set(SAMPLER_SOURCE_FILES
         CachedSTC.h
         CachedSTC.cpp
         DynamicSequencer.h
+        SpanningTreeCounter.cpp
+        SpanningTreeCounter.h
+        ThreadSafeCache.h
         )
 
 add_executable(motivo-sample ${SAMPLER_SOURCE_FILES})

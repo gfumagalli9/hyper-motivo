@@ -36,7 +36,7 @@ std::string uint128_to_string(uint128_t n)
     return s;
 }
 
-uint128_t atoi128(const std::string &s)
+uint128_t string_to_uint128(const std::string &s)
 {
     uint128_t x = 0;
     for (char c : s)

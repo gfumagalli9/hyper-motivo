@@ -1,4 +1,5 @@
 set(COMMON_SOURCE_FILES
+        ../../config.h
         platform/platform.h
         platform/platform.cpp
         util.cpp
@@ -14,6 +15,8 @@ set(COMMON_SOURCE_FILES
         treelets/TreeletTableCollection.h
         treelets/TreeletTable.cpp
         treelets/TreeletTable.h
+        treelets/TreeletStructureSelector.cpp
+        treelets/TreeletStructureSelector.h
         OptionsParser.cpp
         OptionsParser.h
         io/ConcurrentFIFO.h
@@ -24,6 +27,8 @@ set(COMMON_SOURCE_FILES
         io/RecordCompressor.cpp
         io/RecordCompressor.h
         io/BaseRecordSource.h
+        io/PropertyStore.cpp
+        io/PropertyStore.h
         treelets/TreeletSelector.h
         graph/SimpleGraph.h
         graph/SimpleGraph.cpp

@@ -9,17 +9,18 @@
 #include "../common/treelets/Treelet.h"
 #include "../common/treelets/TreeletTable.h"
 #include "../common/treelets/TreeletTableCollection.h"
-#include "../common/treelets/TreeletSelector.h"
+#include "../common/treelets/TreeletStructureSelector.h"
+
 
 class ColorCodingBuilder
 {
 private:
     const unsigned int size;
     const TreeletTableCollection* const lower;
-    const TreeletSelector* const selector;
+    const TreeletStructureSelector* const selector;
 
 public:
-    ColorCodingBuilder(const unsigned int size, const TreeletTableCollection* lower, const TreeletSelector* const selector)  : size(size), lower(lower), selector(selector)
+    ColorCodingBuilder(const unsigned int size, const TreeletTableCollection* lower, const TreeletStructureSelector* const selector)  : size(size), lower(lower), selector(selector)
     {
         if(size==0)
             throw std::runtime_error("Invalid size");
@@ -48,7 +49,7 @@ public:
                     assert(v_it.count() != 0);
 
                     Treelet merged = t1.merge(t2);
-                    if(merged.is_valid() && (!selector || selector->is_included(merged)))
+                    if(merged.is_valid() && (!selector || selector->is_included(merged.get_structure())))
                     {
                         TreeletTable::treelet_count_t &count = counts[merged];
                         TreeletTable::treelet_count_t tmp;

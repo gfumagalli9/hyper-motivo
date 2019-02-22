@@ -8,7 +8,7 @@
 #include <atomic>
 #include "../common/treelets/Treelet.h"
 #include "../common/treelets/TreeletTableCollection.h"
-#include "../common/treelets/TreeletSelector.h"
+#include "../common/treelets/TreeletStructureSelector.h"
 #include "DynamicSequencer.h"
 
 class TreeletSampler
@@ -18,7 +18,7 @@ private:
     const TreeletTableCollection* table_collection;
     const unsigned int size;
 
-    const TreeletSelector* selector = nullptr;
+    const TreeletStructureSelector* selector = nullptr;
     RangeSampler<TreeletTable::treelet_count_t>** range_samplers = nullptr;
     AliasMethodSampler<UndirectedGraph::vertex_t,TreeletTable::treelet_count_t>* root_sampler = nullptr;
 
@@ -51,12 +51,12 @@ public:
         {
             Treelet t = table_collection->get_table(size)->get_treelet_no(root, range_samplers[root]->sample(rng));
             assert(t.is_valid());
-            assert(selector->is_included(t));
+            assert(selector->is_included(t.get_structure()));
             return t;
         }
     }
 
-    void set_selector(const TreeletSelector *selector, unsigned int nthreads);
+    void set_selector(const TreeletStructureSelector *selector, unsigned int nthreads);
 };
 
 

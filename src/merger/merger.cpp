@@ -13,6 +13,7 @@
 #include "../common/OptionsParser.h"
 #include "../common/io/CompressedRecordFile.h"
 #include "../common/util.h"
+#include "../common/io/PropertyStore.h"
 
 struct vertex_info
 {
@@ -163,17 +164,16 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
     std::cout << "Total number of treelet occurrences: ";
     if(num_occ_total_overflow)
         std::cout <<"Overflow!" << std::endl;
-    else {
+    else
+    {
         std::cout << uint128_to_string(num_occ_total) << " (" << uint128_bits_needed(num_occ_total) << " bits)" << std::endl;
-        std::ofstream infofile;
-        infofile.open(output_basename + ".info", std::ofstream::app);
-        infofile << "TotTreelets " << uint128_to_string(num_occ_total) << std::endl;
-        infofile.close();
+
+        PropertyStore properties(std::string(output_basename) + ".info");
+        properties.set_uint128("TotTreelets", num_occ_total);
+        properties.save(output_basename + ".info");
     }
-    std::cout << "Maximum number of occurrences rooted in a single vertex: " << uint128_to_string(num_occ_max) << " ("<< uint128_bits_needed(
-            num_occ_max) << " bits)" << std::endl;
-    std::cout << "Maximum number of occurrences of a single rooted treelet: " << uint128_to_string(num_occ_treelet) << " ("<< uint128_bits_needed(
-            num_occ_treelet) << " bits)" << std::endl;
+    std::cout << "Maximum number of occurrences rooted in a single vertex: " << uint128_to_string(num_occ_max) << " ("<< uint128_bits_needed(num_occ_max) << " bits)" << std::endl;
+    std::cout << "Maximum number of occurrences of a single rooted treelet: " << uint128_to_string(num_occ_treelet) << " ("<< uint128_bits_needed(num_occ_treelet) << " bits)" << std::endl;
     std::cout << "Output written to files: " << output_filename << ", and " << root_sampler_filename << std::endl;
 }
 

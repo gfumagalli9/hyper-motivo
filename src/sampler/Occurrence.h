@@ -16,6 +16,7 @@ class OccurrenceCanonicizer;
 class Occurrence
 {
 	friend class OccurrenceCanonicizer;
+    friend class SpanningTreeCounter;
 
 public:
     //i,j in {0,...,15}
@@ -53,9 +54,6 @@ public:
 		unsigned int pos = (i - 1) * i / 2 + j;
 		return (edges[pos / 8] & (0b10000000u >> (pos % 8))) != 0;
 	}
-
-	///@returns the number of spanning trees of this occurrence
-	uint64_t number_of_spanning_trees() const;
 
 	const UndirectedGraph::vertex_t* vertices() const
     {

@@ -19,7 +19,6 @@ int main(const int argc, const char** argv)
     OptionsParser::Option* path_opt = op.add_option(false, true, "path", '\0', "", "Use a path of ARG vertices");
     OptionsParser::Option* star_opt = op.add_option(false, true, "star", '\0', "", "Use a star of ARG vertices");
     OptionsParser::Option* root_opt = op.add_option(false, true, "root", '\0', "", "Only decompose the treelet rootet at vertex ARG (default: use all vertices as roots)");
-    OptionsParser::Option* colored_opt =  op.add_option(false, false, "colored", '\0', "", "Decompose using a fixed coloring of the vertices");
     OptionsParser::Option* size_opt = op.add_option(false, true, "size", '\0', "", "Only print treelets with ARG vertices (default: print all treelets)");
 
     bool parse_ok = op.parse(argc, argv);
@@ -78,22 +77,14 @@ int main(const int argc, const char** argv)
                 throw std::runtime_error("Invalid root");
         }
 
-        SimpleGraph::treelet_set_t treelets;
-        treelets.set_empty_key(invalid_treelet);
-        g.decompose(&treelets, root);
 
-        Treelet::treelet_structure_t previous_structure = Treelet::invalid_structure;
-        for(const Treelet& t : treelets)
-        {
-            if(!colored_opt->is_found() && t.get_structure()==previous_structure)
-                continue;
+        SimpleGraph::treelet_structure_set_t structures;
+        structures.set_empty_key(Treelet::invalid_structure); //FIXME
+        g.decompose(structures, root);
 
-            if(size!=0 && t.number_of_vertices()!=size)
-                continue;
-
-            std::cout << t.get_structure() << " " << (colored_opt->is_found() ? t.get_colors() : 0) << "\n";
-            previous_structure = t.get_structure();
-        }
+        for(const Treelet::treelet_structure_t& s : structures)
+            if(size==0 && Treelet::number_of_vertices(s)==size)
+               std::cout << s << "\n";
     }
     catch(std::exception &e)
     {

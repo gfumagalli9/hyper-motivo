@@ -4,100 +4,74 @@
 
 #include <fstream>
 #include <unordered_map>
+#include "config.h"
+
+#include "../common/graph/UndirectedGraph.h"
+#include "../common/io/PropertyStore.h"
+#include "../common/platform/platform.h"
+#include "../common/util.h"
 #include "TreeletSampler.h"
 #include "sampler_opts.h"
 #include "OccurrenceSampler.h"
 #include "OccurrenceStarSampler.h"
 #include "AdaptiveSampler.h"
 #include "SampleTable.h"
-#include "SpanningTreeCounter.h"
-#include "../common/graph/UndirectedGraph.h"
-#include "../common/util.h"
 
-int main(const int argc, const char** argv) {
+
+int main(const int argc, const char** argv)
+{
 	std::cerr << "This is motivo-sample. Version: " << MOTIVO_VERSION_STRING << std::endl;
 
-	try {
+	try
+	{
 		sampler_opts opts;
 		if (!parse_sampler_args(argc, argv, "motivo-sample", &opts))
 			return EXIT_SUCCESS;
 
 		// Read info file
-		bool store_only_on_0 = false;
-		uint128_t tot_treelets = 0; // the total number of colored treelets
-		std::ifstream infofile;
-		std::string infofile_name = std::string(opts.tables_basename) + "."
-				+ std::to_string(opts.size) + ".info";
-		std::cout << "Reading info file " << infofile_name << std::endl;
-		infofile.open(infofile_name);
-		while (!infofile.eof()) {
-			std::string key, val;
-			try {
-				infofile >> key >> val;
-				if (key == "StoreOnlyOn0")
-					store_only_on_0 = (val == "1");
-				if (key == "TotTreelets")
-					tot_treelets = atoi128(val); //FIXME
-			}
-			catch (std::exception &e) {
-				std::cerr << "Error reading info file!" << std::endl;
-			}
-		}
-		infofile.close();
+		PropertyStore properties(std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".info");
+		const bool store_only_on_0 = properties.get_bool("StoreOnlyOn0", false);
+        const uint128_t tot_treelets = properties.get_uint128("TotTreelets", 0);
 
+        //Load graph
 		UndirectedGraph G(opts.graph);
 		G.prefault();
-		std::cerr << "Loaded graph with " << G.number_of_vertices() << " vertices and "
-				<< G.number_of_edges() << " edges" << std::endl;
+		std::cerr << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
 
+		//Load tables
 		std::cerr << "Loading tables and root sampler" << std::endl;
 		TreeletTableCollection ttc;
-		CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,
-				TreeletTable::may_alias> *readers = nullptr;
+		CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias, TreeletTable::may_alias> *readers = nullptr;
 		TreeletTable **tables = nullptr;
-		readers = new CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,
-				TreeletTable::may_alias> [opts.size];
-		tables = new TreeletTable *[opts.size];
+		readers = new CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias, TreeletTable::may_alias> [opts.size];
+		tables = new TreeletTable*[opts.size];
 
-		for (unsigned int i = 0; i < opts.size; i++) {
+		for (unsigned int i = 0; i < opts.size; i++)
+		{
 			readers[i].open(std::string(opts.tables_basename) + "." + std::to_string(i + 1) + ".dtz");
 			readers[i].prefault(0, G.number_of_vertices() - 1);
 			tables[i] = new TreeletTable(&readers[i]);
 			ttc.add(tables[i]);
 		}
-		tables[opts.size - 1]->load_root_sampler(
-				std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".rts");
+		tables[opts.size - 1]->load_root_sampler(std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".rts");
 
 		Random rng(opts.seed);
 		std::cerr << "Using seed " << rng.get_seed() << std::endl;
 
-		/**
-		 * Treelet selector using only size-k for sampling
-		 */
-		TreeletSelector *selector = nullptr;
-		TreeletSelector *full_selector = nullptr;
-		if (*opts.selective_filename != '\0') {
-			selector = new TreeletSelector(opts.selective_filename, opts.size);
-			if (selector->get_mode() == TreeletSelector::MODE_INCLUDE)
-				full_selector = new TreeletSelector(opts.selective_filename);
-			else
-				full_selector = new TreeletSelector(opts.selective_filename, opts.size);
-			std::cout << "Selectively "
-					<< ((selector->get_mode() == TreeletSelector::MODE_INCLUDE) ?
-							"sampling only " : "ignoring ") << selector->number_of_treelets()
-					<< " treelet(s) of the given size" << std::endl;
-		}
+		//Load sampling selector
+		TreeletStructureSelector *selector = nullptr;
+		if (*opts.selective_filename != '\0')
+			selector = new TreeletStructureSelector(TreeletStructureSelector(opts.selective_filename).restrict_to_sizes(opts.size,opts.size));
+
 
 		std::ostream *output = &std::cout;
 		if (strlen(opts.output_basename) != 0)
-			output = new std::ofstream(std::string(opts.output_basename) + +".csv",
-					std::ofstream::binary | std::ofstream::trunc);
+			output = new std::ofstream(std::string(opts.output_basename) + +".csv", std::ofstream::binary | std::ofstream::trunc);
 
 		/*********************
 		 ** ACTUAL SAMPLING **
 		 *********************/
-		std::chrono::time_point < std::chrono::steady_clock > tstart =
-				std::chrono::steady_clock::now();
+		std::chrono::time_point < std::chrono::steady_clock > tstart = std::chrono::steady_clock::now();
 		double p = pcol(opts.size, opts.size); // the coloring probability
 		std::cerr << "Sampling using " << opts.threads << " thread(s)" << std::endl;
 
@@ -158,29 +132,29 @@ int main(const int argc, const char** argv) {
 			}
 		} else {
 			std::cout << "Using naive sampler" << std::endl;
-			std::chrono::time_point < std::chrono::steady_clock > sampstart =
-					std::chrono::steady_clock::now();
+			std::chrono::time_point < std::chrono::steady_clock > sampstart = std::chrono::steady_clock::now();
 			OccurrenceSampler sampler(&G, &ttc, opts.size, opts.vertices, opts.graphlets,
 					opts.canonicize, opts.norejection);
-			TreeletSelector fs = TreeletSelector::get_star_selector(opts.size,
-					TreeletSelector::MODE_EXCLUDE);
-			if (opts.smart_stars && !selector)
-				full_selector = &fs;
-			sampler.set_selector(selector, opts.threads, full_selector);
-			auto *stc = new SpanningTreeCounter();
-			if (!opts.sptrees_file.empty())
-			{
-				stc->read_from_file(opts.sptrees_file);
-				std::cerr << "STC: read " << stc->size() << " entries from file" << std::endl;
-			}
 
-			sampler.setSpanningTreeCounter(stc);
+            /*TreeletSelector fs = TreeletSelector::get_star_selector(opts.size, TreeletSelector::MODE_EXCLUDE);
+            if (opts.smart_stars && !selector)
+                full_selector = &fs;
+            sampler.set_selector(selector, opts.threads, full_selector);
+            auto *stc = new OldSpanningTreeCounter();
+            if (!opts.sptrees_file.empty())
+            {
+                stc->read_from_file(opts.sptrees_file);
+                std::cerr << "STC: read " << stc->size() << " entries from file" << std::endl;
+            }
+
+            sampler.setSpanningTreeCounter(stc);*/
+			//FIXME! Selector for sampler
 			SampleTable* samples = sampler.sample(nonstar_nsamples, opts.threads, &rng, time_bud);
-			if (!opts.sptrees_file.empty())
+			/*if (!opts.sptrees_file.empty())
 			{
 				stc->save_to_file(opts.sptrees_file);
 				std::cerr << "STC: written " << stc->size() << " entries to file" << std::endl;
-			}
+			}*/
 
 			samples->estimateOccurrences(tot_treelets / p, opts.size, store_only_on_0);
 			samples->estimateFrequencies();
@@ -189,8 +163,7 @@ int main(const int argc, const char** argv) {
 					<< el.count() << " s\n";
 			if (star_samples) {
 				std::cout << "merging samples with weights " << tot_treelets / p << "," << uint128_to_string(nstars) << std::endl;
-				SampleTable merged = SampleTable::merge(*samples, *star_samples, tot_treelets / p,
-						nstars);
+				SampleTable merged = SampleTable::merge(*samples, *star_samples, tot_treelets / p, nstars);
 				delete samples;
 				delete star_samples;
 				merged.sort_by_estimate_occ();
@@ -209,7 +182,7 @@ int main(const int argc, const char** argv) {
 		delete[] readers;
 		delete[] tables;
 
-		delete selector;
+//		delete selector; FIXME
 //		delete all_size_selector;
 		if (strlen(opts.output_basename) != 0)
 			delete output;
