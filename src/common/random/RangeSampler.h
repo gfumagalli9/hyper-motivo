@@ -31,23 +31,30 @@ public:
 		ranges = new range[capacity];
 	}
 
-	~RangeSampler() {
+	~RangeSampler()
+	{
 		delete[] ranges;
 	}
 
-	T get_total_length() {
-		return total_length;
-	}
+	T get_total_length() { return total_length; }
 
-	void add_range(T from, T to_exclusive) {
+	void add_range(T from, T to_exclusive)
+	{
+		assert(to_exclusive>=from);
+
+		if(from==to_exclusive)
+			return;
+
 		total_length += to_exclusive - from;
 
-		if (compact && size != 0 && ranges[size - 1].to_exclusive == from) {
+		if (compact && size != 0 && ranges[size - 1].to_exclusive == from)
+		{
 			ranges[size - 1].to_exclusive = to_exclusive;
 			return;
 		}
 
-		if (size == capacity) {
+		if (size == capacity)
+		{
 			capacity *= 2;
 			auto new_ranges = new range[capacity];
 			std::copy(ranges, ranges + size, new_ranges);

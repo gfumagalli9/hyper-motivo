@@ -33,6 +33,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *seed_opt = op.add_option(false, true, "seed", '\0', "", "String used to seed the random number generator (default or empty string: seed from system random device)");
     OptionsParser::Option *threads_opt = op.add_option(false, true, "threads", '\0', "1", "Number of threads to use or 0 for to use the number of logical processors (default: 1)");
     OptionsParser::Option *selective_opt = op.add_option(false, true, "selective", '\0', "", "Sample only treelets whose structures are allowed in file ARG");
+    OptionsParser::Option *selective_build_opt = op.add_option(false, true, "selective-build", '\0', "", "The --selective file used when building the tables");
     OptionsParser::Option *smart_stars_opt = op.add_option(false, false, "smart-stars", '\0', "", "Sample star treelets separately and then merge the sample results");
     OptionsParser::Option *estimate_occurrences_opt = op.add_option(false, false, "estimate-occurrences", '\0', "", "Estimate the number of occurrences of graphlets in the graph (implies: --graphlets, --norejection)"); //FIXME: Can this be used with treelets?
     OptionsParser::Option *adaptive_opt = op.add_option(false, false, "estimate-occurrences-adaptive", '\0', "", "Estimate the number of occurrences of graphlets in the graph using adaptive sampling (implies: --graphlets, --norejection, and --canonicize)");
@@ -66,7 +67,8 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     if(opts->number_of_samples==0)
         throw std::runtime_error("'num-samples' option is invalid");
 
-    if (time_budget_opt->is_found()) {
+    if (time_budget_opt->is_found())
+    {
     	opts->time_budget = std::stod(time_budget_opt->get_value());
     	if (!numsamples_opt->is_found())
     		opts->number_of_samples = 0;
@@ -115,6 +117,15 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     }
     else
         *(opts->selective_filename)='\0';
+
+    if(selective_build_opt->is_found())
+    {
+        if(selective_build_opt->get_value().length()>=MOTIVO_ARG_MAX)
+            throw std::runtime_error("'selective-build' option is too long");
+        strcpy(opts->selective_build_filename, selective_build_opt->get_value().c_str());
+    }
+    else
+        *(opts->selective_build_filename)='\0';
 
     opts->canonicize = canonicize_opt->is_found();
     opts->graphlets = graphlets_opt->is_found();

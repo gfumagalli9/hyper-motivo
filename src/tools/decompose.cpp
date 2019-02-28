@@ -83,7 +83,7 @@ int main(const int argc, const char** argv)
         g.decompose(structures, root);
 
         for(const Treelet::treelet_structure_t& s : structures)
-            if(size==0 && Treelet::number_of_vertices(s)==size)
+            if(size==0 || Treelet::number_of_vertices(s)==size)
                std::cout << s << "\n";
     }
     catch(std::exception &e)

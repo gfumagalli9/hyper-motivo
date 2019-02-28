@@ -8,11 +8,14 @@
 #ifndef SRC_SAMPLER_SAMPLETABLE_H_
 #define SRC_SAMPLER_SAMPLETABLE_H_
 
-#include "Occurrence.h"
 #include <ostream>
 #include <string>
 #include <vector>
 #include <sparsehash/dense_hash_map>
+#include "../common/treelets/TreeletStructureSelector.h"
+#include "Occurrence.h"
+#include "DynamicSequencer.h"
+#include "SpanningTreeCounter.h"
 
 class SampleTable
 {
@@ -20,7 +23,7 @@ public:
     class Entry // a table entry
     {
     public:
-        Occurrence occurrence;
+        Occurrence occurrence; //FIXME: Remove?
         std::string fingerprint = "";
         uint128_t num_spanning_trees = 0;
         uint64_t sample_count = 0;
@@ -30,25 +33,31 @@ public:
 
     typedef std::vector<Entry>::const_iterator const_iterator;
 
-
 private:
     std::vector<Entry> entries;
     uint64_t num_samples = 0;
+    typedef DynamicSequencer<uint64_t> sequencer_t;
+
+    void spanning_tree_count_thread(sequencer_t &sequencer, SpanningTreeCounter &counter);
 
 
 public:
 	SampleTable() = default;
 
+	void count_spanning_trees(unsigned int size, const TreeletStructureSelector *selector, unsigned int ntherads);
+
     void addEntry(Entry e);
 
-    void estimateOccurrences(double num_graph_treelets, unsigned int k, bool store_only_0 = false);
+    void estimateOccurrences(double num_graph_treelets);
+
 	void estimateFrequencies();
 
 	void sort_by_estimate_occ();
 
     std::string header();
 
-    static SampleTable merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2); // merge two tables (see source for details)
+    static SampleTable* merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2); // merge two tables (see source for details)
+
     static SampleTable average(SampleTable& t1, SampleTable& t2, double w1, double w2); // average two tables (see source for details)
 
 	friend std::ostream& operator<<(std::ostream& os, const SampleTable& st);

@@ -14,8 +14,8 @@
 #include "../common/util.h"
 #include "ColorCodingSpanningTreeCounter.h"
 
-AdaptiveSampler::AdaptiveSampler(UndirectedGraph* graph, unsigned int size, TreeletTableCollection* ttc, bool store_only_on_0)
-			: graph(graph), size(size), ttc(ttc), store_only_on_0(store_only_on_0)
+AdaptiveSampler::AdaptiveSampler(UndirectedGraph* graph, unsigned int size, TreeletTableCollection* ttc, const unsigned int number_of_threads, bool store_only_on_0)
+			: graph(graph), size(size), ttc(ttc), number_of_threads(number_of_threads), store_only_on_0(store_only_on_0)
 {
 	std::map<Treelet::treelet_structure_t, TreeletTable::treelet_count_t> numTreelets2;
 
@@ -63,9 +63,8 @@ void AdaptiveSampler::update_sampler()
 	treeletSelector = new TreeletStructureSelector(TreeletStructureSelector::MODE_INCLUDE, representant_to_structures[current_treelet_structure].begin(), representant_to_structures[current_treelet_structure].end());
 
 	delete sampler;
-	sampler = new OccurrenceSampler(graph, ttc, size, false, true, true, true);
-	//FIXME!!!
-	//sampler->set_selector(treeletSelector, 1); //FIXME: Number of threads
+	sampler = new OccurrenceSampler(graph, ttc, size, false, true, true);
+	sampler->set_selector(treeletSelector, number_of_threads);
 }
 
 void AdaptiveSampler::recomputeTreeletPriorities(occ_info_table_t& occTab)
@@ -110,7 +109,7 @@ void AdaptiveSampler::recomputeTreeletPriorities(occ_info_table_t& occTab)
 /**
  * Multi-threaded adaptive sampling.
  */
-SampleTable* AdaptiveSampler::sample(const uint64_t n_samples, const unsigned int number_of_threads, Random* rng, const double time_budget)
+SampleTable* AdaptiveSampler::sample(const uint64_t n_samples, Random* rng, const double time_budget)
 {
 	if(std::isnan(time_budget) || time_budget<=0 || (n_samples == 0 && std::isinf(time_budget)) ) //Either nothing to do or infinite samples
 		return new SampleTable();
@@ -178,7 +177,6 @@ SampleTable* AdaptiveSampler::sample(const uint64_t n_samples, const unsigned in
 	std::cout << "time spent in sampler update: " << updateTime << std::endl;
 	std::cout << "time spent in computing efficiencies: " << effTime << std::endl;
 	std::cout << "time spent in updating priorities: " << prioTime << std::endl;
-	std::cout << "time spent on spanning trees: " << spTreeCounter.running_time() << std::endl;
 	std::cout << "total treelet switches: " << totTreeletSwitches << std::endl;
 
 	const double p = pcol(size, size);

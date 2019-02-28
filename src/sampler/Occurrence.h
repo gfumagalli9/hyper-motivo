@@ -30,7 +30,6 @@ private:
     unsigned int size;
     UndirectedGraph::vertex_t verts[16] = { 0 };
     uint8_t edges[binary_footprint_bytes] = { 0 };
-    mutable uint64_t spanning_trees = 0;
     mutable char text_footprint_buffer[text_footprint_bytes + 1] = { 0 }; //Add null-terminator
 
     inline void add_edge(unsigned int i, unsigned int j)

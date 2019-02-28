@@ -46,17 +46,18 @@ TreeletStructureSelector TreeletStructureSelector::buildable_closure() const
         {
             Treelet treelet(structure); //FIXME: No need to use treelets
 
-            if(treelet.is_singleton())
-                continue;
+            assert(!treelet.is_singleton());
 
             Treelet split = Treelet(structure).split_child();
             Treelet complement = treelet.complement(split);
 
-            if(auto res = result.structures.insert(split.get_structure()); res.second)
-                next->push_back(split.get_structure());
+            if(!split.is_singleton())
+                if(auto res = result.structures.insert(split.get_structure()); res.second)
+                    next->push_back(split.get_structure());
 
-            if(auto res = result.structures.insert(complement.get_structure()); res.second)
-                next->push_back(complement.get_structure());
+            if(!complement.is_singleton())
+                if(auto res = result.structures.insert(complement.get_structure()); res.second)
+                    next->push_back(complement.get_structure());
         }
 
         auto t = to_decompose;
@@ -65,27 +66,6 @@ TreeletStructureSelector TreeletStructureSelector::buildable_closure() const
 
         next->clear();
     }
-
-    return result;
-}
-
-TreeletStructureSelector TreeletStructureSelector::intersection(const TreeletStructureSelector &other) const
-{
-    if(mode == MODE_EXCLUDE && other.mode == MODE_EXCLUDE)
-    {
-        TreeletStructureSelector result(MODE_EXCLUDE);
-        result.structures.insert(structures.cbegin(), structures.cend());
-        result.structures.insert(other.structures.cbegin(), other.structures.cend());
-
-        return result;
-    }
-
-    TreeletStructureSelector result(MODE_INCLUDE);
-    const TreeletStructureSelector &include_selector = (mode==MODE_INCLUDE)?(*this):(other);
-    const TreeletStructureSelector &other_selector = (mode==MODE_INCLUDE)?(other):(*this);
-    for(Treelet::treelet_structure_t structure : include_selector.structures )
-        if(other_selector.is_included(structure))
-            result.structures.insert(structure);
 
     return result;
 }
@@ -111,3 +91,20 @@ TreeletStructureSelector::TreeletStructureSelector(const std::string &filename)
 }
 
 
+Treelet::treelet_structure_t TreeletStructureSelector::star_from_center_structure(const unsigned int size)
+{
+    Treelet::treelet_structure_t star_from_center = 0; //(1)101010...0
+    for(unsigned int i=0; i<size-1; i++)
+        star_from_center |= (Treelet::treelet_structure_highest_bit >> (2 * i) );
+
+    return star_from_center;
+}
+
+Treelet::treelet_structure_t TreeletStructureSelector::star_from_leaf_structure(const unsigned int size)
+{
+    Treelet::treelet_structure_t star_from_leaf = Treelet::treelet_structure_highest_bit; //(1)1101010...00
+    for(unsigned int i=1; i<size-1; i++)
+        star_from_leaf |= (Treelet::treelet_structure_highest_bit >> (2 * i - 1) );
+
+    return star_from_leaf;
+}

@@ -31,14 +31,13 @@ public:
 
     static unsigned int number_of_spanning_stars(const Occurrence &occ);
 
-    ///Istance methods. Choose a good strategy for the given size an selector.
+    ///Instance methods. Choose a good strategy for the given size an selector.
     ///The spanning trees to be counted are those of the given size than can be obtained by a build that uses @param selector
     explicit SpanningTreeCounter(unsigned  int size, const TreeletStructureSelector *selector=nullptr);
 
     strategy_t get_strategy() const { return strategy; }
 
     uint64_t number_of_spanning_trees(const Occurrence &occ);
-
 };
 
 

@@ -5,6 +5,7 @@
 #include "SpanningTreeCounter.h"
 #include "../common/util.h"
 #include "ColorCodingSpanningTreeCounter.h"
+#include "../common/treelets/TreeletStructureSelector.h"
 
 #define IDX(x,y) ( ((x)*((x)+1))/2 + (y) )
 #define DIAG(x) ( (x)*((x)+3)/2 )
@@ -114,13 +115,13 @@ uint64_t SpanningTreeCounter::number_of_spanning_trees_kirchhoff(const Occurrenc
     for(unsigned int i=1; i<size; i++)
         det*=M[DIAG(i)];
 
-    return static_cast<uint64_t>(det+0.5); //fast round(det)
+    return size*static_cast<uint64_t>(det+0.5); //fast round(det)
 }
 
 uint64_t SpanningTreeCounter::number_of_spanning_trees_colorcoding(const Occurrence &occ, const TreeletStructureSelector *ts)
 {
-    //FIXME: Figure out when its safe to only count the treelets rooted in 0
-    ColorCodingSpanningTreeCounter ccstc(&occ, true, ts);
+    //FIXME: Figure out when its safe to only count the treelets rooted in 0?
+    ColorCodingSpanningTreeCounter ccstc(&occ, false, ts);
     ccstc.count();
     return ccstc.number_of_counted_rooted_spanning_trees();
 }
@@ -137,10 +138,10 @@ unsigned int SpanningTreeCounter::number_of_spanning_stars(const Occurrence &occ
         for(unsigned int v=u+1; v<occ.get_size(); v++)
             deg+=occ.has_edge(v,u);
 
-        count += (deg == occ.get_size());
+        count += (deg == occ.get_size()-1)?1:0;
     }
 
-    return count;
+    return count*occ.get_size();
 }
 
 SpanningTreeCounter::SpanningTreeCounter(const unsigned int size, const TreeletStructureSelector *selector) : size(size), selector(selector)
@@ -151,12 +152,6 @@ SpanningTreeCounter::SpanningTreeCounter(const unsigned int size, const TreeletS
     if(selector==nullptr)
     {
         strategy = STRATEGY_KIRCHOFF;
-        return;
-    }
-
-    if(!selector->is_included(Treelet::singleton_structure))
-    {
-        strategy = STRATEGY_ZERO;
         return;
     }
 
@@ -172,15 +167,8 @@ SpanningTreeCounter::SpanningTreeCounter(const unsigned int size, const TreeletS
         return;
     }
 
-    Treelet::treelet_structure_t stars[2] = {0, Treelet::treelet_structure_highest_bit};
-    Treelet::treelet_structure_t &star_from_center = stars[0]; //(1)101010...0
-    for(unsigned int i=0; i<size-1; i++)
-        star_from_center |= (Treelet::treelet_structure_highest_bit>>(2*i) );
-
-    Treelet::treelet_structure_t &star_from_leaf = stars[1]; //(1)1101010...00
-    //The first bit is already set in the initialization
-    for(unsigned int i=1; i<size-1; i++)
-        star_from_leaf |= (Treelet::treelet_structure_highest_bit>>(2*i-1) );
+    Treelet::treelet_structure_t star_from_center = TreeletStructureSelector::star_from_center_structure(size);
+    Treelet::treelet_structure_t star_from_leaf = TreeletStructureSelector::star_from_leaf_structure(size);
 
     bool only_stars;
     if(selector->get_mode() == TreeletStructureSelector::MODE_EXCLUDE)
@@ -190,7 +178,10 @@ SpanningTreeCounter::SpanningTreeCounter(const unsigned int size, const TreeletS
     }
     else
     {
-        TreeletStructureSelector star_selector = TreeletStructureSelector(TreeletStructureSelector::MODE_INCLUDE, stars, stars+2).buildable_closure();
+        TreeletStructureSelector star_selector(TreeletStructureSelector::MODE_INCLUDE);
+        star_selector.add_structure_with_current_mode(star_from_center);
+        star_selector.add_structure_with_current_mode(star_from_leaf);
+        star_selector = star_selector.buildable_closure();
 
         only_stars = true;
         for(auto it = selector->begin(); only_stars && it!=selector->end(); it++)
@@ -215,10 +206,9 @@ SpanningTreeCounter::SpanningTreeCounter(const unsigned int size, const TreeletS
     strategy=STRATEGY_COLOR_CODING;
 }
 
+
 uint64_t SpanningTreeCounter::number_of_spanning_trees(const Occurrence &occ)
 {
-    assert(occ.size==size);
-
     switch(strategy)
     {
         case STRATEGY_KIRCHOFF:
@@ -228,7 +218,7 @@ uint64_t SpanningTreeCounter::number_of_spanning_trees(const Occurrence &occ)
         case STRATEGY_STARS:
             return number_of_spanning_stars(occ);
         case STRATEGY_COLOR_CODING:
-            number_of_spanning_trees_colorcoding(occ, selector);
+            return number_of_spanning_trees_colorcoding(occ, selector);
         case STRATEGY_ZERO:
         default:
             return 0;

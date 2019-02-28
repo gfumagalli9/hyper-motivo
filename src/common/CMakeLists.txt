@@ -29,7 +29,6 @@ set(COMMON_SOURCE_FILES
         io/BaseRecordSource.h
         io/PropertyStore.cpp
         io/PropertyStore.h
-        treelets/TreeletSelector.h
         graph/SimpleGraph.h
         graph/SimpleGraph.cpp
         PARENT_SCOPE)

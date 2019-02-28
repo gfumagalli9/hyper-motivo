@@ -139,39 +139,6 @@ const Treelet TreeletTable::get_treelet_no(UndirectedGraph::vertex_t root, Treel
 }
 
 
-/*TreeletTable::treelet_count_t TreeletTable::get_selective_count(const UndirectedGraph::vertex_t u, TreeletSelector* selector)
-{
-    Record<const treelet_count_pair_maybe_alias> record = reader->get_record(u);
-
-    treelet_count_t count=0;
-    if(selector)
-    {
-        const Treelet *t = selector->get_treelets();
-        for (uint64_t i = 0; i < selector->get_size(); i++)
-        {
-
-            //first treelet of interest (inclusive). If none, next treelet
-            const treelet_count_pair_maybe_alias *tcp_lower = treelet_upper_bound(record.begin() + 1, record.end(), t[i]);
-            const treelet_count_pair_maybe_alias *tcp_upper; //one past the last treelet of interest
-
-            if(t[i].is_colored())
-                tcp_upper = tcp_lower + ((tcp_lower != record.end() && tcp_lower->treelet == t[i])?1:0);
-            else
-                tcp_upper = treelet_upper_bound(record.begin() + 1, record.end(), Treelet(t[i].get_structure()+1, 0) ); //Can't overflow since the structure of all 1s is invalid
-
-            count += (tcp_upper-1)->count - (tcp_lower-1)->count;
-        }
-    }
-
-    if(!selector || selector->get_mode()==TreeletSelector::MODE_EXCLUDE)
-        count = (record.end()-1)->count - count;
-
-    record.free();
-
-    return count;
-}*/
-
-
 RangeSampler<TreeletTable::treelet_count_t>* TreeletTable::build_range_sampler(const UndirectedGraph::vertex_t u, const TreeletStructureSelector* selector)
 {
     Record<const treelet_count_pair_maybe_alias> record = reader->get_record(u);
@@ -183,7 +150,6 @@ RangeSampler<TreeletTable::treelet_count_t>* TreeletTable::build_range_sampler(c
     {
         for(Treelet::treelet_structure_t structure : *selector)
         {
-
             //FIXME: start binary search from last added treelet
             //first treelet of interest (inclusive). If none, next treelet
             const treelet_count_pair_maybe_alias *tcp_lower = treelet_upper_bound(record.begin() + 1, record.end(), Treelet(structure));

@@ -21,12 +21,11 @@ set(SAMPLER_SOURCE_FILES
         Occurrence.h
         include_nauty.h
         ValueSortedMap.h
-        CachedSTC.h
-        CachedSTC.cpp
         DynamicSequencer.h
         SpanningTreeCounter.cpp
         SpanningTreeCounter.h
         ThreadSafeCache.h
+        TimeoutThreadSync.h
         )
 
 add_executable(motivo-sample ${SAMPLER_SOURCE_FILES})
