@@ -94,10 +94,8 @@ TreeletSampler::~TreeletSampler()
     }
 }
 
-void TreeletSampler::populate_buffer(const UndirectedGraph::vertex_t u, const Treelet& t, Random *rng)
+void TreeletSampler::populate_buffer(DecompositionFIFOBuffer &buffer, const UndirectedGraph::vertex_t u, const Treelet& t, Random *rng)
 {
-    auto &buffer = buffers[ std::make_pair(u, t) ];
-
     Treelet split = t.split_child();
     assert(!split.is_colored());
 
@@ -154,6 +152,8 @@ void TreeletSampler::populate_buffer(const UndirectedGraph::vertex_t u, const Tr
 
 bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const UndirectedGraph::vertex_t u, UndirectedGraph::vertex_t* occurrence, Random *rng)
 {
+    static thread_local std::map< std::pair<UndirectedGraph::vertex_t , Treelet>, DecompositionFIFOBuffer > buffers;
+
     assert(t.is_valid());
 
     *occurrence = u;
@@ -165,19 +165,15 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
     if(degree >= degree_threshold)
     {
         //Try to use cache
-        buffers_mutex.lock(); //Accessing the map buffers might cause a new element to get inserted
         auto &buffer = buffers[ std::make_pair(u, t) ];
-        buffers_mutex.unlock();
 
-        buffer.lock();
         if(buffer.empty())
-            populate_buffer(u, t, rng);
+            populate_buffer(buffer, u, t, rng);
 
         assert(!buffer.empty());
         auto buffered = buffer.pop(); //FIXME: Use structured bindings in C++17
         auto &child_vertex = buffered.first;
         auto &child_treelet = buffered.second;
-        buffer.unlock();
 
         assert(child_treelet.is_valid());
         assert(child_treelet.is_colored());

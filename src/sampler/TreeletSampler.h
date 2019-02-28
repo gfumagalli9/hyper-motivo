@@ -6,7 +6,6 @@
 #define MOTIVO_TREELETSAMPLER_H
 
 #include <map>
-#include <mutex>
 #include "../common/treelets/Treelet.h"
 #include "../common/treelets/TreeletTableCollection.h"
 #include "../common/treelets/TreeletSelector.h"
@@ -23,7 +22,6 @@ private:
     private:
         unsigned int size=0;
         std::pair<UndirectedGraph::vertex_t, Treelet> entries[buffers_size];
-        std::mutex mutex;
 
     public:
         DecompositionFIFOBuffer() = default;
@@ -45,15 +43,7 @@ private:
         }
 
         bool empty() const { return size==0; }
-
-        void lock() { mutex.lock(); }
-
-        void unlock() { mutex.unlock(); }
-
     };
-
-    std::map< std::pair<UndirectedGraph::vertex_t , Treelet>, DecompositionFIFOBuffer > buffers;
-    std::mutex buffers_mutex;
 
     const UndirectedGraph* graph;
     const TreeletTableCollection* table_collection;
@@ -65,7 +55,7 @@ private:
 
     void populate_root_and_range_sampler_mt(DynamicSequencer<UndirectedGraph::vertex_t>* sequencer);
 
-    void populate_buffer(UndirectedGraph::vertex_t u, const Treelet& t, Random *rng);
+    void populate_buffer(DecompositionFIFOBuffer &buffer, UndirectedGraph::vertex_t u, const Treelet& t, Random *rng);
 
 public:
     TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, unsigned int size);
