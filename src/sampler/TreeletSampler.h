@@ -5,6 +5,8 @@
 #ifndef MOTIVO_TREELETSAMPLER_H
 #define MOTIVO_TREELETSAMPLER_H
 
+#include <map>
+#include <mutex>
 #include "../common/treelets/Treelet.h"
 #include "../common/treelets/TreeletTableCollection.h"
 #include "../common/treelets/TreeletSelector.h"
@@ -13,6 +15,46 @@
 class TreeletSampler
 {
 private:
+    static constexpr unsigned int buffers_size = 100;
+    static constexpr UndirectedGraph::vertex_t degree_threshold = 10000;
+
+    class DecompositionFIFOBuffer
+    {
+    private:
+        unsigned int size=0;
+        std::pair<UndirectedGraph::vertex_t, Treelet> entries[buffers_size];
+        std::mutex mutex;
+
+    public:
+        DecompositionFIFOBuffer() = default;
+
+        DecompositionFIFOBuffer(const DecompositionFIFOBuffer&) = delete;
+
+        void push(UndirectedGraph::vertex_t v, const Treelet& t)
+        {
+            assert(size<buffers_size);
+            entries[size].first = v;
+            entries[size].second = t;
+            size++;
+        }
+
+        std::pair<UndirectedGraph::vertex_t, Treelet> pop()
+        {
+            assert(size>0);
+            return entries[--size];
+        }
+
+        bool empty() const { return size==0; }
+
+        void lock() { mutex.lock(); }
+
+        void unlock() { mutex.unlock(); }
+
+    };
+
+    std::map< std::pair<UndirectedGraph::vertex_t , Treelet>, DecompositionFIFOBuffer > buffers;
+    std::mutex buffers_mutex;
+
     const UndirectedGraph* graph;
     const TreeletTableCollection* table_collection;
     const unsigned int size;
@@ -23,8 +65,10 @@ private:
 
     void populate_root_and_range_sampler_mt(DynamicSequencer<UndirectedGraph::vertex_t>* sequencer);
 
+    void populate_buffer(UndirectedGraph::vertex_t u, const Treelet& t, Random *rng);
+
 public:
-    TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, const unsigned int size);
+    TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, unsigned int size);
     ~TreeletSampler();
 
     ///Samples an occurrence of @param t rooted in @param u

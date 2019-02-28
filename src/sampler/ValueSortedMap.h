@@ -19,7 +19,7 @@ template<typename K, typename V> class ValueSortedMap
 private:
 	struct pairCompare
 	{
-		inline bool operator()(const std::pair<K, V> &p1, const std::pair<K, V> &p2)
+		inline bool operator()(const std::pair<K, V> &p1, const std::pair<K, V> &p2) const
 		{
 			return (p1.second < p2.second) || ((p1.second <= p2.second) && (p1.first < p2.first)); //Use <= instead of = to silence warning
 		}
