@@ -141,6 +141,8 @@ int main(const int argc, const char** argv) {
 					std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".dtz",
 					nullptr, opts.size, &ttc, store_only_on_0);
 			SampleTable* samples = sampler.sample(nonstar_nsamples, opts.threads, &rng, time_bud);
+			samples->rescaleOccurrences(pcol(opts.size, opts.size) / p);
+			
 			std::chrono::duration<double> el = std::chrono::steady_clock::now() - sampstart;
 			std::cout << "adaptive sampler: taken " << samples->get_num_samples() << " samples in "
 					<< el.count() << " s\n";
@@ -167,10 +169,12 @@ int main(const int argc, const char** argv) {
 					std::chrono::steady_clock::now();
 			OccurrenceSampler sampler(&G, &ttc, opts.size, opts.vertices, opts.graphlets,
 					opts.canonicize, opts.norejection);
-			TreeletSelector fs = TreeletSelector::get_star_selector(opts.size,
+			// set up the selector for computing spanning trees
+			if (opts.smart_stars && !selector) {
+				TreeletSelector fs = TreeletSelector::get_star_selector(opts.size,
 					TreeletSelector::MODE_EXCLUDE);
-			if (opts.smart_stars && !selector)
 				full_selector = &fs;
+			}
 			sampler.set_selector(selector, opts.threads, full_selector);
 			SpanningTreeCounter *stc = new SpanningTreeCounter();
 			if (!opts.sptrees_file.empty())

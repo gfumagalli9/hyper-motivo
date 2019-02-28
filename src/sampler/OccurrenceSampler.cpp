@@ -141,7 +141,7 @@ SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int 
 
 void OccurrenceSampler::set_selector(const TreeletSelector *selector,
                                      unsigned int number_of_threads, const TreeletSelector *sp) {
+    sampler.set_selector(selector, number_of_threads);
     if (sp)
         this->sp_counter_selector = new TreeletSelector(*sp);
-    sampler.set_selector(selector, number_of_threads);
 }

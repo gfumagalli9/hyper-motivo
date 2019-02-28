@@ -29,6 +29,7 @@ struct builder_opts
     bool store0;
     char selective_filename[MOTIVO_ARG_MAX];
     double coloring_bias;
+    double *color_distribution;
 };
 
 bool parse_builder_args(const int argc, const char **argv, const std::string &name, builder_opts *opts)
@@ -46,7 +47,7 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
     OptionsParser::Option *store0_opt  = op.add_option(false, false, "store-on-0-colored-vertices-only", '0', "", "Store treelet counts only for the vertices with color 0 (default: false)");
     OptionsParser::Option *selective_opt = op.add_option(false, true, "selective", '\0', "", "Count only treelets whose structures are allowed in file ARG");
-    OptionsParser::Option *coloring_bias_opt = op.add_option(false, true, "coloring-bias", '\0', "1", "Assigns color 0 with probability P=1/(size*ARG) instead of 1/size. The other colors have probability (1-P)/(size-1) (default: 1, ignored if size=1)");
+    OptionsParser::Option *coloring_bias_opt = op.add_option(false, true, "coloring-bias", '\0', "1", "Cut the k-colorful probability by a given factor, by reducing the weight of the first k/2 colors.");
 
 
     if (!op.parse(argc, argv) || help_opt->is_found())
@@ -142,9 +143,7 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
         *(opts->selective_filename)='\0';
 
     double bias = std::stod(coloring_bias_opt->get_value());
-    if (bias < 1)
-        throw std::runtime_error("'coloring-bias' option is invalid");
-    opts->coloring_bias = static_cast<double>(bias);
+    opts->coloring_bias = bias;
 
     return true;
 }
@@ -162,6 +161,21 @@ int main(const int argc, const char** argv)
         UndirectedGraph G(opts.graph);
         G.prefault();
         std::cout << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
+
+        //    double col0prob = colprob_to_prob0(opts->colors, opts->coloring_bias);
+		opts.color_distribution = new double[opts.colors];
+		int lpcn = opts.colors - 1; // number of low-probability colors
+		//		double lpc = std::min(1.0/opts.colors, opts.coloring_bias/(1.0*lpcn*G.number_of_vertices()));
+		double lpc = std::min(1.0*lpcn/opts.colors, opts.coloring_bias*lpcn); // aggregate prob of the first lpcn colors
+		bimodal_distribution(opts.color_distribution, opts.colors, lpcn, lpc);
+	//    bimodal_distribution_find(opts->color_distribution, opts->colors, opts->colors/2, bias);
+		double pk = pcold(opts.color_distribution, opts.colors);
+		std::cout << "	color 0 has probability " << opts.color_distribution[0] << std::endl;
+		std::cout << "	k-colorful probability=" << pk << std::endl;
+
+        if (opts.color_distribution[0] < 100/G.number_of_vertices()) {
+        	std::cerr << "Warning! Only 100 nodes in expectation with color 0" << std::endl;
+        }
 
         TreeletTableCollection ttc;
         CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>* readers = nullptr;
@@ -201,7 +215,7 @@ int main(const int argc, const char** argv)
         if(opts.size==1)
         {
             Random rng(opts.seed);
-            Size1Builder builder(G.number_of_vertices(), opts.from_vertex, opts.to_vertex, opts.colors, opts.store0, opts.coloring_bias, &rng, &out);
+            Size1Builder builder(G.number_of_vertices(), opts.from_vertex, opts.to_vertex, opts.colors, opts.store0, opts.coloring_bias, opts.color_distribution, &rng, &out);
             tstart = std::chrono::steady_clock::now();
             builder.build();
         }
@@ -229,7 +243,11 @@ int main(const int argc, const char** argv)
         infofile.open(std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".info", std::ofstream::trunc);
         infofile << "StoreOnlyOn0 " << std::to_string(opts.store0) << std::endl;
         std::ostringstream streamObj;
-        streamObj << std::setprecision(20) << pcolb(opts.colors, opts.coloring_bias);
+        streamObj << std::setprecision(20) << opts.color_distribution[0];
+        infofile << "ColProb0 " << streamObj.str() << std::endl;
+        streamObj.str("");
+		streamObj.clear();
+        streamObj << std::setprecision(20) << pcold(opts.color_distribution, opts.colors);
         infofile << "ColProb " << streamObj.str() << std::endl;
 
         infofile.close();

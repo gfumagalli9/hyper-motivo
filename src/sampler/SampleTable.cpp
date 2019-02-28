@@ -113,6 +113,14 @@ void SampleTable::estimateOccurrences(double num_graph_treelets, unsigned int k,
 						/ static_cast<double>(e.num_spanning_trees * (store_only_0 ? 1 : k)));
 }
 
+
+void SampleTable::rescaleOccurrences(double factor) {
+  for (auto &e : entries) {
+    e.estimate_graph_occurrences *= factor;
+  }
+}
+
+
 /**
  * Estimate the relative frequency, from the number of estimated occurrences (i.e. just a normalization)
  */

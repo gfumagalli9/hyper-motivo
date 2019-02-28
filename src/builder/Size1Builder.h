@@ -21,14 +21,15 @@ private:
     UndirectedGraph::vertex_t to_vertex;
     const uint8_t number_of_colors;
     const bool store_only_0;
-    const unsigned int bias;
+    const double bias;
     Random* const rng;
     std::ostream* const output;
+    double* color_distribution;
 
 public:
     Size1Builder(UndirectedGraph::vertex_t number_of_vertices,UndirectedGraph::vertex_t from_vertex,
                      UndirectedGraph::vertex_t to_vertex,uint8_t number_of_colors, bool store_only_0,
-                     unsigned int bias, Random *rng, std::ostream* output);
+                     double bias, double *color_distribution, Random *rng, std::ostream* output);
 
     void build();
 

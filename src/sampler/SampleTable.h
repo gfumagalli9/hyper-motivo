@@ -42,6 +42,7 @@ public:
     void addEntry(Entry e);
 
     void estimateOccurrences(double num_graph_treelets, unsigned int k, bool store_only_0 = false);
+    void rescaleOccurrences(double factor);
 	void estimateFrequencies();
 	void update_spanning_trees(TreeletSelector *ts);
 
