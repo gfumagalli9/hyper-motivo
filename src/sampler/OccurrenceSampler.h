@@ -6,7 +6,6 @@
 #define MOTIVO_OCCURRENCESAMPLER_H
 
 #include <limits>
-#include <sparsehash/dense_hash_map>
 #include "../common/random/Random.h"
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/treelets/Treelet.h"
@@ -21,7 +20,6 @@
 class OccurrenceSampler
 {
 private:
-	typedef google::dense_hash_map<Occurrence, uint64_t, Occurrence::OccurrenceFootprintHash, Occurrence::OccurrenceFootprintEquality> occ_count_table_t;
     typedef DynamicSequencer<uint64_t> sequencer_t;
 
     const UndirectedGraph *graph;
@@ -35,15 +33,12 @@ private:
 	TreeletSampler sampler;
 
 
-	void sample_thread [[gnu::hot, gnu::flatten]](unsigned int thread_no, occ_count_table_t *table, sequencer_t *sequencer, Random *rng, TimeoutThreadSync &sync);
-
-	SampleTable *build_sample_table(const occ_count_table_t &count_tab) const;
-
+	void sample_thread [[gnu::hot, gnu::flatten]](unsigned int thread_no, std::vector<Occurrence>& samples, sequencer_t *sequencer, Random *rng, TimeoutThreadSync &sync);
 
 public:
 	inline void sample_one [[gnu::hot]] (Occurrence *occurrence, Random *rng)
 	{
-		UndirectedGraph::vertex_t sampled_vertices[16];
+		UndirectedGraph::vertex_t sampled_vertices[16] = {0};
 		UndirectedGraph::vertex_t root = sampler.sample_root(rng);
 		assert(root < graph->number_of_vertices());
 		Treelet t = sampler.sample_treelet(root, rng);

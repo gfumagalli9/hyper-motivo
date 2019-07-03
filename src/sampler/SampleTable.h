@@ -25,10 +25,10 @@ public:
     public:
         Occurrence occurrence; //FIXME: Remove?
         std::string fingerprint = "";
-        uint128_t num_spanning_trees = 0;
+        uint64_t num_spanning_trees = 0;
         uint64_t sample_count = 0;
-        double estimate_graph_frequency = 0;
-        double estimate_graph_occurrences = 0;
+        double estimated_graph_frequency = 0;
+        double estimated_graph_occurrences = 0;
     };
 
     typedef std::vector<Entry>::const_iterator const_iterator;
@@ -38,27 +38,44 @@ private:
     uint64_t num_samples = 0;
     typedef DynamicSequencer<uint64_t> sequencer_t;
 
-    void spanning_tree_count_thread(sequencer_t &sequencer, SpanningTreeCounter &counter);
+    void spanning_tree_count_thread(const std::vector<std::vector<Entry>::iterator> &distinct_footprints, sequencer_t &sequencer, SpanningTreeCounter &counter);
 
 
 public:
 	SampleTable() = default;
 
-	void count_spanning_trees(unsigned int size, const TreeletStructureSelector *selector, unsigned int ntherads);
+    void add_entry(Entry e);
 
-    void addEntry(Entry e);
+    template<typename Iterator> void add_occurrences(const Iterator first, const Iterator end)
+    {
+        for(Iterator it=first; it!=end; it++)
+        {
+            SampleTable::Entry e;
+            e.occurrence = *it;
+            e.fingerprint = it->text_footprint();
+            e.sample_count = 1;
+            entries.push_back(e);
+            num_samples++;
+        }
+    }
 
-    void estimateOccurrences(double num_graph_treelets);
+    void count_spanning_trees(const TreeletStructureSelector *selector, unsigned int ntherads);
 
-	void estimateFrequencies();
+    void count_spanning_stars();
 
-	void sort_by_estimate_occ();
+    void estimate_occurrences(double num_graph_treelets);
+
+	void estimate_frequencies();
+
+    void sort_by_estimate_occurrences();
+
+    void sort_by_footprint();
+
+    void group_by_footprint();
 
     std::string header();
 
     static SampleTable* merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2); // merge two tables (see source for details)
-
-    static SampleTable average(SampleTable& t1, SampleTable& t2, double w1, double w2); // average two tables (see source for details)
 
 	friend std::ostream& operator<<(std::ostream& os, const SampleTable& st);
 

@@ -24,7 +24,7 @@ private:
 public:
     explicit TimeoutThreadSync(unsigned int nthreads) : number_of_threads(nthreads)
     {
-        termination_flags = new std::atomic<bool>[number_of_threads];
+        termination_flags = new std::atomic<bool>[number_of_threads]();
     }
 
     TimeoutThreadSync(TimeoutThreadSync&) = delete; //Deleted copy constructor

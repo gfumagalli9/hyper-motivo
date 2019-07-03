@@ -147,7 +147,7 @@ Treelet Treelet::canonical_rooting() const
 }
 
 //Selects the bits in positions [from, from+len) of src and returns them in positions [pos, pos+len)
-#define STRUCTURE_BITSELECT(src, from, len, pos) ( ( (src) >> (treelet_structure_bits - ((from)+(len)) ) ) << (treelet_structure_bits - (len) + (pos)) )
+#define STRUCTURE_BITSELECT(src, from, len, pos) ( ( ( (src) >> (treelet_structure_bits - ((from)+(len)) ) ) << (treelet_structure_bits - (len) ) ) >> (pos) )
 
 
 Treelet Treelet::reroot(unsigned int new_root, const unsigned int* parents, const unsigned int* subtree_bit_start, const unsigned int* subtree_bit_end) const
@@ -193,7 +193,7 @@ Treelet Treelet::reroot(unsigned int new_root, const unsigned int* parents, cons
 
 
     //Now perform a dfs visit and reconstruct the treelet
-    Treelet subtrees[16];
+    Treelet::treelet_structure_t subtrees[16];
     unsigned int nsubtrees=0;
 
     unsigned int dfs_parents[16] = {0};
@@ -207,27 +207,36 @@ Treelet Treelet::reroot(unsigned int new_root, const unsigned int* parents, cons
         {
             num_children[current]++;
             dfs_parents[num_vertices] = current;
-            current = num_vertices;
-            num_vertices++;
+            current = num_vertices++;
         }
         else
         {
-            Treelet t(singleton_structure);
-            nsubtrees-=num_children[current];
-            std::sort(subtrees+nsubtrees, subtrees+nsubtrees+num_children[current]);
+            nsubtrees -= num_children[current];
+            std::sort(subtrees + nsubtrees, subtrees + nsubtrees + num_children[current], [] (const Treelet::treelet_structure_t x, const Treelet::treelet_structure_t y) { return x > y; } );
 
-            for(unsigned int i=0; i<num_children[current]; i++)
-                t.merge(subtrees[nsubtrees+i]);
+            Treelet::treelet_structure_t s = singleton_structure;
+            int idx = 0;
+            for(unsigned int i = 0; i < num_children[current]; i++)
+            {
+                s |= (treelet_structure_highest_bit>>idx);
+                s |= (subtrees[nsubtrees + i] >> (idx+1));
+                idx += 2 + 2*popcount32(subtrees[nsubtrees + i]);
+            }
 
-            subtrees[nsubtrees++]=t;
+            subtrees[nsubtrees++] = s;
+
 
             if(current==0)
                 break;
 
             current = dfs_parents[current];
         }
+
+        dfs_structure <<= 1;
     }
 
     assert(nsubtrees==1);
-    return Treelet(subtrees[0].structure, colors);
+    assert(number_of_vertices(subtrees[0]) == number_of_vertices());
+    std::cout << structure << " --> " << subtrees[0] << std::endl;
+    return Treelet(subtrees[0], colors);
 }

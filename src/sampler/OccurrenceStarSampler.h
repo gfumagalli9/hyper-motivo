@@ -8,7 +8,6 @@
 #ifndef SRC_SAMPLER_OCCURRENCESTARSAMPLER_H_
 #define SRC_SAMPLER_OCCURRENCESTARSAMPLER_H_
 
-#include <sparsehash/dense_hash_map>
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/random/AliasMethodSampler.h"
 #include "Occurrence.h"
@@ -20,7 +19,6 @@ class OccurrenceStarSampler
 {
 public:
     typedef DynamicSequencer<uint64_t> sequencer_t;
-	typedef google::dense_hash_map<Occurrence, uint64_t, Occurrence::OccurrenceFootprintHash, Occurrence::OccurrenceFootprintEquality> occ_count_table_t;
 
 private:
     static constexpr UndirectedGraph::vertex_t sampling_vs_shuffling_degree_threshold = 1024;
@@ -33,7 +31,7 @@ private:
 
 	void sample_one(Occurrence* occurrence, Random* rng);
 
-	void sample_thread(unsigned int thread_no, occ_count_table_t *table, sequencer_t *sequencer, Random *rng, TimeoutThreadSync &sync);
+	void sample_thread(unsigned int thread_no, std::vector<Occurrence>& samples, sequencer_t *sequencer, Random *rng, TimeoutThreadSync &sync);
 
 public:
     OccurrenceStarSampler(const UndirectedGraph *g, unsigned int size, bool canonicize);

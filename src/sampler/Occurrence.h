@@ -16,7 +16,6 @@ class OccurrenceCanonicizer;
 class Occurrence
 {
 	friend class OccurrenceCanonicizer;
-    friend class SpanningTreeCounter;
 
 public:
     //i,j in {0,...,15}

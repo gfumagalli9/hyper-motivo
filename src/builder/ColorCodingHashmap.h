@@ -33,7 +33,7 @@ public:
 #ifdef MOTIVO_DENSE_HASHMAP
     ColorCodingHashmap()
     {
-        hashmap.set_empty_key(Treelet::invalid_treelet);
+        hashmap.set_empty_key(invalid_treelet);
     }
 #else
     ColorCodingHashmap() = default;

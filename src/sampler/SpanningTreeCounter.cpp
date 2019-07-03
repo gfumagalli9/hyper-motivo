@@ -138,7 +138,7 @@ unsigned int SpanningTreeCounter::number_of_spanning_stars(const Occurrence &occ
         for(unsigned int v=u+1; v<occ.get_size(); v++)
             deg+=occ.has_edge(v,u);
 
-        count += (deg == occ.get_size()-1)?1:0;
+        count += (deg == occ.get_size()-1)?1u:0u;
     }
 
     return count*occ.get_size();

@@ -36,8 +36,8 @@ private:
 	constexpr static unsigned int suffSamples = 1000;
 
 	const UndirectedGraph* graph;
-	const unsigned int size;
-	const TreeletTableCollection *ttc;
+    const TreeletTableCollection *ttc;
+    const unsigned int size;
 	const unsigned int number_of_threads;
 	const bool store_only_on_0 = false;
 
@@ -54,7 +54,7 @@ private:
 
     std::set<Occurrence, Occurrence::OccurrenceFootprintLess> completedGraphlets; // graphlets sampled at least suffSamples times
 
-	int totTreeletSwitches = 0;
+	uint64_t totTreeletSwitches = 0;
 	TreeletStructureSelector *treeletSelector = nullptr;
 	OccurrenceSampler* sampler = nullptr;
 
@@ -67,13 +67,13 @@ public:
 	/**
 	 * Build an adaptive sampler.
 	 */
-	AdaptiveSampler(UndirectedGraph* g, unsigned int size, TreeletTableCollection* ttc, unsigned int numbber_of_threads, bool store_only_on_0);
+	AdaptiveSampler(UndirectedGraph* g, TreeletTableCollection* ttc, unsigned int size, unsigned int numbber_of_threads, bool store_only_on_0);
 
 	/**
 	 * Take samples and return a table with counts.
 	 * n_samples = 0 means no limit on sample numbers, but only on the time budget.
 	 */
-	SampleTable* sample(uint64_t n_samples, Random* rng, double time_budget = std::numeric_limits<double>::infinity());
+	SampleTable* sample(uint64_t n_samples, Random* rng, double time_budget = std::numeric_limits<double>::infinity(), const TreeletStructureSelector* build_selector=nullptr);
 
 	void recomputeTreeletPriorities(occ_info_table_t&);
 };
