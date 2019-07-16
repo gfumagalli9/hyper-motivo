@@ -15,7 +15,6 @@
 #include <unordered_set>
 
 #include "../common/graph/UndirectedGraph.h"
-#include "../common/graph/SimpleGraph.h"
 #include "../common/treelets/Treelet.h"
 #include "../common/treelets/TreeletTable.h"
 #include "OccurrenceSampler.h"

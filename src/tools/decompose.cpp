@@ -6,9 +6,153 @@
 #include <set>
 #include <algorithm>
 #include "../common/graph/UndirectedGraph.h"
-#include "../common/graph/SimpleGraph.h"
 #include "../common/treelets/Treelet.h"
 #include "../common/OptionsParser.h"
+
+/**
+ * A simple graph(let) that can hold at most 16 vertices
+ */
+class SimpleGraph
+{
+public:
+    typedef std::set<Treelet::treelet_structure_t> treelet_structure_set_t;
+
+private:
+    unsigned int nverts=0;
+    unsigned int degrees[16] = {0};
+    unsigned int adj_lists[16][16] = {{0}};
+
+    Treelet dfs(unsigned int u, unsigned int parent, bool *visited, treelet_structure_set_t &structures)
+    {
+        visited[u]=true;
+
+        int nchild_treelets=0;
+        Treelet child_treelets[15];
+
+        for(unsigned int i=0; i<degrees[u]; i++)
+        {
+            unsigned int v = adj_lists[u][i];
+            if(parent==v)
+                continue;
+
+            if(visited[v])
+                throw std::runtime_error("Graph is not a tree");
+
+            child_treelets[nchild_treelets++] = dfs(v, u, visited, structures);
+        }
+
+        std::sort(child_treelets, child_treelets+nchild_treelets);
+
+        Treelet t = Treelet::singleton(static_cast<uint8_t>(u));
+        while(nchild_treelets!=0)
+        {
+            t=t.merge(child_treelets[--nchild_treelets]);
+            assert(t.is_valid());
+            structures.insert(t.get_structure());
+        }
+
+        return t;
+    }
+
+public:
+    unsigned int number_of_vertices() { return nverts; };
+
+    void decompose(treelet_structure_set_t &structures, int root=-1)
+    {
+        bool visited[16];
+        if(root == -1)
+        {
+            for(UndirectedGraph::vertex_t u = 0; u < 16; u++)
+            {
+                memset(visited, 0, sizeof(bool) * 16);
+                dfs(u, u, visited, structures);
+            }
+        }
+        else
+        {
+            memset(visited, 0, sizeof(bool) * 16);
+            dfs(0, 0, visited, structures);
+        }
+    }
+
+    static SimpleGraph treelet_from_stdin()
+    {
+        SimpleGraph g;
+        bool seen[16]={false};
+        unsigned int nedges=0;
+
+        unsigned int  u,v;
+        while(std::cin >> u >> v)
+        {
+            if(u>=16 || v>=16 || u==v)
+            {
+                std::cerr << "Invalid edge" << std::endl;
+                continue;
+            }
+
+            bool existing=false;
+            for(unsigned int j=0; j<=g.degrees[u]; j++)
+                existing |= (g.adj_lists[u][j]==v);
+
+            if(existing)
+            {
+                std::cerr << "Duplicate edge" << std::endl;
+                continue;
+            }
+
+            if(!seen[u])
+            {
+                seen[u]=true;
+                g.nverts++;
+            }
+
+            if(!seen[v])
+            {
+                seen[v]=true;
+                g.nverts++;
+            }
+
+            g.adj_lists[u][g.degrees[u]++]=v;
+            g.adj_lists[v][g.degrees[v]++]=u;
+            nedges++;
+        }
+
+        for(unsigned int i=0; i<g.nverts; i++)
+        {
+            if(!seen[i])
+                throw std::runtime_error("Vertex IDs are not contiguous");
+        }
+
+        if(nedges!=g.nverts-1)
+            throw std::runtime_error("Graph is not a tree");
+
+        return g;
+    }
+
+    static SimpleGraph path(unsigned int size)
+    {
+        SimpleGraph g;
+        g.nverts=size;
+        for(unsigned int i=1; i<size; i++)
+        {
+            g.adj_lists[i-1][g.degrees[i-1]++]=i;
+            g.adj_lists[i][g.degrees[i]++]=i-1;
+        }
+        return g;
+    }
+
+    static SimpleGraph star(unsigned int size)
+    {
+        SimpleGraph g;
+        g.nverts=size;
+        for(unsigned int i=1; i<size; i++)
+        {
+            g.adj_lists[0][g.degrees[0]++]=i;
+            g.adj_lists[i][g.degrees[i]++]=0;
+        }
+        return g;
+    }
+};
 
 int main(const int argc, const char** argv)
 {
@@ -67,7 +211,7 @@ int main(const int argc, const char** argv)
             g = SimpleGraph::star(static_cast<unsigned int>(s));
         }
         else
-            g = SimpleGraph::from_stdin();
+            g = SimpleGraph::treelet_from_stdin();
 
         int root=-1;
         if(root_opt->is_found())
@@ -79,7 +223,6 @@ int main(const int argc, const char** argv)
 
 
         SimpleGraph::treelet_structure_set_t structures;
-        structures.set_empty_key(Treelet::invalid_structure); //FIXME
         g.decompose(structures, root);
 
         for(const Treelet::treelet_structure_t& s : structures)

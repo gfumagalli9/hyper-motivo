@@ -74,7 +74,7 @@ SampleTable* OccurrenceSampler::sample(const uint64_t num_samples, unsigned int 
     auto sample_table = new SampleTable();
     for (unsigned int i = 0; i < number_of_threads; i++)
 	{
-		sample_table->add_occurrences(samples[i].begin(), samples[i].end());
+		sample_table->add_occurrences(samples[i].begin(), samples[i].end(), 'N');
 		samples[i].clear();
 	}
 

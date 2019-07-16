@@ -9,6 +9,7 @@
 #include <map>
 #include <cmath>
 #include <thread>
+#include <cstring>
 #include "../common/util.h"
 
 
@@ -44,14 +45,6 @@ void SampleTable::estimate_frequencies()
 }
 
 /**
- * Returns the table's header.
- */
-std::string SampleTable::header()
-{
-	return std::string("footprint, vertices, sample_count, spanning_trees, estimated_frequencies, estimated_occurences");
-}
-
-/**
  * Sort entries in nonincreasing order of estimate_graph_occurrences
  */
 void SampleTable::sort_by_estimate_occurrences() //FIXME: Use parallel execution policy when implemented in the standard library
@@ -84,7 +77,7 @@ void SampleTable::group_by_footprint()
 			result->sample_count++;
 		else
 		    if(++result != it)
-		        *result = std::move(*it);
+		        *result = *it; //SampleTable::entry is trivially copyable
 	}
 
 	entries.erase(++result, entries.end());
@@ -171,7 +164,6 @@ void SampleTable::count_spanning_stars() //FIXME: Make multithreaded?
     }
 }
 
-
 /**
  * Merge two tables.
  * tcount1 and tcount2 are the total treelet counts (the number of colorful k-treelets
@@ -182,44 +174,115 @@ void SampleTable::count_spanning_stars() //FIXME: Make multithreaded?
  *	e.estimate_graph_frequency is obtained as an appropriate average of the two tables
  *	e.estimate_graph_occurrences is obtained as an appropriate average of the two tables
  *
+ * t1 and t2 need to be grouped and sorted by footprints
  */
 SampleTable* SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2)
 {
-	SampleTable &t = *(new SampleTable());
-	std::map<std::string, SampleTable::Entry> merged;
-	std::map<std::string, double> weights;
-	t.num_samples = t1.get_num_samples() + t2.get_num_samples();
-	double p1 = static_cast<double>(t1.get_num_samples()) / static_cast<double>(t.num_samples);
-	double p2 = static_cast<double>(t2.get_num_samples()) / static_cast<double>(t.num_samples);
+    SampleTable &t = *(new SampleTable());
 
-	for (const SampleTable::Entry &e : t1.entries)
-	{
-		merged[e.fingerprint].sample_count += e.sample_count;
-		weights[e.fingerprint] += p1 * static_cast<double>(e.num_spanning_trees) / tcount1;
-	}
+    t.num_samples = t1.get_num_samples() + t2.get_num_samples();
+    const double p1 = static_cast<double>(t1.get_num_samples()) / static_cast<double>(t.num_samples);
+    const double p2 = static_cast<double>(t2.get_num_samples()) / static_cast<double>(t.num_samples);
 
-	for (const SampleTable::Entry &e : t2.entries)
-	{
-		merged[e.fingerprint].sample_count += e.sample_count;
-		weights[e.fingerprint] += p2 * static_cast<double>(e.num_spanning_trees) / tcount2;
-	}
+    double tot_est_occ = 0;
 
-	double tot_est_occ = 0;
-	for (auto& kv : merged)
-	{
-		SampleTable::Entry& e = kv.second;
-		e.estimated_graph_occurrences = static_cast<double>(e.sample_count) / (static_cast<double>(t.num_samples) * weights[kv.first]);
-		tot_est_occ += e.estimated_graph_occurrences;
-	}
+    auto it1 = t1.begin();
+    auto it2 = t2.begin();
+    while(it1 != t1.end() || it2 != t2.end())
+    {
+        Entry e;
+        int c;
+        if(it1==t1.end())
+            c=-1;
+        else if(it2==t1.end())
+            c=1;
+        else
+            c=memcmp(it1->occurrence.binary_footprint(), it2->occurrence.binary_footprint(), Occurrence::binary_footprint_bytes);
 
-	for (auto& kv : merged)
-	{
-		SampleTable::Entry e = kv.second;
-		e.fingerprint = kv.first;
-		e.estimated_graph_frequency = e.estimated_graph_occurrences / tot_est_occ;
-		t.add_entry(e);
-	}
-	return &t;
+        double weight=0;
+        if(c <= 0)
+        {
+            e.occurrence = it1->occurrence;
+            e.sample_count += it1->sample_count;
+            weight += p1 * static_cast<double>(it1->num_spanning_trees) / tcount1;
+            it1++;
+        }
+        else
+            e.occurrence = it2->occurrence;
+
+        if(c >= 0)
+        {
+            e.sample_count += it2->sample_count;
+            weight += p2 * static_cast<double>(it2->num_spanning_trees) / tcount2;
+            it2++;
+        }
+
+        e.estimated_graph_occurrences = static_cast<double>(e.sample_count) / (static_cast<double>(t.num_samples) * weight);
+        tot_est_occ += e.estimated_graph_occurrences;
+        e.type = 'M';
+        t.add_entry(e);
+    }
+
+    for (auto &e : t.entries)
+        e.estimated_graph_frequency = e.estimated_graph_occurrences / tot_est_occ;
+
+    return &t;
+}
+
+
+/**
+ * Weighted average of two count tables.
+ * In the output table:
+ *   e.sample_count is the sum of the corresponding entries in t1 and t2.
+ *	 e.estimate_graph_frequency = (w1 * t1[e].estimate_graph_frequency + w2 * t2[e].estimate_graph_frequency)
+ *	 e.estimate_graph_occurrences = [the same as above]
+ *   e.num_spanning_trees = -1
+ */
+SampleTable* SampleTable::average(SampleTable& t1, SampleTable& t2, double w1, double w2)
+{
+    SampleTable &t = *(new SampleTable());
+
+    double tot_est_occ = 0;
+
+    auto it1 = t1.begin();
+    auto it2 = t2.begin();
+    while(it1 != t1.end() || it2 != t2.end())
+    {
+        Entry e;
+        int c;
+        if(it1==t1.end())
+            c=-1;
+        else if(it2==t1.end())
+            c=1;
+        else
+            c=memcmp(it1->occurrence.binary_footprint(), it2->occurrence.binary_footprint(), Occurrence::binary_footprint_bytes);
+
+        if(c <= 0)
+        {
+            e.occurrence = it1->occurrence;
+            e.sample_count += it1->sample_count;
+            e.estimated_graph_occurrences += w1 * it1->estimated_graph_occurrences;
+            it1++;
+        }
+        else
+            e.occurrence = it2->occurrence;
+
+        if(c>=0)
+        {
+            e.sample_count += it2->sample_count;
+            e.estimated_graph_occurrences += w2 * it2->estimated_graph_occurrences;
+            it2++;
+        }
+
+        e.type = 'M';
+        tot_est_occ += e.estimated_graph_occurrences;
+        t.add_entry(e);
+    }
+
+    for (auto &e : t.entries)
+        e.estimated_graph_frequency = e.estimated_graph_occurrences / tot_est_occ;
+
+    return &t;
 }
 
 
@@ -228,14 +291,14 @@ SampleTable* SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1
  */
 std::ostream& operator<<(std::ostream& os, const SampleTable& st)
 {
-	for (const auto& e : st.entries)
+	for(const auto& e : st.entries)
 	{
 		os << e.occurrence.text_footprint() << ",";
 
 		for(unsigned int i=0; i<e.occurrence.get_size(); i++)
 			os << " " << e.occurrence.vertices()[i];
 
-		os << ", " << e.sample_count << ", " << uint128_to_string(e.num_spanning_trees) << ", "
+		os << ", " << e.sample_count << ", " << e.type << ", " << uint128_to_string(e.num_spanning_trees) << ", "
 		   << e.estimated_graph_frequency << ", " << e.estimated_graph_occurrences << "\n";
 	}
 	return os;

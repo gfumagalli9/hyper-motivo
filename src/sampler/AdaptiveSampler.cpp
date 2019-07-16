@@ -195,30 +195,30 @@ SampleTable* AdaptiveSampler::sample(const uint64_t n_samples, Random* rng, cons
 			break;
 	}
 
-	std::cout << "time spent in sampling treelets: " << sampleTime << std::endl;
-	std::cout << "time spent in count merge: " << mergeTime << std::endl;
-	std::cout << "time spent in weights update: " << weightsTime << std::endl;
-	std::cout << "time spent in sampler update: " << updateTime << std::endl;
-	std::cout << "time spent in computing efficiencies: " << effTime << std::endl;
-	std::cout << "time spent in updating priorities: " << prioTime << std::endl;
-	std::cout << "total treelet switches: " << totTreeletSwitches << std::endl;
+	//FIXME: Remove?
+	std::cerr << "time spent in sampling treelets: " << sampleTime << std::endl;
+    std::cerr << "time spent in count merge: " << mergeTime << std::endl;
+    std::cerr << "time spent in weights update: " << weightsTime << std::endl;
+    std::cerr << "time spent in sampler update: " << updateTime << std::endl;
+    std::cerr << "time spent in computing efficiencies: " << effTime << std::endl;
+    std::cerr << "time spent in updating priorities: " << prioTime << std::endl;
+    std::cerr << "total treelet switches: " << totTreeletSwitches << std::endl;
 
 	const double p = pcol(size, size);
 	auto table = new SampleTable();
-	for (const auto &it : occTab)
+	for (const auto &[occurrence, info] : occTab)
 	{
 		SampleTable::Entry e;
-		e.occurrence = it.first;
-		e.fingerprint = (it.first.text_footprint());
-		e.num_spanning_trees = 0;
-		e.sample_count = it.second.num_occurrences;
-		e.estimated_graph_occurrences = static_cast<double>(it.second.num_occurrences) * (store_only_on_0 ? size : 1) / (it.second.weight * p);
+		e.occurrence = occurrence;
+		//By default e.num_spanning_trees = 0;
+		e.sample_count = info.num_occurrences;
+		e.estimated_graph_occurrences = static_cast<double>(e.sample_count) * (store_only_on_0 ? size : 1) / (info.weight * p);
+		e.type = 'A';
 		table->add_entry(e);
 	}
 
-	std::cout << "total management time: " << totManagementTime << std::endl;
-	table->estimate_frequencies();
-	std::cout << "norm-2 of the sample distribution: " << table->norm2() << std::endl;
+	std::cerr << "total management time: " << totManagementTime << std::endl;
+	std::cerr << "norm-2 of the sample distribution: " << table->norm2() << std::endl;
 	return table;
 }
 

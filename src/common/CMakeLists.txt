@@ -2,8 +2,6 @@ set(COMMON_SOURCE_FILES
         ../../config.h
         platform/platform.h
         platform/platform.cpp
-        util.cpp
-        util.h
         graph/UndirectedGraph.cpp
         graph/UndirectedGraph.h
         treelets/Treelet.h
@@ -17,8 +15,6 @@ set(COMMON_SOURCE_FILES
         treelets/TreeletTable.h
         treelets/TreeletStructureSelector.cpp
         treelets/TreeletStructureSelector.h
-        OptionsParser.cpp
-        OptionsParser.h
         io/ConcurrentFIFO.h
         io/ConcurrentWriter.cpp
         io/ConcurrentWriter.h
@@ -29,6 +25,8 @@ set(COMMON_SOURCE_FILES
         io/BaseRecordSource.h
         io/PropertyStore.cpp
         io/PropertyStore.h
-        graph/SimpleGraph.h
-        graph/SimpleGraph.cpp
+        OptionsParser.cpp
+        OptionsParser.h
+        util.cpp
+        util.h
         PARENT_SCOPE)

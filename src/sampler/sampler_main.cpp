@@ -81,9 +81,8 @@ int main(const int argc, const char** argv)
         std::cerr << "Sampling using " << opts.threads << " thread(s)" << std::endl;
 
 
-
         // FAST STAR SAMPLING
-        SampleTable* star_samples = nullptr;
+        SampleTable* star_samples = nullptr;  //TODO: If we don't care about vertices we can trivially fill this
         uint128_t number_of_stars = 0;
         uint64_t number_of_star_samples = 0;
         double time_budget = opts.time_budget;
@@ -104,15 +103,13 @@ int main(const int argc, const char** argv)
             std::cout << "Star sampler: taken " << star_samples->get_num_samples() << " samples in " << el.count() << " s\n";
 
             if(opts.group || opts.spanning_trees)
-            {
                 star_samples->sort_by_footprint();
 
-                if(opts.group)
-                    star_samples->group_by_footprint();
+            if(opts.group)
+                star_samples->group_by_footprint();
 
-                if(opts.spanning_trees)
-                    star_samples->count_spanning_stars();
-            }
+            if(opts.spanning_trees)
+                star_samples->count_spanning_stars();
         }
 
         uint64_t nonstar_nsamples = opts.number_of_samples - number_of_star_samples;
@@ -133,21 +130,45 @@ int main(const int argc, const char** argv)
             std::cout << "Naive sampler: taken " << samples->get_num_samples() << " samples in " << elapsed.count() << " s\n";
 
             if(opts.group || opts.spanning_trees)
-            {
                 samples->sort_by_footprint();
 
-                if(opts.group)
-                    samples->group_by_footprint();
+            if(opts.group)
+                samples->group_by_footprint();
 
-                if(opts.spanning_trees)
-                    samples->count_spanning_trees(build_selector, opts.threads);
-            }
+            if(opts.spanning_trees)
+                samples->count_spanning_trees(build_selector, opts.threads);
+
 
             if(opts.estimate_occurrences)
             {
-                //FIXME: Can the following two methods be combined?
                 samples->estimate_occurrences(static_cast<double>(tot_treelets) / p);
-                samples->estimate_frequencies();
+
+                if(star_samples)
+                {
+                    std::cout << "Merging samples with weights " << static_cast<double>(tot_treelets) / p << "," << static_cast<double>(number_of_stars)  << std::endl;
+                    //SampleTable::merge takes care of estimating occurrences and frequencies
+                    SampleTable *merged = SampleTable::merge(*samples, *star_samples, static_cast<double>(tot_treelets) / p, static_cast<double>(number_of_stars));
+
+                    delete samples;
+                    delete star_samples;
+
+                    star_samples = nullptr;
+                }
+                else
+                    samples->estimate_frequencies();
+
+
+                samples->sort_by_estimate_occurrences();
+                *output << SampleTable::header << "\n" << *samples;
+            }
+            else
+            {
+                *output << SampleTable::header << "\n";
+
+                if(star_samples)
+                    *output << *star_samples;
+
+                *output << *samples;
             }
         }
         else
@@ -162,39 +183,41 @@ int main(const int argc, const char** argv)
             std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - start_time;
             std::cout << "Adaptive sampler: taken " << samples->get_num_samples() << " samples in " << elapsed.count() << " s\n";
 
-            //Note: The returned occurrences are already grouped by footprint
-
-            if(opts.spanning_trees) //FIXME: Can we compute this in the adaptive sampler itself?
+            //There is no need to bother counting the spanning trees w.r.t. the build selector if we are going to merge with star samples
+            if(opts.spanning_trees && star_samples==nullptr) //FIXME: Can we compute this in the adaptive sampler itself?
                 samples->count_spanning_trees(build_selector, opts.threads);
 
             if(opts.estimate_occurrences)
-                samples->estimate_frequencies(); //The adaptive sampler already estimates occurrences
+            {
+                //AdaptiveSampler already estimates occurrences
+
+                if(star_samples)
+                {
+                    double w = (static_cast<double>(tot_treelets) / p) / (static_cast<double>(number_of_stars) + static_cast<double>(tot_treelets) / p);
+
+                    std::cout << "merging samples with weights " << (1-w) << "," << w << std::endl;
+                    //SampleTable::average takes care of estimating occurrences and frequencies
+                    samples->sort_by_footprint();
+                    SampleTable* merged = SampleTable::average(*samples, *star_samples, w, 1-w);
+
+                    delete samples;
+                    delete star_samples;
+
+                    star_samples = nullptr;
+                    samples = merged;
+                }
+                else
+                    samples->estimate_frequencies();
+
+                samples->sort_by_estimate_occurrences();
+                *output << SampleTable::header << "\n" << *samples;
+            }
         }
-
-
-        if(star_samples)
-        {
-            std::cout << "Merging samples with weights " << static_cast<double>(tot_treelets) / p << "," << static_cast<double>(number_of_stars)  << std::endl;
-            //SampleTable::merge takes care of estimating occurrences and frequencies
-            SampleTable *merged = SampleTable::merge(*samples, *star_samples, static_cast<double>(tot_treelets) / p, static_cast<double>(number_of_stars));
-
-            delete samples;
-            delete star_samples;
-
-            samples = merged;
-        }
-        /*else
-        {
-            samples->estimate_occurrences(static_cast<double>(tot_treelets) / p);
-            samples->estimate_frequencies();
-        }*/
-
-        samples->sort_by_estimate_occurrences();
-        *output << samples->header() << "\n" << *samples;
 
         std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
         std::cerr << "Sampling time: " << delta_t.count() << " s\n";
 
+        delete star_samples;
         delete samples;
 
         for (unsigned int i = 0; i < opts.size; i++)

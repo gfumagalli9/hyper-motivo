@@ -23,15 +23,17 @@ public:
     class Entry // a table entry
     {
     public:
-        Occurrence occurrence; //FIXME: Remove?
-        std::string fingerprint = "";
+        Occurrence occurrence;
         uint64_t num_spanning_trees = 0;
         uint64_t sample_count = 0;
         double estimated_graph_frequency = 0;
         double estimated_graph_occurrences = 0;
+        char type = '?';
     };
 
     typedef std::vector<Entry>::const_iterator const_iterator;
+
+    static constexpr const char* header = "footprint, vertices, sample_count, type, spanning_trees, estimated_frequencies, estimated_occurences";
 
 private:
     std::vector<Entry> entries;
@@ -46,14 +48,14 @@ public:
 
     void add_entry(Entry e);
 
-    template<typename Iterator> void add_occurrences(const Iterator first, const Iterator end)
+    template<typename Iterator> void add_occurrences(const Iterator first, const Iterator end, const char type)
     {
         for(Iterator it=first; it!=end; it++)
         {
             SampleTable::Entry e;
             e.occurrence = *it;
-            e.fingerprint = it->text_footprint();
             e.sample_count = 1;
+            e.type = type;
             entries.push_back(e);
             num_samples++;
         }
@@ -73,11 +75,11 @@ public:
 
     void group_by_footprint();
 
-    std::string header();
-
     static SampleTable* merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2); // merge two tables (see source for details)
 
-	friend std::ostream& operator<<(std::ostream& os, const SampleTable& st);
+    static SampleTable* average(SampleTable& t1, SampleTable& t2, double w1, double w2); // average two tables (see source for details)
+
+    friend std::ostream& operator<<(std::ostream& os, const SampleTable& st);
 
 	uint64_t get_num_samples() const
     {

@@ -237,6 +237,5 @@ Treelet Treelet::reroot(unsigned int new_root, const unsigned int* parents, cons
 
     assert(nsubtrees==1);
     assert(number_of_vertices(subtrees[0]) == number_of_vertices());
-    std::cout << structure << " --> " << subtrees[0] << std::endl;
     return Treelet(subtrees[0], colors);
 }
