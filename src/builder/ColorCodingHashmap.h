@@ -5,10 +5,10 @@
 #ifndef MOTIVO_COLORCODINGHASHMAP_H
 #define MOTIVO_COLORCODINGHASHMAP_H
 
-#include "../../cmake-build-debug/config.h"
+#include "config.h"
 
 #ifdef MOTIVO_DENSE_HASHMAP
-    #include "../../../../../../usr/include/sparsehash/dense_hash_map"
+    #include <sparsehash/dense_hash_map>
 #else
     #include <sparsehash/sparse_hash_map>
 #endif
