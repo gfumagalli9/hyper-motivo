@@ -14,8 +14,10 @@
 #include "../common/util.h"
 #include "ColorCodingSpanningTreeCounter.h"
 
-AdaptiveSampler::AdaptiveSampler(UndirectedGraph* graph, TreeletTableCollection* ttc, unsigned int size, const unsigned int number_of_threads, bool store_only_on_0)
-			: graph(graph), ttc(ttc), size(size), number_of_threads(number_of_threads), store_only_on_0(store_only_on_0)
+AdaptiveSampler::AdaptiveSampler(UndirectedGraph* graph, TreeletTableCollection* ttc, unsigned int size,
+		unsigned int number_of_threads, bool store_only_on_0, uint32_t buffer_size, UndirectedGraph::vertex_t buffer_degree)
+			: graph(graph), ttc(ttc), size(size), number_of_threads(number_of_threads), store_only_on_0(store_only_on_0),
+			buffer_size(buffer_size), buffer_degree(buffer_degree)
 {
 	std::map<Treelet::treelet_structure_t, TreeletTable::treelet_count_t> numTreelets2;
 
@@ -63,7 +65,7 @@ void AdaptiveSampler::update_sampler()
 	treeletSelector = new TreeletStructureSelector(TreeletStructureSelector::MODE_INCLUDE, representant_to_structures[current_treelet_structure].begin(), representant_to_structures[current_treelet_structure].end());
 
 	delete sampler;
-	sampler = new OccurrenceSampler(graph, ttc, size, false, true, true);
+	sampler = new OccurrenceSampler(graph, ttc, size, false, true, true, buffer_size, buffer_degree);
 	sampler->set_selector(treeletSelector, number_of_threads);
 }
 

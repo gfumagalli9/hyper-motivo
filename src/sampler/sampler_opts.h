@@ -29,6 +29,8 @@ struct sampler_opts
     bool adaptive;
     char seed[MOTIVO_ARG_MAX + 2 + std::numeric_limits<unsigned int>::digits/3]; //Enough space to append one character + 1 integer
     unsigned int threads;
+    uint32_t treelet_buffer_size;
+    UndirectedGraph::vertex_t treelet_buffer_degree;
     char selective_filename[MOTIVO_ARG_MAX];
     char selective_build_filename[MOTIVO_ARG_MAX];
     double time_budget;

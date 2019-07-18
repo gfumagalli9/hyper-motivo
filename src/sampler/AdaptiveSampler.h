@@ -40,6 +40,9 @@ private:
 	const unsigned int number_of_threads;
 	const bool store_only_on_0 = false;
 
+	const uint32_t buffer_size;
+	const UndirectedGraph::vertex_t buffer_degree;
+
 	std::map<Treelet::treelet_structure_t, TreeletTable::treelet_count_t> numTreelets; // as computed by the build
 	TreeletTable::treelet_count_t totTreelets = 0; // the sum of the map values above
 	ValueSortedMap<Treelet::treelet_structure_t, double> treeletPriority; // function of efficiency, we always take the highest value
@@ -66,7 +69,7 @@ public:
 	/**
 	 * Build an adaptive sampler.
 	 */
-	AdaptiveSampler(UndirectedGraph* g, TreeletTableCollection* ttc, unsigned int size, unsigned int numbber_of_threads, bool store_only_on_0);
+	AdaptiveSampler(UndirectedGraph* g, TreeletTableCollection* ttc, unsigned int size, unsigned int numbber_of_threads, bool store_only_on_0, uint32_t buffer_size, UndirectedGraph::vertex_t buffer_degree);
 
 	/**
 	 * Take samples and return a table with counts.

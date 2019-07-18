@@ -14,9 +14,48 @@
 class TreeletSampler
 {
 private:
+    class DecompositionFIFOBuffer
+    {
+    private:
+        uint32_t size=0;
+        uint32_t capacity;
+        std::pair<UndirectedGraph::vertex_t, Treelet> *entries;
+
+    public:
+        explicit DecompositionFIFOBuffer(uint32_t capacity) : capacity(capacity)
+        {
+            entries = new std::pair<UndirectedGraph::vertex_t, Treelet>[capacity];
+        };
+
+        ~DecompositionFIFOBuffer()
+        {
+            delete[] entries;
+        }
+
+        DecompositionFIFOBuffer(const DecompositionFIFOBuffer&) = delete;
+
+        void push(UndirectedGraph::vertex_t v, const Treelet& t)
+        {
+            assert(size<capacity);
+            entries[size].first = v;
+            entries[size].second = t;
+            size++;
+        }
+
+        std::pair<UndirectedGraph::vertex_t, Treelet> pop()
+        {
+            assert(size>0);
+            return entries[--size];
+        }
+
+        bool empty() const { return size==0; }
+    };
+
     const UndirectedGraph* graph;
     const TreeletTableCollection* table_collection;
     const unsigned int size;
+    const uint32_t buffer_size;
+    const UndirectedGraph::vertex_t buffer_degree;
 
     const TreeletStructureSelector* selector = nullptr;
     RangeSampler<TreeletTable::treelet_count_t>** range_samplers = nullptr;
@@ -24,8 +63,10 @@ private:
 
     void populate_root_and_range_sampler_mt(DynamicSequencer<UndirectedGraph::vertex_t> &sequencer);
 
+    void populate_buffer(DecompositionFIFOBuffer &buffer, UndirectedGraph::vertex_t u, const Treelet& t, Random *rng);
+
 public:
-    TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, unsigned int size);
+    TreeletSampler(const UndirectedGraph *graph, const TreeletTableCollection *ttc, unsigned int size, uint32_t buffer_size, UndirectedGraph::vertex_t buffer_degree);
     ~TreeletSampler();
 
     ///Samples an occurrence of @param t rooted in @param u

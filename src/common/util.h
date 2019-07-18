@@ -46,6 +46,21 @@ template<typename T> T ipow(T base, unsigned int exp)
     return result;
 }
 
+/**
+ * The k-colorful probability for coloring distribution D
+ */
+double pcold(const double* D, int k);
+
+/**
+ * The distribution where each one of the first j elements has probability p/j,
+ * and each one of the last k-j elements has probability (1-p)/(k-j)
+ */
+void bimodal_distribution(double *buf, int k, int j, double p);
+
+/**
+ * Normalize entries to have sum s
+ */
+void normalize(double *v, int k, double s = 1);
 
 /**
  * The probability that a coloring with c colors makes k <= c nodes colorful

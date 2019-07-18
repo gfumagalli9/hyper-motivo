@@ -93,6 +93,8 @@ void OccurrenceSampler::set_selector(const TreeletStructureSelector *new_sample_
 	sampler.set_selector(new_sample_selector, number_of_threads);
 }
 
-OccurrenceSampler::OccurrenceSampler(const UndirectedGraph *graph, const TreeletTableCollection* ttc, unsigned int size, bool vertices, bool graphlets, bool canonicize) :
-		graph(graph), ttc(ttc), size(size), vertices(vertices), graphlets(graphlets), canonicize(canonicize), sampler(graph, ttc, size)
+OccurrenceSampler::OccurrenceSampler(const UndirectedGraph *graph, const TreeletTableCollection* ttc, unsigned int size,
+		bool vertices, bool graphlets, bool canonicize, uint32_t buffer_size, UndirectedGraph::vertex_t buffer_degree) :
+		graph(graph), ttc(ttc), size(size), vertices(vertices), graphlets(graphlets), canonicize(canonicize),
+		sampler(graph, ttc, size, buffer_size, buffer_degree)
 {}

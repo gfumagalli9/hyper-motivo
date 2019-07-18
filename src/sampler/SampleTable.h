@@ -69,6 +69,8 @@ public:
 
 	void estimate_frequencies();
 
+    void rescale_occurrences(double factor);
+
     void sort_by_estimate_occurrences();
 
     void sort_by_footprint();

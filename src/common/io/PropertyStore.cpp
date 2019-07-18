@@ -2,8 +2,11 @@
 // Created by steven on 1/19/19.
 //
 
-#include <fstream>
 #include "PropertyStore.h"
+
+#include <fstream>
+#include <sstream>
+#include <string>
 
 bool PropertyStore::is_valid(const std::string &key)
 {
@@ -105,4 +108,23 @@ uint128_t PropertyStore::get_uint128(const std::string &key, const uint128_t def
         return default_value;
 
     return string_to_uint128(it->second);
+}
+
+void PropertyStore::set_double(const std::string &key, const double value)
+{
+    std::ostringstream ss;
+    ss.precision(std::numeric_limits<double>::max_digits10);
+    ss << value;
+
+    map[key] = ss.str();
+}
+
+double PropertyStore::get_double(const std::string &key, double default_value)
+{
+    auto it = map.find(key);
+    if(it == map.end())
+        return default_value;
+
+
+    return std::stod(it->second);
 }

@@ -57,6 +57,42 @@ double pcol(const unsigned int k, const unsigned int c)
     return p;
 }
 
+/**
+ * The k-colorful probability for coloring distribution D
+ */
+double pcold(const double* D, int k)
+{
+    double p = 1;
+    for (int i = 0; i < k; i++)
+        p *= D[i] * (i+1);
+    return p;
+}
+
+/**
+ * Normalize entries to have sum s
+ */
+void normalize(double *v, int k, double s = 1)
+{
+    double s0 = 0;
+    for (int i = 0; i < k; i++)
+        s0 += v[i];
+    for (int i = 0; i < k; i++)
+        v[i] *= s/s0;
+}
+
+/**
+ * The distribution where each one of the first j elements has probability p/j,
+ * and each one of the last k-j elements has probability (1-p)/(k-j)
+ */
+void bimodal_distribution(double *buf, int k, int j, double p)
+{
+    for (int i = 0; i < j; i++)
+        buf[i] = p/j;
+    for (int i = j; i < k; i++)
+        buf[i] = (1-p)/(k-j);
+    normalize(buf, k, 1.0);
+}
+
 double binomial(const unsigned long n, unsigned long m)
 {
     if (n < m)

@@ -70,7 +70,8 @@ public:
 
 	SampleTable* sample(uint64_t n_samples, unsigned int number_of_threads, Random *rng, double time_budget = std::numeric_limits<double>::infinity());
 
-	OccurrenceSampler(const UndirectedGraph *graph, const TreeletTableCollection* ttc, unsigned int size, bool vertices, bool graphlets, bool canonicize);
+	OccurrenceSampler(const UndirectedGraph *graph, const TreeletTableCollection* ttc, unsigned int size, bool vertices,
+			bool graphlets, bool canonicize, uint32_t buffer_size, UndirectedGraph::vertex_t buffer_degree);
 
     ///@param sample_selector contains all the structures that we are interested in sampling.
 	void set_selector(const TreeletStructureSelector *new_sample_selector, unsigned int number_of_threads);

@@ -28,6 +28,8 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *spanning_opt = op.add_option(false, false, "spanning-trees-no", '\0', "", "Output the number of spanning trees in the sampels treelet/graphlet");
     OptionsParser::Option *seed_opt = op.add_option(false, true, "seed", '\0', "", "String used to seed the random number generator (default or empty string: seed from system random device)");
     OptionsParser::Option *threads_opt = op.add_option(false, true, "threads", '\0', "1", "Number of threads to use or 0 for to use the number of logical processors (default: 1)");
+    OptionsParser::Option *treelet_buffer_size_opt = op.add_option(false, true, "treelet-buffer-size", '\0', "0", "Buffer ARG treelets for vertices with high degree. 0 disables buffering (default: 0)");
+    OptionsParser::Option *treelet_buffer_degree_opt = op.add_option(false, true, "treelet-buffer-degree", '\0', "10000", "Degree threshold for treelet buffering (default: 10000)");
     OptionsParser::Option *selective_opt = op.add_option(false, true, "selective", '\0', "", "Sample only treelets whose structures are allowed in file ARG");
     OptionsParser::Option *selective_build_opt = op.add_option(false, true, "selective-build", '\0', "", "The --selective file used when building the tables");
     OptionsParser::Option *smart_stars_opt = op.add_option(false, false, "smart-stars", '\0', "", "Sample star treelets separately and then merge the sample results");
@@ -37,6 +39,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *estimate_occurrences_opt = op.add_option(false, false, "estimate-occurrences", '\0', "", "Estimate the number of occurrences of graphlets in the graph (implies: --graphlets, --spanning-trees-no, --group)"); //FIXME: Can this be used with treelets?
     OptionsParser::Option *adaptive_opt = op.add_option(false, false, "estimate-occurrences-adaptive", '\0', "", "Estimate the number of occurrences of graphlets in the graph using adaptive sampling (implies: --estimate-occurrences,  and --canonicize)");
     OptionsParser::Option *time_budget_opt = op.add_option(false, true, "time-budget", '\0', "", "Time budget in seconds");
+
 
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
@@ -101,6 +104,16 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
 
     if(opts->threads<=0)
         throw std::runtime_error("Failed to determine the number of logical processors");
+
+    uint64_t treelet_bs = std::stoull(treelet_buffer_size_opt->get_value());
+    if(treelet_bs > std::numeric_limits<uint32_t>::max())
+        throw std::runtime_error("Invalid treelet buffer size");
+    opts->treelet_buffer_size = treelet_bs;
+
+    uint64_t treelet_bd = std::stoull(treelet_buffer_degree_opt->get_value());
+    if(treelet_bd > std::numeric_limits<UndirectedGraph::vertex_t>::max())
+        throw std::runtime_error("Invalid treelet buffer degree threshold");
+    opts->treelet_buffer_degree = static_cast<UndirectedGraph::vertex_t>(treelet_bd);
 
     if(selective_opt->is_found())
     {

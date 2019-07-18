@@ -69,6 +69,11 @@ public:
         std::uniform_int_distribution<T> uniform(from, to_inclusive);
         return uniform(rng);
     }
+
+    std::mt19937_64* underlying_generator()
+    {
+        return &rng;
+    }
 };
 
 template<> inline uint128_t Random::random_uint<uint128_t>(uint128_t from, uint128_t to_inclusive)

@@ -4,7 +4,9 @@
 #include <fstream>
 #include <thread>
 #include <chrono>
+#include <cmath>
 #include "config.h"
+#include "../common/util.h"
 #include "../common/OptionsParser.h"
 #include "../common/graph/UndirectedGraph.h"
 #include "Size1Builder.h"
@@ -25,6 +27,7 @@ struct builder_opts
     char output_basename[MOTIVO_ARG_MAX];
     bool store0;
     char selective_filename[MOTIVO_ARG_MAX];
+    double coloring_bias;
 };
 
 bool parse_builder_args(const int argc, const char **argv, const std::string &name, builder_opts *opts)
@@ -42,6 +45,8 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
     OptionsParser::Option *store0_opt  = op.add_option(false, false, "store-on-0-colored-vertices-only", '0', "", "Store treelet counts only for the vertices with color 0 (default: false)");
     OptionsParser::Option *selective_opt = op.add_option(false, true, "selective", '\0', "", "Count only treelets whose structures are allowed in file ARG");
+    OptionsParser::Option *coloring_bias_opt = op.add_option(false, true, "coloring-bias", '\0', "1", "Cut the k-colorful probability by a given factor, by reducing the weight of the first k/2 colors.");
+
 
     if (!op.parse(argc, argv) || help_opt->is_found())
     {
@@ -79,8 +84,8 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     opts->from_vertex = 0;
     if(from_opt->is_found())
     {
-        int64_t from = std::stoll(from_opt->get_value());
-        if(from < 0 || from >=G.number_of_vertices())
+        uint64_t from = std::stoull(from_opt->get_value());
+        if(from >=G.number_of_vertices())
             throw std::runtime_error("'from-vertex' option specifies an invalid vertex");
 
         opts->from_vertex = static_cast<UndirectedGraph::vertex_t>(from);
@@ -89,8 +94,8 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     opts->to_vertex = G.number_of_vertices()-1;
     if(to_opt->is_found())
     {
-        int64_t to = std::stoll(to_opt->get_value());
-        if(to < 0 || to >=G.number_of_vertices())
+        uint64_t to = std::stoull(to_opt->get_value());
+        if(to >=G.number_of_vertices())
             throw std::runtime_error("'to-vertex' option specifies an invalid vertex");
 
         opts->to_vertex = static_cast<UndirectedGraph::vertex_t>(to);
@@ -135,6 +140,10 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     else
         *(opts->selective_filename)='\0';
 
+    opts->coloring_bias = std::stod(coloring_bias_opt->get_value());
+    if(!std::isnormal(opts->coloring_bias) || opts->coloring_bias>1 || opts->coloring_bias<=0)
+        throw std::runtime_error("'coloring-bias' must be between 0 (exclusive) and 1 (inclusive)");
+
     return true;
 }
 
@@ -151,6 +160,21 @@ int main(const int argc, const char** argv)
         UndirectedGraph G(opts.graph);
         G.prefault();
         std::cout << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
+
+        double* color_distribution = nullptr;
+
+        if(opts.coloring_bias!=1)
+        {
+            color_distribution = new double[opts.colors];
+            int lpcn = opts.colors - 1; // number of low-probability colors
+            double lpc = std::min(1.0 * lpcn / opts.colors, opts.coloring_bias * lpcn); // aggregate prob of the first lpcn colors
+            bimodal_distribution(color_distribution, opts.colors, lpcn, lpc);
+            std::cout << "color 0 has probability " << color_distribution[0] << std::endl;
+            std::cout << "k-colorful probability=" << pcold(color_distribution, opts.colors) << std::endl;
+
+            if(color_distribution[0] < 100.0 / G.number_of_vertices())
+                std::cerr << "Warning! Less than 100 nodes in expectation with color 0" << std::endl;
+        }
 
         TreeletTableCollection ttc;
         CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>* readers = nullptr;
@@ -190,7 +214,7 @@ int main(const int argc, const char** argv)
         if(opts.size==1)
         {
             Random rng(opts.seed);
-            Size1Builder builder(G.number_of_vertices(), opts.from_vertex, opts.to_vertex, opts.colors, opts.store0, &rng, &out);
+            Size1Builder builder(G.number_of_vertices(), opts.from_vertex, opts.to_vertex, opts.colors, opts.store0,  color_distribution, &rng, &out);
             tstart = std::chrono::steady_clock::now();
             builder.build();
         }
@@ -216,6 +240,7 @@ int main(const int argc, const char** argv)
         // write info for later phases
         PropertyStore properties;
         properties.set_bool("StoreOnlyOn0", opts.store0);
+        properties.set_double("ColoringProbability", pcold(color_distribution, opts.colors)); //FIXME
         properties.save(std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".info");
 
         delete selector;

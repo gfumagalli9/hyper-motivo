@@ -9,7 +9,6 @@
 #include "../common/io/PropertyStore.h"
 #include "../common/platform/platform.h"
 #include "../common/util.h"
-#include "TreeletSampler.h"
 #include "sampler_opts.h"
 #include "OccurrenceSampler.h"
 #include "OccurrenceStarSampler.h"
@@ -32,6 +31,8 @@ int main(const int argc, const char** argv)
         const bool store_only_on_0 = properties.get_bool("StoreOnlyOn0", false);
         //Estimate of the total number of colorful treelets
         const uint128_t tot_treelets = properties.get_uint128("TotTreelets", 0) * (store_only_on_0?opts.size:1);
+        double p = properties.get_double("ColoringProbability", pcol(opts.size, opts.size));
+
 
         //Load graph
         UndirectedGraph G(opts.graph);
@@ -77,7 +78,6 @@ int main(const int argc, const char** argv)
          ** ACTUAL SAMPLING **
          *********************/
         std::chrono::time_point < std::chrono::steady_clock > tstart = std::chrono::steady_clock::now();
-        double p = pcol(opts.size, opts.size); // the coloring probability
         std::cerr << "Sampling using " << opts.threads << " thread(s)" << std::endl;
 
 
@@ -120,7 +120,7 @@ int main(const int argc, const char** argv)
             // NAIVE SAMPLER
             std::cout << "Using naive sampler" << std::endl;
             std::chrono::time_point<std::chrono::steady_clock> start_time = std::chrono::steady_clock::now();
-            OccurrenceSampler sampler(&G, &ttc, opts.size, opts.vertices, opts.graphlets, opts.canonicize);
+            OccurrenceSampler sampler(&G, &ttc, opts.size, opts.vertices, opts.graphlets, opts.canonicize, opts.treelet_buffer_size, opts.treelet_buffer_degree);
 
             sampler.set_selector(selector, opts.threads);
 
@@ -177,7 +177,7 @@ int main(const int argc, const char** argv)
             std::cout << "Using adaptive sampler" << std::endl;
             std::chrono::time_point<std::chrono::steady_clock> start_time = std::chrono::steady_clock::now();
 
-            AdaptiveSampler sampler(&G, &ttc, opts.size, opts.threads, store_only_on_0);
+            AdaptiveSampler sampler(&G, &ttc, opts.size, opts.threads, store_only_on_0, opts.treelet_buffer_size, opts.treelet_buffer_degree);
             samples = sampler.sample(nonstar_nsamples, &rng, time_budget);
 
             std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - start_time;
@@ -187,31 +187,29 @@ int main(const int argc, const char** argv)
             if(opts.spanning_trees && star_samples==nullptr) //FIXME: Can we compute this in the adaptive sampler itself?
                 samples->count_spanning_trees(build_selector, opts.threads);
 
-            if(opts.estimate_occurrences)
+            //AdaptiveSampler already estimates occurrences
+            samples->rescale_occurrences(pcol(opts.size, opts.size) / p);
+
+            if(star_samples)
             {
-                //AdaptiveSampler already estimates occurrences
+                double w = (static_cast<double>(tot_treelets) / p) / (static_cast<double>(number_of_stars) + static_cast<double>(tot_treelets) / p);
 
-                if(star_samples)
-                {
-                    double w = (static_cast<double>(tot_treelets) / p) / (static_cast<double>(number_of_stars) + static_cast<double>(tot_treelets) / p);
+                std::cout << "merging samples with weights " << (1-w) << "," << w << std::endl;
+                //SampleTable::average takes care of estimating occurrences and frequencies
+                samples->sort_by_footprint();
+                SampleTable* merged = SampleTable::average(*samples, *star_samples, w, 1-w);
 
-                    std::cout << "merging samples with weights " << (1-w) << "," << w << std::endl;
-                    //SampleTable::average takes care of estimating occurrences and frequencies
-                    samples->sort_by_footprint();
-                    SampleTable* merged = SampleTable::average(*samples, *star_samples, w, 1-w);
+                delete samples;
+                delete star_samples;
 
-                    delete samples;
-                    delete star_samples;
-
-                    star_samples = nullptr;
-                    samples = merged;
-                }
-                else
-                    samples->estimate_frequencies();
-
-                samples->sort_by_estimate_occurrences();
-                *output << SampleTable::header << "\n" << *samples;
+                star_samples = nullptr;
+                samples = merged;
             }
+            else
+                samples->estimate_frequencies();
+
+            samples->sort_by_estimate_occurrences();
+            *output << SampleTable::header << "\n" << *samples;
         }
 
         std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;

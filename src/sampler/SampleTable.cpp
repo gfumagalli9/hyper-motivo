@@ -30,6 +30,17 @@ void SampleTable::estimate_occurrences(double num_graph_treelets)
 				* (num_graph_treelets / static_cast<double>(e.num_spanning_trees));
 }
 
+
+void SampleTable::rescale_occurrences(double factor)
+{
+    if(factor==1)
+        return;
+
+    for (auto &e : entries)
+        e.estimated_graph_occurrences *= factor;
+}
+
+
 /**
  * Estimate the relative frequency, from the number of estimated occurrences (i.e. just a normalization)
  */
@@ -234,9 +245,13 @@ SampleTable* SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1
  * Weighted average of two count tables.
  * In the output table:
  *   e.sample_count is the sum of the corresponding entries in t1 and t2.
- *	 e.estimate_graph_frequency = (w1 * t1[e].estimate_graph_frequency + w2 * t2[e].estimate_graph_frequency)
- *	 e.estimate_graph_occurrences = [the same as above]
- *   e.num_spanning_trees = -1
+ *	 e.estimated_graph_occurrences = (w1 * t1[e].estimated_graph_occurrences + w2 * t2[e].estimated_graph_occurrences)
+ *
+ *	 If an occurrence appears in exactly one of t1 and t2, then the only known estimate is used.
+ *	 This method also computes the estimated graph frequencies.
+ *
+ *	 t1 and t2 need to be grouped and sorted by footprints
+
  */
 SampleTable* SampleTable::average(SampleTable& t1, SampleTable& t2, double w1, double w2)
 {
@@ -257,24 +272,31 @@ SampleTable* SampleTable::average(SampleTable& t1, SampleTable& t2, double w1, d
         else
             c=memcmp(it1->occurrence.binary_footprint(), it2->occurrence.binary_footprint(), Occurrence::binary_footprint_bytes);
 
-        if(c <= 0)
+
+        if(c < 0)
         {
             e.occurrence = it1->occurrence;
-            e.sample_count += it1->sample_count;
-            e.estimated_graph_occurrences += w1 * it1->estimated_graph_occurrences;
+            e.sample_count = it1->sample_count;
+            e.estimated_graph_occurrences = it1->estimated_graph_occurrences;
             it1++;
         }
-        else
-            e.occurrence = it2->occurrence;
-
-        if(c>=0)
+        else if(c>0)
         {
-            e.sample_count += it2->sample_count;
-            e.estimated_graph_occurrences += w2 * it2->estimated_graph_occurrences;
+            e.occurrence = it2->occurrence;
+            e.sample_count = it2->sample_count;
+            e.estimated_graph_occurrences += it2->estimated_graph_occurrences;
+            it2++;
+        }
+        else
+        {
+            e.occurrence = it1->occurrence;
+            e.sample_count = it1->sample_count + it2->sample_count;
+            e.estimated_graph_occurrences = w1*it1->estimated_graph_occurrences + w2*it2->estimated_graph_occurrences;
+            it1++;
             it2++;
         }
 
-        e.type = 'M';
+        e.type = 'A';
         tot_est_occ += e.estimated_graph_occurrences;
         t.add_entry(e);
     }
