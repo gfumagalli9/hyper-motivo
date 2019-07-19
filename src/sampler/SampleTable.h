@@ -61,9 +61,9 @@ public:
         }
     }
 
-    void count_spanning_trees(const TreeletStructureSelector *selector, unsigned int ntherads);
+    void count_rooted_spanning_trees(const TreeletStructureSelector *selector, unsigned int ntherads);
 
-    void count_spanning_stars();
+    void count_rooted_spanning_stars();
 
     void estimate_occurrences(double num_graph_treelets);
 

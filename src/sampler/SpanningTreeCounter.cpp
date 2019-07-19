@@ -3,14 +3,16 @@
 //
 
 #include "SpanningTreeCounter.h"
-#include "../common/util.h"
+
 #include "ColorCodingSpanningTreeCounter.h"
+
+#include "../common/util.h"
 #include "../common/treelets/TreeletStructureSelector.h"
 
 #define IDX(x,y) ( ((x)*((x)+1))/2 + (y) )
 #define DIAG(x) ( (x)*((x)+3)/2 )
 
-uint64_t SpanningTreeCounter::number_of_spanning_trees_kirchhoff(const Occurrence &occ)
+uint64_t SpanningTreeCounter::number_of_rooted_spanning_trees_kirchhoff(const Occurrence &occ)
 {
     //if(spanning_trees!=0)
     //    return spanning_trees;
@@ -20,13 +22,16 @@ uint64_t SpanningTreeCounter::number_of_spanning_trees_kirchhoff(const Occurrenc
     //Handle small cases
     if(size <= 3)
     {
-        if(size <= 2) //Isolated vertex or 2 vertices and a single edge
-            return 1;
+        if(size==1)
+            return 1; //Isolated vertex
+
+        if(size == 2) //2 vertices and a single edge
+            return 2;
 
         if (occ.has_edge(1, 0) && occ.has_edge(2, 1) && occ.has_edge(2, 0))
-            return 3; //Triangle
+            return 9; //Triangle
 
-        return 1; //Path on 3 vertices
+        return 3; //Path on 3 vertices
     }
 
     //Positive definite 15x15 symmetric matrix stored compactly.
@@ -62,10 +67,10 @@ uint64_t SpanningTreeCounter::number_of_spanning_trees_kirchhoff(const Occurrenc
     }
 
     if(nedges==size-1) //The subgraph is a tree
-        return 1;
+        return size;
 
     if(nedges==size*(size-1)/2) //Clique
-        return ipow<uint64_t>(size, size-2); //size>4 here
+        return ipow<uint64_t>(size, size-1); //size>4 here
 
     if(nedges==size*(size-1)/2-1) //Clique minus one edge
     {
@@ -83,42 +88,55 @@ uint64_t SpanningTreeCounter::number_of_spanning_trees_kirchhoff(const Occurrenc
         // = TC * (size - 2) / size
         // = size^(size-3) * (size-2)
 
-        return ipow<uint64_t>(size, size-3) * (size-2); //size>4 here
+        //We multiply by size to account for the different rootings
+
+        return ipow<uint64_t>(size, size-2) * (size-2); //size>4 here
     }
 
-    //Compute LDLT decomposition in-place
+    //Compute LDL decomposition in-place
     //M stores both the input matrix, and the output matrix
     //D is a diagonal matrix and its diagonal is stored in the diagonal of M
     //L is a lower unit triangular matrix. Its lower triangular part is stored in the lower triangular part of M
 
-    //Skip D[1][1] since it is already equal to M[1][1]
+
+    // Prints out the matrix for debug purposes
+    /*
+    for(unsigned int i=0; i<size-1; i++)
+    {
+        for(unsigned int j=0; j<i; j++)
+            std::cerr << M[IDX(i,j)] << " ";
+        std:: cerr << M[DIAG(i)] << "\n";
+    }
+    std::cerr << std::endl; */
+
+    //Skip D[0][0] since it is already equal to M[0][0]
     for(unsigned int i=1; i<size; i++)
     {
-        //L_ij = M_ij - sum_{k=0}{i-1} L_ik * D_kk * Ljk
+        //L_ij = 1/D_jj( M_ij - sum_{k=0}{i-1} L_ik * D_kk * Ljk )
         for(unsigned int j = 0; j < i; j++)
         {
             for(unsigned int k = 0; k < j; k++)
-                M[IDX(i, j)] -= M[IDX(i, k)] * M[IDX(k, k)] * M[IDX(j, k)];
+                M[IDX(i, j)] -= M[IDX(i, k)] * M[DIAG(k)] * M[IDX(j, k)];
 
-            M[IDX(i, j)] /= M[IDX(j, j)];
+            M[IDX(i, j)] /= M[DIAG(j)];
         }
 
         //D_ii = M_ii - sum_{k=0}{i-1} L_ik^2 D_kk
         for(unsigned int k = 0; k < i; k++)
-            M[IDX(i, i)] -= M[IDX(i, k)] * M[IDX(i, k)] * M[IDX(k, k)];
+            M[IDX(i, i)] -= M[IDX(i, k)] * M[IDX(i, k)] * M[DIAG(k)];
     }
 
     //Compute determinant.
-    //If we have a Cholesky decomposition M=C*C' then det(M) = \proid_i C_ii^2
+    //If we have a Cholesky decomposition M=C*C' then det(M) = \prod_i C_ii^2
     //In our case C = L sqrt(D), and hence C_ii = sqrt(D_ii) => det(M) = \prod_i D
     long double det = M[DIAG(0)];
-    for(unsigned int i=1; i<size; i++)
+    for(unsigned int i=1; i<size-1; i++)
         det*=M[DIAG(i)];
 
     return size*static_cast<uint64_t>(det+0.5); //fast round(det)
 }
 
-uint64_t SpanningTreeCounter::number_of_spanning_trees_colorcoding(const Occurrence &occ, const TreeletStructureSelector *ts)
+uint64_t SpanningTreeCounter::number_of_rooted_spanning_trees_colorcoding(const Occurrence &occ, const TreeletStructureSelector *ts)
 {
     //FIXME: Figure out when its safe to only count the treelets rooted in 0?
     ColorCodingSpanningTreeCounter ccstc(&occ, false, ts);
@@ -126,7 +144,7 @@ uint64_t SpanningTreeCounter::number_of_spanning_trees_colorcoding(const Occurre
     return ccstc.number_of_counted_rooted_spanning_trees();
 }
 
-unsigned int SpanningTreeCounter::number_of_spanning_stars(const Occurrence &occ)
+unsigned int SpanningTreeCounter::number_of_rooted_spanning_stars(const Occurrence &occ)
 {
     unsigned int count = 0;
     for(unsigned int u=0; u<occ.get_size(); u++)
@@ -207,18 +225,18 @@ SpanningTreeCounter::SpanningTreeCounter(const unsigned int size, const TreeletS
 }
 
 
-uint64_t SpanningTreeCounter::number_of_spanning_trees(const Occurrence &occ)
+uint64_t SpanningTreeCounter::number_of_rooted_spanning_trees(const Occurrence &occ)
 {
     switch(strategy)
     {
         case STRATEGY_KIRCHOFF:
-            return number_of_spanning_trees_kirchhoff(occ);
+            return number_of_rooted_spanning_trees_kirchhoff(occ);
         case STRATEGY_KIRCHOFF_MINUS_STARS:
-            return number_of_spanning_trees_kirchhoff(occ) - number_of_spanning_stars(occ);
+            return number_of_rooted_spanning_trees_kirchhoff(occ) - number_of_rooted_spanning_stars(occ);
         case STRATEGY_STARS:
-            return number_of_spanning_stars(occ);
+            return number_of_rooted_spanning_stars(occ);
         case STRATEGY_COLOR_CODING:
-            return number_of_spanning_trees_colorcoding(occ, selector);
+            return number_of_rooted_spanning_trees_colorcoding(occ, selector);
         case STRATEGY_ZERO:
         default:
             return 0;

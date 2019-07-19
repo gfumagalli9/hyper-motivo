@@ -155,7 +155,7 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
         return true;
 
     const UndirectedGraph::vertex_t degree = graph->degree(u);
-    if(degree >= buffer_degree)
+    if(buffer_size!=0 && degree >= buffer_degree)
     {
         //Try to use cache
         const auto &[buffer_it, inserted] = buffers.emplace(std::make_pair(u, t), buffer_size);

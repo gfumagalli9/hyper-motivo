@@ -30,8 +30,8 @@ void test(unsigned int from, unsigned int size, uint64_t expected)
     for(unsigned int i=0; i<size; i++)
         subgraph[i]=from+i;
     Occurrence occ(size, &test_graph,  subgraph);
-    CHECK( SpanningTreeCounter::number_of_spanning_trees_kirchhoff(occ) == expected*size );
-    CHECK( SpanningTreeCounter::number_of_spanning_trees_colorcoding(occ) == expected*size );
+    CHECK(SpanningTreeCounter::number_of_rooted_spanning_trees_kirchhoff(occ) == expected*size );
+    CHECK(SpanningTreeCounter::number_of_rooted_spanning_trees_colorcoding(occ) == expected*size );
 
     delete[] subgraph;
 }

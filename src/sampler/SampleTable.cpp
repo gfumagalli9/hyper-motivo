@@ -94,7 +94,7 @@ void SampleTable::group_by_footprint()
 	entries.erase(++result, entries.end());
 }
 
-void SampleTable::count_spanning_trees(const TreeletStructureSelector *selector, unsigned int nthreads)
+void SampleTable::count_rooted_spanning_trees(const TreeletStructureSelector *selector, unsigned int ntherads)
 {
 	if(entries.empty())
 		return;
@@ -104,13 +104,13 @@ void SampleTable::count_spanning_trees(const TreeletStructureSelector *selector,
 #endif
 
 	SpanningTreeCounter counter(entries[0].occurrence.get_size(), selector);
-	if(nthreads<=1)
+	if(ntherads<=1)
 	{
 		auto it = entries.begin();
 		while(it!=entries.end())
 		{
 		    assert(it->occurrence.get_size()==size);
-			uint64_t count = counter.number_of_spanning_trees(it->occurrence);
+			uint64_t count = counter.number_of_rooted_spanning_trees(it->occurrence);
 
 			it->num_spanning_trees = count;
 			while( (++it)!=entries.end() && memcmp(it->occurrence.binary_footprint(), (it-1)->occurrence.binary_footprint(), Occurrence::binary_footprint_bytes)==0)
@@ -130,12 +130,12 @@ void SampleTable::count_spanning_trees(const TreeletStructureSelector *selector,
 	distinct_footprints.push_back(it);
 
 
-	sequencer_t sequencer(0, distinct_footprints.size()-1, nthreads);
-	auto threads = new std::thread[nthreads];
-	for(unsigned int i=0; i<nthreads; i++)
+	sequencer_t sequencer(0, distinct_footprints.size()-1, ntherads);
+	auto threads = new std::thread[ntherads];
+	for(unsigned int i=0; i<ntherads; i++)
 		threads[i] = std::thread( [this, &distinct_footprints, &sequencer, &counter] { spanning_tree_count_thread(distinct_footprints, sequencer, counter); } );
 
-    for(unsigned int i=0; i<nthreads; i++)
+    for(unsigned int i=0; i<ntherads; i++)
         threads[i].join();
 
     delete[] threads;
@@ -153,19 +153,19 @@ void SampleTable::spanning_tree_count_thread(const std::vector<std::vector<Entry
 
 		for (uint64_t i = batch.from; i<batch.to_exclusive; i++)
 		{
-			uint64_t count = counter.number_of_spanning_trees(distinct_footprints[i]->occurrence);
+			uint64_t count = counter.number_of_rooted_spanning_trees(distinct_footprints[i]->occurrence);
 			for(auto it=distinct_footprints[i]; it!=distinct_footprints[i+1]; it++)
 				it->num_spanning_trees = count;
 		}
 	}
 }
 
-void SampleTable::count_spanning_stars() //FIXME: Make multithreaded?
+void SampleTable::count_rooted_spanning_stars() //FIXME: Make multithreaded?
 {
     auto it = entries.begin();
     while(it!=entries.end())
     {
-        uint64_t count = SpanningTreeCounter::number_of_spanning_stars(it->occurrence);
+        uint64_t count = SpanningTreeCounter::number_of_rooted_spanning_stars(it->occurrence);
         assert(count%it->occurrence.get_size()==0);
         count/=it->occurrence.get_size();
 

@@ -109,7 +109,7 @@ int main(const int argc, const char** argv)
                 star_samples->group_by_footprint();
 
             if(opts.spanning_trees)
-                star_samples->count_spanning_stars();
+                star_samples->count_rooted_spanning_stars();
         }
 
         uint64_t nonstar_nsamples = opts.number_of_samples - number_of_star_samples;
@@ -136,7 +136,7 @@ int main(const int argc, const char** argv)
                 samples->group_by_footprint();
 
             if(opts.spanning_trees)
-                samples->count_spanning_trees(build_selector, opts.threads);
+                samples->count_rooted_spanning_trees(build_selector, opts.threads);
 
 
             if(opts.estimate_occurrences)
@@ -152,6 +152,7 @@ int main(const int argc, const char** argv)
                     delete samples;
                     delete star_samples;
 
+                    samples = merged;
                     star_samples = nullptr;
                 }
                 else
@@ -185,7 +186,7 @@ int main(const int argc, const char** argv)
 
             //There is no need to bother counting the spanning trees w.r.t. the build selector if we are going to merge with star samples
             if(opts.spanning_trees && star_samples==nullptr) //FIXME: Can we compute this in the adaptive sampler itself?
-                samples->count_spanning_trees(build_selector, opts.threads);
+                samples->count_rooted_spanning_trees(build_selector, opts.threads);
 
             //AdaptiveSampler already estimates occurrences
             samples->rescale_occurrences(pcol(opts.size, opts.size) / p);

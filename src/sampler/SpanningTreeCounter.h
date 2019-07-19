@@ -25,11 +25,11 @@ private:
     const TreeletStructureSelector *selector;
 
 public:
-    static uint64_t number_of_spanning_trees_kirchhoff(const Occurrence &occ);
+    static uint64_t number_of_rooted_spanning_trees_kirchhoff(const Occurrence &occ);
 
-    static uint64_t number_of_spanning_trees_colorcoding(const Occurrence &occ, const TreeletStructureSelector *ts=nullptr);
+    static uint64_t number_of_rooted_spanning_trees_colorcoding(const Occurrence &occ, const TreeletStructureSelector *ts = nullptr);
 
-    static unsigned int number_of_spanning_stars(const Occurrence &occ);
+    static unsigned int number_of_rooted_spanning_stars(const Occurrence &occ);
 
     ///Instance methods. Choose a good strategy for the given size an selector.
     ///The spanning trees to be counted are those of the given size than can be obtained by a build that uses @param selector
@@ -37,7 +37,7 @@ public:
 
     strategy_t get_strategy() const { return strategy; }
 
-    uint64_t number_of_spanning_trees(const Occurrence &occ);
+    uint64_t number_of_rooted_spanning_trees(const Occurrence &occ);
 };
 
 
