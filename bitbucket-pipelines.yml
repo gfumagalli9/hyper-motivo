@@ -11,6 +11,7 @@ pipelines:
         script:
           - apt-get update
           - apt-get install -y cmake g++
+          - apt-get install -y valgrind
           - apt-get install -y libsparsehash-dev libnauty2-dev liblz4-dev
           - mkdir build
           - cd build

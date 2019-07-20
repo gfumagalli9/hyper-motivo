@@ -108,7 +108,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     uint64_t treelet_bs = std::stoull(treelet_buffer_size_opt->get_value());
     if(treelet_bs > std::numeric_limits<uint32_t>::max())
         throw std::runtime_error("Invalid treelet buffer size");
-    opts->treelet_buffer_size = treelet_bs;
+    opts->treelet_buffer_size = static_cast<uint32_t>(treelet_bs);
 
     uint64_t treelet_bd = std::stoull(treelet_buffer_degree_opt->get_value());
     if(treelet_bd > std::numeric_limits<UndirectedGraph::vertex_t>::max())

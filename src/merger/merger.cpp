@@ -31,6 +31,7 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
     auto count_files = new FILE*[no_files];
     vertex_info* info = nullptr;
     std::vector<bool> seen_vertices;
+    UndirectedGraph::vertex_t seen_vertices_no = 0;
     for(unsigned int i=0; i<no_files; i++)
     {
         const std::string &filename = count_filenames[i];
@@ -78,6 +79,7 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
                 throw std::runtime_error("Error while processing " + filename + ": duplicate vertex " + std::to_string(vertex));
 
             seen_vertices[vertex]=true;
+            seen_vertices_no++;
 
             info[vertex].ptr = ptr;
             info[vertex].count = number_of_occurrences;
@@ -90,6 +92,9 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
 
         std::cout << "Loaded offsets for file " << filename << " vertices" << std::endl;
     }
+
+    if(seen_vertices_no!=num_vertices)
+        throw std::runtime_error("Missing vertices");
 
     std::cout << "Writing output" << std::endl;
     write_table(output_basename, num_vertices, info, compression_threshold);

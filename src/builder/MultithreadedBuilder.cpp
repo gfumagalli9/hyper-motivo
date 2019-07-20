@@ -31,13 +31,14 @@ void MultithreadedBuilder::build()
     auto phase2_states = new phase2_vertex_state_t[nthreads-1];
     for (unsigned int i = 0; i<nthreads; i++)
     {
-        if(phase1_states[i].current_vertex==UndirectedGraph::INVALID_VERTEX)
+        //Thread i cleanly finished processing a vertex
+        if(phase1_states[i].current_vertex>to_vertex)
             continue;
 
         assert(missing_vertices<nthreads-1);
 
         phase2_states[missing_vertices].vertex = phase1_states[i].current_vertex;
-        phase2_states[missing_vertices].degree = phase1_states[i].degree;
+        phase2_states[missing_vertices].edges_to_process = phase1_states[i].edges_to_process;
 
         phase2_states[missing_vertices].next_edge = phase1_states[i].next_edge;
         phase2_states[missing_vertices].processed_edges = phase1_states[i].next_edge;
@@ -88,75 +89,77 @@ void MultithreadedBuilder::phase1_thread_loop(const unsigned int thread_no, phas
 {
     phase1_thread_state_t &state = states[thread_no];
 
-    do
-        state.current_vertex = next_vertex.fetch_add(1);
-    while( (state.current_vertex <= to_vertex) && ( (state.degree = G->degree(state.current_vertex))==0 || (store_only_0 && ttc->get_table(1)->begin(state.current_vertex).treelet().get_colors() != 1)) );
+    //Find the first vertex to process
+    state.current_vertex = next_vertex.fetch_add(1);
     state.next_edge = 0;
 
-    if(state.current_vertex > to_vertex)
-    {
-        state.current_vertex = UndirectedGraph::INVALID_VERTEX;
-        return;
-    }
+    if(state.current_vertex > to_vertex) //Are we already out of vertices?
+        for(unsigned int i=0; i<nthreads; i++)
+            states[i].terminate_flag=true;
+    else
+        state.edges_to_process = (store_only_0 && ttc->get_table(1)->begin(state.current_vertex).treelet().get_colors() == 1)?0:G->degree(state.current_vertex);
 
     while(!state.terminate_flag)
     {
-        builder.combine(state.current_vertex, G->neighbor(state.current_vertex, state.next_edge), state.table);
-        state.next_edge++;
-
-        if(state.next_edge==state.degree)
+        if(state.next_edge<state.edges_to_process) //There is still some work to do on this vertex
         {
+            builder.combine(state.current_vertex, G->neighbor(state.current_vertex, state.next_edge), state.table);
+            state.next_edge++;
+        }
+        else //The vertex is complete
+        {
+            //Write the vertex table
             std::pair<char*, std::size_t> to_write = builder.to_normalized_sorted_byte_array(state.current_vertex, state.table);
             writer->write(to_write.first, to_write.second);
             state.table.clear();
 
-            do
-                state.current_vertex = next_vertex.fetch_add(1);
-            while( (state.current_vertex <= to_vertex) && ( (state.degree = G->degree(state.current_vertex))==0 || (store_only_0 && ttc->get_table(1)->begin(state.current_vertex).treelet().get_colors() != 1)) );
+            //Move to next vertex
+            state.current_vertex = next_vertex.fetch_add(1);
             state.next_edge = 0;
 
+            //Are we out of vertices?
             if(state.current_vertex > to_vertex)
             {
-                state.current_vertex = UndirectedGraph::INVALID_VERTEX;
+                //Signal the other threads to terminate and move to Phase 2
                 for(unsigned int i=0; i<nthreads; i++)
                     states[i].terminate_flag=true;
             }
+            else
+                state.edges_to_process = (store_only_0 && ttc->get_table(1)->begin(state.current_vertex).treelet().get_colors() == 1)?0:G->degree(state.current_vertex);
         }
     }
 }
 
 void MultithreadedBuilder::phase2_thread_loop(const unsigned int thread_no, phase2_vertex_state_t *states, const unsigned int nstates, ConcurrentWriter *writer)
 {
-    for(unsigned int i=0; i<nstates; i++)
+    for(unsigned int i=0; i<nstates; i++) //Look for a vertex where there is some work to do
     {
         phase2_vertex_state_t &state = states[(thread_no+i)%nstates];
 
-        UndirectedGraph::vertex_t d = state.next_edge.fetch_add(1);
-        if(d >= state.degree)
+        UndirectedGraph::vertex_t d = state.next_edge.fetch_add(1); //Next edge to process
+        if(d > state.edges_to_process)  //Is the vertex already fully processed?
             continue;
 
+        //We add ourselves to the number of threads currently working on the vertex
         unsigned int worker_no = state.num_workers.fetch_add(1);
         if(worker_no>0)
         {
             assert(worker_no<nthreads);
-            state.tables[worker_no] = new ColorCodingHashmap();
+            state.tables[worker_no] = new ColorCodingHashmap(); //We are not the first thread. Let's create our own Hashmap
         }
 
-        assert(!store_only_0 || ttc->get_table(1)->begin(state.vertex).treelet().get_colors() == 1);
-
         UndirectedGraph::vertex_t processed_edges=0;
-        do
+        while(d < state.edges_to_process)
         {
             builder.combine(state.vertex, G->neighbor(state.vertex, d), *state.tables[worker_no]);
             d = state.next_edge.fetch_add(1);
             processed_edges++;
         }
-        while(d < state.degree);
 
-        processed_edges += state.processed_edges.fetch_add(processed_edges);
-        assert(processed_edges <= state.degree);
-        if(processed_edges == state.degree)
-            merge_and_write(writer, &state);
+        processed_edges += state.processed_edges.fetch_add(processed_edges); //Total number of processed edges on this vertex
+        assert(processed_edges <= state.edges_to_process);
+        if(processed_edges == state.edges_to_process) //We are the thread that has processed the "last" edge.
+            merge_and_write(writer, &state); //We take care of merging all tables and writing the result
     }
 }
 

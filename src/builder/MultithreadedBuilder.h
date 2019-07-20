@@ -21,7 +21,7 @@ private:
     struct phase1_thread_state_t
     {
         UndirectedGraph::vertex_t current_vertex = UndirectedGraph::INVALID_VERTEX;
-        UndirectedGraph::vertex_t degree = UndirectedGraph::INVALID_VERTEX;
+        UndirectedGraph::vertex_t edges_to_process = UndirectedGraph::INVALID_VERTEX;
         UndirectedGraph::vertex_t next_edge = UndirectedGraph::INVALID_VERTEX;
         ColorCodingHashmap table;
         std::atomic<bool> terminate_flag {false};
@@ -30,7 +30,7 @@ private:
     struct phase2_vertex_state_t
     {
         UndirectedGraph::vertex_t vertex = UndirectedGraph::INVALID_VERTEX;
-        UndirectedGraph::vertex_t degree = UndirectedGraph::INVALID_VERTEX;
+        UndirectedGraph::vertex_t edges_to_process = UndirectedGraph::INVALID_VERTEX;
         std::atomic<UndirectedGraph::vertex_t> next_edge {UndirectedGraph::INVALID_VERTEX};
         std::atomic<UndirectedGraph::vertex_t> processed_edges {UndirectedGraph::INVALID_VERTEX};
         std::atomic<unsigned int> num_workers {0};
