@@ -178,4 +178,4 @@ Here: https://bitbucket.org/steven_/motivo/issues
 
 ##License
 
-Yet to be chosen.
+Motivo is released under the MIT License. Please see the file `LICENSE` provided with the source code for details. 

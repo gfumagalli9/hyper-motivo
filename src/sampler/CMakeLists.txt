@@ -24,7 +24,6 @@ set(SAMPLER_SOURCE_FILES
         DynamicSequencer.h
         SpanningTreeCounter.cpp
         SpanningTreeCounter.h
-        ThreadSafeCache.h
         TimeoutThreadSync.h
         )
 
