@@ -2,9 +2,28 @@
 
 Motivo is a collection of tools for counting and sampling motifs in large graphs.
 It is written in C++ and targets x86_64 processors although it should compile on other architectures as well.
+Motivo is described in our VLDB 2019 paper:
 
-Motivo is described in [https://arxiv.org/abs/1906.01599](https://arxiv.org/abs/1906.01599).
-If you publish results based on Motivo, please acknowledge us by citing that paper.
+Marco Bressan, Stefano Leucci, Alessandro Panconesi.
+*Motivo: Fast Motif Counting via Succinct Color Coding and Adaptive Sampling.*
+PVLDB, 12(11): 1651-1663, 2019.
+[https://doi.org/10.14778/3342263.3342640](https://doi.org/10.14778/3342263.3342640).
+
+A preprint is freely available at [https://arxiv.org/abs/1906.01599](https://arxiv.org/abs/1906.01599)). If you publish results based on Motivo, please use the following BibTeX entry to cite us:
+
+
+```
+    @ARTICLE {BLP2019motivo,
+        author  = "Marco Bressan, Stefano Leucci, Alessandro Panconesi",
+        title   = "Motivo: fast motif counting via succinct color coding and adaptive sampling",
+        journal = "PVLDB",
+        year    = "2019",
+        volume  = "12",
+        number  = "11",
+        pages   = "1651-1663",
+        doi     = "https://doi.org/10.14778/3342263.3342640"
+    }
+```
 
 ##Setup
 
