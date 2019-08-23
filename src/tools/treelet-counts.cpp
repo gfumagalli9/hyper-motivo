@@ -27,7 +27,7 @@
 
 int main(const int argc, const char** argv)
 {
-    std::cout << "This is motivo-treelet-counts. Version: " << MOTIVO_VERSION_STRING << std::endl;
+    std::cout << "This is motivo-treelet-counts. Version: " << MOTIVO_VERSION_STRING << "\n" << MOTIVO_COPYRIGHT_NOTICE << std::endl;
 
     if(argc!=2)
     {

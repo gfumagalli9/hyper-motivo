@@ -171,7 +171,7 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
 
 int main(const int argc, const char** argv)
 {
-    std::cout << "This is motivo-build. Version: " << MOTIVO_VERSION_STRING << std::endl;
+    std::cout << "This is motivo-build. Version: " << MOTIVO_VERSION_STRING << "\n" << MOTIVO_COPYRIGHT_NOTICE << std::endl;
 
     static builder_opts opts;
     try
@@ -262,7 +262,7 @@ int main(const int argc, const char** argv)
         PropertyStore properties;
         properties.set_bool("StoreOnlyOn0", opts.store0);
         if(color_distribution!= nullptr)
-            properties.set_double("ColoringProbability", pcold(color_distribution, opts.colors)); //FIXME
+            properties.set_double("ColoringProbability", pcold(color_distribution, opts.colors));
         properties.save(std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".info");
 
         delete selector;

@@ -36,7 +36,7 @@
 
 int main(const int argc, const char** argv)
 {
-    std::cerr << "This is motivo-sample. Version: " << MOTIVO_VERSION_STRING << std::endl;
+    std::cerr << "This is motivo-sample. Version: " << MOTIVO_VERSION_STRING << "\n" << MOTIVO_COPYRIGHT_NOTICE << std::endl;
 
     try
     {
@@ -163,7 +163,7 @@ int main(const int argc, const char** argv)
 
                 if(star_samples)
                 {
-                    std::cout << "Merging samples with weights " << static_cast<double>(tot_treelets) / p << "," << static_cast<double>(number_of_stars)  << std::endl;
+                    std::cout << "Merging samples with weights " << static_cast<double>(tot_treelets) / p << " and " << static_cast<double>(number_of_stars)  << std::endl;
                     //SampleTable::merge takes care of estimating occurrences and frequencies
                     SampleTable *merged = SampleTable::merge(*samples, *star_samples, static_cast<double>(tot_treelets) / p, static_cast<double>(number_of_stars));
 
@@ -213,7 +213,7 @@ int main(const int argc, const char** argv)
             {
                 double w = (static_cast<double>(tot_treelets) / p) / (static_cast<double>(number_of_stars) + static_cast<double>(tot_treelets) / p);
 
-                std::cout << "merging samples with weights " << (1-w) << "," << w << std::endl;
+                std::cout << "Merging samples with weights " << (1-w) << " and " << w << std::endl;
                 //SampleTable::average takes care of estimating occurrences and frequencies
                 samples->sort_by_footprint();
                 SampleTable* merged = SampleTable::average(*samples, *star_samples, w, 1-w);

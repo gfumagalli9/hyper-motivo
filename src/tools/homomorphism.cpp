@@ -201,7 +201,7 @@ int main(const int argc, const char** argv)
     bool parse_ok = op.parse(argc, argv);
     if(!parse_ok || help_opt->is_found())
     {
-        std::cout << "motivo-homomorphism [OPTION]..." << std::endl;
+        std::cout << "motivo-homomorphism [OPTION]..." << "\n" << MOTIVO_COPYRIGHT_NOTICE << std::endl;
         std::cout << "  Counts the number of induced homomorphisms from a treelet to an occurrence" << std::endl << std::endl;
         std::cout << op.help() << std::endl;
 

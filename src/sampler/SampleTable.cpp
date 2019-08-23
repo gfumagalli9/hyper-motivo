@@ -219,9 +219,9 @@ SampleTable* SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1
         Entry e;
         int c;
         if(it1==t1.end())
-            c=-1;
-        else if(it2==t2.end())
             c=1;
+        else if(it2==t2.end())
+            c=-1;
         else
             c=memcmp(it1->occurrence.binary_footprint(), it2->occurrence.binary_footprint(), Occurrence::binary_footprint_bytes);
 
@@ -281,9 +281,9 @@ SampleTable* SampleTable::average(SampleTable& t1, SampleTable& t2, double w1, d
         Entry e;
         int c;
         if(it1==t1.end())
-            c=-1;
-        else if(it2==t2.end())
             c=1;
+        else if(it2==t2.end())
+            c=-1;
         else
             c=memcmp(it1->occurrence.binary_footprint(), it2->occurrence.binary_footprint(), Occurrence::binary_footprint_bytes);
 

@@ -174,7 +174,7 @@ public:
 
 int main(const int argc, const char** argv)
 {
-    std::cerr << "This is motivo-decompose. Version: " << MOTIVO_VERSION_STRING << std::endl;
+    std::cerr << "This is motivo-decompose. Version: " << MOTIVO_VERSION_STRING << "\n" << MOTIVO_COPYRIGHT_NOTICE << std::endl;
 
     OptionsParser op;
     OptionsParser::Option* help_opt = op.add_option(false, false, "help", '\0', "", "Print help and exit");

@@ -28,8 +28,6 @@
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/treelets/TreeletTable.h"
 
-//FIXME: Should the TreeletSelector also apply to size 1 tables?
-
 class Size1Builder
 {
 

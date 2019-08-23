@@ -191,6 +191,7 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
     {
         std::cout << uint128_to_string(num_occ_total) << " (" << uint128_bits_needed(num_occ_total) << " bits)" << std::endl;
 
+        //FIXME: .cnt and .dtz might have different file names
         PropertyStore properties(std::string(output_basename) + ".info");
         properties.set_uint128("TotTreelets", num_occ_total);
         properties.save(output_basename + ".info");
@@ -203,7 +204,7 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
 
 int main(const int argc, const char** argv)
 {
-    std::cout << "This is motivo-merge. Version: " << MOTIVO_VERSION_STRING << std::endl;
+    std::cout << "This is motivo-merge. Version: " << MOTIVO_VERSION_STRING << "\n" << MOTIVO_COPYRIGHT_NOTICE << std::endl;
 
     OptionsParser op;
     OptionsParser::Option *help_opt = op.add_option(false, false, "help", '\0', "", "Print help and exit");
