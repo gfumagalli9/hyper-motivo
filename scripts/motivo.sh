@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #TODO Single graph
-BUILDPATH=../build
+BUILDPATH=../build/bin
 
 TIME="$(which time)"
 if [ "$TIME" == "" ]; then
