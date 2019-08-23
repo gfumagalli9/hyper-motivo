@@ -166,6 +166,8 @@ RangeSampler<TreeletTable::treelet_count_t>* TreeletTable::build_range_sampler(c
 
     if(selector)
     {
+        assert(selector->size()<2 || *selector->begin() > *(++selector->begin()) );
+
         for(Treelet::treelet_structure_t structure : *selector)
         {
             //FIXME: start binary search from last added treelet

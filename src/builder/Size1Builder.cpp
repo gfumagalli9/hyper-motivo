@@ -39,8 +39,6 @@ void Size1Builder::build()
     {
         //auto color = static_cast<uint8_t>(rng->random_uint(0, number_of_colors-1));
         auto color = static_cast<uint8_t>(cd(*rng->underlying_generator()));
-        if (store_only_0 && color != 0)
-            continue;
 
         memcpy(buffer, &u, sizeof(UndirectedGraph::vertex_t));
         tcp.treelet = Treelet::singleton(color);
@@ -50,10 +48,10 @@ void Size1Builder::build()
 }
 
 Size1Builder::Size1Builder(UndirectedGraph::vertex_t number_of_vertices, UndirectedGraph::vertex_t from_vertex,
-                            UndirectedGraph::vertex_t to_vertex, uint8_t number_of_colors, bool store_only_0,
+                            UndirectedGraph::vertex_t to_vertex, uint8_t number_of_colors,
                             double *color_distribution, Random *rng, std::ostream *output)
         : number_of_vertices(number_of_vertices), from_vertex(from_vertex), to_vertex(to_vertex), number_of_colors(number_of_colors),
-          store_only_0(store_only_0), rng(rng), output(output)
+          rng(rng), output(output)
 {
     if(number_of_colors<=1)
         throw std::runtime_error("Invalid number of colors");

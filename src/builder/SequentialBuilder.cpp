@@ -28,17 +28,19 @@ void SequentialBuilder::build()
     UndirectedGraph::vertex_t num_verts = G->number_of_vertices();
     output->write(reinterpret_cast<const char*>(&num_verts), sizeof(UndirectedGraph::vertex_t));
 
+    ColorCodingHashmap table;
     for(UndirectedGraph::vertex_t u=from_vertex; u<=to_vertex; u++)
     {
-        if (store_only_0 && ttc->get_table(1)->begin(u).treelet().get_colors() != 1) //color 0 is represented as 1<<0 = 1
-            continue;
-
-        ColorCodingHashmap table;
-        const UndirectedGraph::vertex_t degree = G->degree(u);
-        for (UndirectedGraph::vertex_t d = 0; d < degree; d++)
-            builder.combine(u, G->neighbor(u, d), table);
+        if (!store_only_0 || ttc->get_table(1)->begin(u).treelet().get_colors() == 1) //color 0 is represented as 1<<0 = 1
+        {
+            const UndirectedGraph::vertex_t degree = G->degree(u);
+            for(UndirectedGraph::vertex_t d = 0; d < degree; d++)
+                builder.combine(u, G->neighbor(u, d), table);
+        }
 
         std::pair<char*, std::size_t> to_write = builder.to_normalized_sorted_byte_array(u, table);
+        table.clear();
+
         output->write(to_write.first, static_cast<std::streamsize>(to_write.second));
         delete[] to_write.first;
     }

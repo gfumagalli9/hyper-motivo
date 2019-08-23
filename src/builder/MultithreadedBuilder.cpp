@@ -154,30 +154,53 @@ void MultithreadedBuilder::phase2_thread_loop(const unsigned int thread_no, phas
     {
         phase2_vertex_state_t &state = states[(thread_no+i)%nstates];
 
+        // We pretend that there are state.edges_to_process + 1 "virtual edges" to process
+        // indexed from 0 to state.edges_to_process.
+        // The virtual edge indexed with d<state.edges_to_process is the d-th edge of state.vertex (0-indexed)
+        // Virtual edge d=state.edges_to_process is a NO-OP and ensures that
+        // 1) At least one thread handles state.vertex
+        // 2) Each thread that handles state.vertex processes at least one "virtual edge"
+        // => Exactly one thread wins the the lottery below and is responsible for writing the tables
+
         UndirectedGraph::vertex_t d = state.next_edge.fetch_add(1); //Next edge to process
         if(d > state.edges_to_process)  //Is the vertex already fully processed?
             continue;
 
-        //We add ourselves to the number of threads currently working on the vertex
-        unsigned int worker_no = state.num_workers.fetch_add(1);
-        if(worker_no>0)
+        unsigned int worker_no = std::numeric_limits<unsigned int>::max();
+        if(d<state.edges_to_process)
         {
-            assert(worker_no<nthreads);
-            state.tables[worker_no] = new ColorCodingHashmap(); //We are not the first thread. Let's create our own Hashmap
+            //We add ourselves to the number of threads currently working on the vertex
+            if(worker_no = state.num_workers.fetch_add(1); worker_no>0)
+            {
+                assert(worker_no < nthreads);
+                //We are not the first thread and we need to do "real" work. Let's create our own Hashmap
+                state.tables[worker_no] = new ColorCodingHashmap();
+            }
         }
 
         UndirectedGraph::vertex_t processed_edges=0;
+        //Process all the real edges
         while(d < state.edges_to_process)
         {
+            assert(worker_no < std::numeric_limits<unsigned int>::max());
+            assert(d < G->degree(state.vertex));
             builder.combine(state.vertex, G->neighbor(state.vertex, d), *state.tables[worker_no]);
-            d = state.next_edge.fetch_add(1);
             processed_edges++;
+            d = state.next_edge.fetch_add(1);
         }
 
-        processed_edges += state.processed_edges.fetch_add(processed_edges); //Total number of processed edges on this vertex
-        assert(processed_edges <= state.edges_to_process);
-        if(processed_edges == state.edges_to_process) //We are the thread that has processed the "last" edge.
+        //If we are responsible for the last virtual edge, mark it as done
+        if(d == state.edges_to_process)
+            processed_edges++; //There is no need to increment state.next_edge as it must be at least state.edges_to_process+1
+
+        //Lottery: every thread reports its processed virtual edges (>=1) sequentially. The last one to report wins.
+        processed_edges += state.processed_edges.fetch_add(processed_edges); //Total number of processed virtual edges on this vertex
+        assert(processed_edges <= state.edges_to_process+1);
+        if(processed_edges == state.edges_to_process+1)
+        {
+            //We are the winner. All other threads must have already finished processing state.vertex
             merge_and_write(writer, &state); //We take care of merging all tables and writing the result
+        }
     }
 }
 

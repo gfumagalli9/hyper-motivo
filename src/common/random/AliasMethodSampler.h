@@ -193,7 +193,7 @@ public:
             return false;
 
         entry e;
-        //prevent garbage from getting in the file when entry is not aligned
+        //Prevent garbage from getting in the file when entry is not aligned (easier debugging)
         memset(&e, 0, sizeof(entry));
         e.K = num_elements;
         e.U = total_weight;

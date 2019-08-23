@@ -29,21 +29,23 @@
 class TreeletStructureSelector
 {
 public:
-    typedef std::set<Treelet::treelet_structure_t>::const_iterator const_iterator;
-
     typedef int mode_t;
     constexpr static int MODE_INCLUDE = 1;
     constexpr static int MODE_EXCLUDE = 2;
+
+private:
+    typedef std::set<Treelet::treelet_structure_t, std::greater<> > treelet_structure_set_t;
+    mode_t mode;
+    treelet_structure_set_t structures;
+
+public:
+    //Keep structures in decreasing order, to be consistent with treelet ordering
+    typedef treelet_structure_set_t::const_iterator const_iterator;
 
     static Treelet::treelet_structure_t star_from_center_structure(unsigned int size);
 
     static Treelet::treelet_structure_t star_from_leaf_structure(unsigned int size);
 
-private:
-    mode_t mode;
-    std::set<Treelet::treelet_structure_t> structures;
-
-public:
     explicit TreeletStructureSelector(const mode_t mode) noexcept : mode(mode)
     {}
 
