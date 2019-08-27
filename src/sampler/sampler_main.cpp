@@ -114,7 +114,7 @@ int main(const int argc, const char** argv)
             //FIXME: Sample from binomial distribution?
             //If we had counted stars, the total number of colorful treelets (in expectation) would be tot_colorful_treelets + number_of_stars_rooted_in_center * opts.size * p
             //We sample proportionally to the fraction of stars w.r.t. this number of treelets
-            number_of_star_samples = static_cast<uint64_t>(static_cast<double>(opts.number_of_samples) * (static_cast<double>(number_of_stars_rooted_in_center*opts.size)*p / (static_cast<double>(tot_colorful_treelets) + static_cast<double>(number_of_stars_rooted_in_center*opts.size)*p) ) + 0.5);
+            number_of_star_samples = static_cast<uint64_t>(static_cast<double>(opts.number_of_samples) * static_cast<double>(number_of_stars_rooted_in_center*opts.size) / (static_cast<double>(tot_colorful_treelets)*p + static_cast<double>(number_of_stars_rooted_in_center*opts.size)) + 0.5);
 
 
             std::chrono::time_point < std::chrono::steady_clock > start_time = std::chrono::steady_clock::now();
@@ -171,10 +171,9 @@ int main(const int argc, const char** argv)
                 if(star_samples)
                 {
                     //At this point star_samples are already grouped by footprint
-                    //TODO: ??? What are the correct weights??
-                    std::cout << "Merging samples with weights " << static_cast<double>(tot_colorful_treelets)  << " and " << static_cast<double>(number_of_stars_rooted_in_center * opts.size * p)  << std::endl;
+                    std::cout << "Merging samples with weights " << static_cast<double>(tot_colorful_treelets)/p  << " and " << static_cast<double>(number_of_stars_rooted_in_center)  << std::endl;
                     //SampleTable::merge takes care of estimating occurrences and frequencies
-                    SampleTable *merged = SampleTable::merge(*samples, *star_samples, static_cast<double>(tot_colorful_treelets) , static_cast<double>(number_of_stars_rooted_in_center * opts.size * p));
+                    SampleTable *merged = SampleTable::merge(*samples, *star_samples, static_cast<double>(tot_colorful_treelets)/p , static_cast<double>(number_of_stars_rooted_in_center));
 
                     delete samples;
                     delete star_samples;

@@ -190,25 +190,32 @@ void SampleTable::count_rooted_spanning_stars() //FIXME: Make multithreaded?
     }
 }
 
-/**
- * Merge two tables.
- * tcount1 and tcount2 are the total treelet counts (the number of colorful k-treelets
- *	the sampling was performed on, for t1 and t2 respectively).
- * Graphlet occurrences can have a different number of spanning trees in the two tables.
- * In the output table, e.sample_count is the sum of the corresponding entries in t1 and t2.
- * If this is the case, then in the merged table:
- *	e.estimate_graph_frequency is obtained as an appropriate average of the two tables
- *	e.estimate_graph_occurrences is obtained as an appropriate average of the two tables
- *
- * t1 and t2 need to be grouped and sorted by footprints
- */
+/// Merges two tables obtained by sampling from different collections of treelts and estimates the number of occurrences of the samples and their frequencies
+/// The tables need to be sorted and grouped by footprints and the spanning trees need to be computed w.r.t. the set of treelets in t1 and t2
 SampleTable* SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2)
 {
+    /* Let SH=SH1 + SH2 be the number of samples of H, where SHx is the number of occurrences of H in the x-th table (x=1,2)
+     * Let Tx be the number of treelets counted in table x.
+     * Let THx be the number of spanning trees of H that are among those considered in table x.
+     * Let Sx be the number of samples in table x.
+     * Let NH the number of occurrences of H.
+     * Let Ejx be the event "the j-th occurrence of H is sampled from x"
+     * Let px be the probability that a spanning tree of H considered in table x can actually be sampled
+     *
+     * E[SH] = E[SH1] + E[SH2]
+     *       = \sum_{i=1}^S1 \sum_{j=1}^NH P(Ej1) + \sum_{i=1}^S2 \sum_{j=1}^NH P(Ej2)
+     *       = NH * ( (S1 * TH1/T1 * p1) + (S2 * TH2/T2 * p2) )
+     *       which implies:
+     *       NH = E[SH] / w, where w = (S1 * TH1/T1 * p1) + (S2 * TH2/T2 * p2)
+     *       or, equivalently, w =  (S1 * TH1 / tcount1) + (S2 * TH2 / tcount2)
+     *       where tcountx = Tx/px is the number of treelets in table x normalized w.r.t. the sampling probability
+     */
+
     SampleTable &t = *(new SampleTable());
 
     t.num_samples = t1.get_num_samples() + t2.get_num_samples();
-    const double p1 = static_cast<double>(t1.get_num_samples()) / static_cast<double>(t.num_samples);
-    const double p2 = static_cast<double>(t2.get_num_samples()) / static_cast<double>(t.num_samples);
+    const auto p1 = static_cast<double>(t1.get_num_samples());
+    const auto p2 = static_cast<double>(t2.get_num_samples());
 
     double tot_est_occ = 0;
 
@@ -225,12 +232,12 @@ SampleTable* SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1
         else
             c=memcmp(it1->occurrence.binary_footprint(), it2->occurrence.binary_footprint(), Occurrence::binary_footprint_bytes);
 
-        double weight=0;
+        double w=0;
         if(c <= 0)
         {
             e.occurrence = it1->occurrence;
             e.sample_count += it1->sample_count;
-            weight += p1 * static_cast<double>(it1->num_spanning_trees) / tcount1;
+            w += p1 * static_cast<double>(it1->num_spanning_trees) / tcount1;
             it1++;
         }
         else
@@ -239,11 +246,11 @@ SampleTable* SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1
         if(c >= 0)
         {
             e.sample_count += it2->sample_count;
-            weight += p2 * static_cast<double>(it2->num_spanning_trees) / tcount2;
+            w += p2 * static_cast<double>(it2->num_spanning_trees) / tcount2;
             it2++;
         }
 
-        e.estimated_graph_occurrences = static_cast<double>(e.sample_count) / (static_cast<double>(t.num_samples) * weight);
+        e.estimated_graph_occurrences = static_cast<double>(e.sample_count) / w;
         tot_est_occ += e.estimated_graph_occurrences;
         e.type = 'M';
         t.add_entry(e);
@@ -254,7 +261,6 @@ SampleTable* SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1
 
     return &t;
 }
-
 
 /**
  * Weighted average of two count tables.
