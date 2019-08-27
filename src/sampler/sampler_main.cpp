@@ -44,12 +44,15 @@ int main(const int argc, const char** argv)
         if (!parse_sampler_args(argc, argv, "motivo-sample", &opts))
             return EXIT_SUCCESS;
 
-        // Read info file
+        // Read info files
         PropertyStore properties(std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".info");
         const bool store_only_on_0 = properties.get_bool("StoreOnlyOn0", false);
         //Estimate of the total number of colorful treelets
         const uint128_t tot_treelets = properties.get_uint128("TotTreelets", 0) * (store_only_on_0?opts.size:1);
-        double p = properties.get_double("ColoringProbability", pcol(opts.size, opts.size));
+
+        PropertyStore properties1(std::string(opts.tables_basename) + ".1.info");
+        const uint8_t colors = properties1.get_uint8("NumberOfColors", 0);
+        double p = properties.get_double("ColoringProbability", pcol(opts.size, colors));
 
 
         //Load graph
@@ -101,14 +104,16 @@ int main(const int argc, const char** argv)
 
         // FAST STAR SAMPLING
         SampleTable* star_samples = nullptr;  //TODO: If we don't care about vertices we can trivially fill this
-        uint128_t number_of_stars = 0;
+        uint128_t number_of_stars_rooted_in_center = 0;
         uint64_t number_of_star_samples = 0;
         double time_budget = opts.time_budget;
         if (opts.smart_stars)
         {
             OccurrenceStarSampler star_sampler(&G, opts.size, opts.canonicize);
-            number_of_stars = star_sampler.number_of_stars();
-            number_of_star_samples = static_cast<uint64_t>(static_cast<double>(opts.number_of_samples) * (1.0 - static_cast<double>(tot_treelets) / (p*static_cast<double>(number_of_stars) + static_cast<double>(tot_treelets))) + 0.5); //FIXME: Sample from binomial distribution?
+            number_of_stars_rooted_in_center = star_sampler.number_of_stars();
+            //FIXME: Sample from binomial distribution?
+            //TODO??? What is the correct number of samples?
+            number_of_star_samples = 0; //static_cast<uint64_t>(static_cast<double>(opts.number_of_samples) * (1.0 - static_cast<double>(tot_treelets/p) / (static_cast<double>(number_of_stars_rooted_in_center) + static_cast<double>(tot_treelets/p))) + 0.5);
 
             std::chrono::time_point < std::chrono::steady_clock > start_time = std::chrono::steady_clock::now();
             std::cout << "Star sampler: sampling " << number_of_star_samples << " stars" << std::endl;
@@ -163,9 +168,11 @@ int main(const int argc, const char** argv)
 
                 if(star_samples)
                 {
-                    std::cout << "Merging samples with weights " << static_cast<double>(tot_treelets) / p << " and " << static_cast<double>(number_of_stars)  << std::endl;
+                    //At this point star_samples are already grouped by footprint
+                    //TODO: ??? What are the correct weights??
+                    std::cout << "Merging samples with weights " << static_cast<double>(tot_treelets)  << " and " << static_cast<double>(number_of_stars_rooted_in_center / opts.size)  << std::endl;
                     //SampleTable::merge takes care of estimating occurrences and frequencies
-                    SampleTable *merged = SampleTable::merge(*samples, *star_samples, static_cast<double>(tot_treelets) / p, static_cast<double>(number_of_stars));
+                    SampleTable *merged = SampleTable::merge(*samples, *star_samples, static_cast<double>(tot_treelets) , static_cast<double>(number_of_stars_rooted_in_center / opts.size));
 
                     delete samples;
                     delete star_samples;
@@ -207,11 +214,11 @@ int main(const int argc, const char** argv)
                 samples->count_rooted_spanning_trees(build_selector, opts.threads);
 
             //AdaptiveSampler already estimates occurrences
-            samples->rescale_occurrences(pcol(opts.size, opts.size) / p);
+            samples->rescale_occurrences(pcol(opts.size, colors) / p);
 
             if(star_samples)
             {
-                double w = (static_cast<double>(tot_treelets) / p) / (static_cast<double>(number_of_stars) + static_cast<double>(tot_treelets) / p);
+                double w = (static_cast<double>(tot_treelets) / p) / (static_cast<double>(number_of_stars_rooted_in_center) + static_cast<double>(tot_treelets) / p);
 
                 std::cout << "Merging samples with weights " << (1-w) << " and " << w << std::endl;
                 //SampleTable::average takes care of estimating occurrences and frequencies

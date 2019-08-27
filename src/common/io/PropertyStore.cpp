@@ -105,14 +105,35 @@ bool PropertyStore::get_bool(const std::string &key, bool default_value)
     if(it == map.end() || it->second.length()!=1)
         return default_value;
 
-    if(it->second[0]=='y')
+    if(it->second[0]=='y' || it->second[0]=='1')
         return true;
 
-    if(it->second[0]=='n')
+    if(it->second[0]=='n' || it->second[0]=='0')
         return false;
 
     return default_value;
 }
+
+
+void PropertyStore::set_uint8(const std::string &key, uint8_t value)
+{
+    map[key] = std::to_string(value);
+}
+
+
+uint8_t PropertyStore::get_uint8(const std::string &key, uint8_t default_value)
+{
+    auto it = map.find(key);
+    if(it == map.end())
+        return default_value;
+
+    int r = std::stoi(it->second);
+    if(r < std::numeric_limits<uint8_t>::min() || r > std::numeric_limits<uint8_t>::max())
+        throw std::runtime_error("Invalid value");
+
+    return static_cast<uint8_t >(r);
+}
+
 
 void PropertyStore::set_uint128(const std::string &key, const uint128_t value)
 {

@@ -273,7 +273,9 @@ $ bin/motivo-merge --output tables.5 tables.5.cnt
 
 ### Sampling
 
-TODO
+~~~
+
+~~~
 
 ### Advanced options
 

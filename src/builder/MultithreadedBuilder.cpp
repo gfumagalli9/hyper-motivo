@@ -115,7 +115,7 @@ void MultithreadedBuilder::phase1_thread_loop(const unsigned int thread_no, phas
         for(unsigned int i=0; i<nthreads; i++)
             states[i].terminate_flag=true;
     else
-        state.edges_to_process = (store_only_0 && ttc->get_table(1)->begin(state.current_vertex).treelet().get_colors() == 1)?0:G->degree(state.current_vertex);
+        state.edges_to_process = (store_only_0 && ttc->get_table(1)->begin(state.current_vertex).treelet().get_colors() != 1)?0:G->degree(state.current_vertex);
 
     while(!state.terminate_flag)
     {
@@ -143,7 +143,7 @@ void MultithreadedBuilder::phase1_thread_loop(const unsigned int thread_no, phas
                     states[i].terminate_flag=true;
             }
             else
-                state.edges_to_process = (store_only_0 && ttc->get_table(1)->begin(state.current_vertex).treelet().get_colors() == 1)?0:G->degree(state.current_vertex);
+                state.edges_to_process = (store_only_0 && ttc->get_table(1)->begin(state.current_vertex).treelet().get_colors() != 1)?0:G->degree(state.current_vertex);
         }
     }
 }

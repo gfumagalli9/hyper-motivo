@@ -58,10 +58,14 @@ public:
 
     bool get_bool(const std::string &key, bool default_value);
 
+    void set_uint8(const std::string &key, uint8_t value);
+
+    uint8_t get_uint8(const std::string &key, uint8_t default_value);
 
     void set_uint128(const std::string &key, uint128_t value);
 
     uint128_t get_uint128(const std::string &key, uint128_t default_value);
+
 
     void set_double(const std::string &key, double value);
 

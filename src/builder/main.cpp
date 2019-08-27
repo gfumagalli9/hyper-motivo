@@ -261,8 +261,13 @@ int main(const int argc, const char** argv)
         // write info for later phases
         PropertyStore properties;
         properties.set_bool("StoreOnlyOn0", opts.store0);
+
         if(color_distribution!= nullptr)
             properties.set_double("ColoringProbability", pcold(color_distribution, opts.colors));
+
+        if(opts.size==1)
+            properties.set_uint8("NumberOfColors", opts.colors);
+
         properties.save(std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".info");
 
         delete selector;
