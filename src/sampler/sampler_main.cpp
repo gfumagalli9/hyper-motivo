@@ -48,7 +48,7 @@ int main(const int argc, const char** argv)
         PropertyStore properties(std::string(opts.tables_basename) + "." + std::to_string(opts.size) + ".info");
         const bool store_only_on_0 = properties.get_bool("StoreOnlyOn0", false);
         //Estimate of the total number of colorful treelets
-        const uint128_t tot_treelets = properties.get_uint128("TotTreelets", 0) * (store_only_on_0?opts.size:1);
+        const uint128_t tot_colorful_treelets = properties.get_uint128("TotTreelets", 0) * (store_only_on_0?opts.size:1);
 
         PropertyStore properties1(std::string(opts.tables_basename) + ".1.info");
         const uint8_t colors = properties1.get_uint8("NumberOfColors", 0);
@@ -112,8 +112,10 @@ int main(const int argc, const char** argv)
             OccurrenceStarSampler star_sampler(&G, opts.size, opts.canonicize);
             number_of_stars_rooted_in_center = star_sampler.number_of_stars();
             //FIXME: Sample from binomial distribution?
-            //TODO??? What is the correct number of samples?
-            number_of_star_samples = 0; //static_cast<uint64_t>(static_cast<double>(opts.number_of_samples) * (1.0 - static_cast<double>(tot_treelets/p) / (static_cast<double>(number_of_stars_rooted_in_center) + static_cast<double>(tot_treelets/p))) + 0.5);
+            //If we had counted stars, the total number of colorful treelets (in expectation) would be tot_colorful_treelets + number_of_stars_rooted_in_center * opts.size * p
+            //We sample proportionally to the fraction of stars w.r.t. this number of treelets
+            number_of_star_samples = static_cast<uint64_t>(static_cast<double>(opts.number_of_samples) * (static_cast<double>(number_of_stars_rooted_in_center*opts.size)*p / (static_cast<double>(tot_colorful_treelets) + static_cast<double>(number_of_stars_rooted_in_center*opts.size)*p) ) + 0.5);
+
 
             std::chrono::time_point < std::chrono::steady_clock > start_time = std::chrono::steady_clock::now();
             std::cout << "Star sampler: sampling " << number_of_star_samples << " stars" << std::endl;
@@ -164,15 +166,15 @@ int main(const int argc, const char** argv)
 
             if(opts.estimate_occurrences)
             {
-                samples->estimate_occurrences(static_cast<double>(tot_treelets) / p);
+                samples->estimate_occurrences(static_cast<double>(tot_colorful_treelets) / p);
 
                 if(star_samples)
                 {
                     //At this point star_samples are already grouped by footprint
                     //TODO: ??? What are the correct weights??
-                    std::cout << "Merging samples with weights " << static_cast<double>(tot_treelets)  << " and " << static_cast<double>(number_of_stars_rooted_in_center / opts.size)  << std::endl;
+                    std::cout << "Merging samples with weights " << static_cast<double>(tot_colorful_treelets)  << " and " << static_cast<double>(number_of_stars_rooted_in_center * opts.size * p)  << std::endl;
                     //SampleTable::merge takes care of estimating occurrences and frequencies
-                    SampleTable *merged = SampleTable::merge(*samples, *star_samples, static_cast<double>(tot_treelets) , static_cast<double>(number_of_stars_rooted_in_center / opts.size));
+                    SampleTable *merged = SampleTable::merge(*samples, *star_samples, static_cast<double>(tot_colorful_treelets) , static_cast<double>(number_of_stars_rooted_in_center * opts.size * p));
 
                     delete samples;
                     delete star_samples;
@@ -218,7 +220,7 @@ int main(const int argc, const char** argv)
 
             if(star_samples)
             {
-                double w = (static_cast<double>(tot_treelets) / p) / (static_cast<double>(number_of_stars_rooted_in_center) + static_cast<double>(tot_treelets) / p);
+                double w = (static_cast<double>(tot_colorful_treelets) / p) / (static_cast<double>(number_of_stars_rooted_in_center) + static_cast<double>(tot_colorful_treelets) / p);
 
                 std::cout << "Merging samples with weights " << (1-w) << " and " << w << std::endl;
                 //SampleTable::average takes care of estimating occurrences and frequencies
