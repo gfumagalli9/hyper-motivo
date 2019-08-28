@@ -221,7 +221,7 @@ SampleTable* AdaptiveSampler::sample(const uint64_t n_samples, Random* rng, cons
     std::cerr << "time spent in updating priorities: " << prioTime << std::endl;
     std::cerr << "total treelet switches: " << totTreeletSwitches << std::endl;
 
-	const double p = pcol(size, size);
+	const double p = pcol(size, size); //FIXME!! Does not take into account that the number of colors might be larger than size
 	auto table = new SampleTable();
 	for (const auto &[occurrence, info] : occTab)
 	{

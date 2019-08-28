@@ -210,7 +210,7 @@ int main(const int argc, const char** argv)
             std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - start_time;
             std::cout << "Adaptive sampler: taken " << samples->get_num_samples() << " samples in " << elapsed.count() << " s\n";
 
-            //There is no need to bother counting the spanning trees w.r.t. the build selector if we are going to merge with star samples
+            //There is no need to bother counting the spanning trees w.r.t. the build selector if we are going to average with star samples
             if(opts.spanning_trees && star_samples==nullptr) //FIXME: Can we compute this in the adaptive sampler itself?
                 samples->count_rooted_spanning_trees(build_selector, opts.threads);
 

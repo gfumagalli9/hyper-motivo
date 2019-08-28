@@ -215,10 +215,10 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
         for(TreeletTable::const_iterator it = split_table->begin(v, split); !it.is_over(); ++it)
         {
             const Treelet& t2 = it.treelet();
-#ifndef NDEBUG
+
             if(t2.get_structure() != split.get_structure())
                 break;
-#endif
+
             if( t2.get_colors() & ~t.get_colors() )
                 continue;
 
@@ -230,20 +230,20 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
 
 #ifndef NDEBUG
             count -= c*it.count();
-
-            if(!child_treelet.is_valid())
+            //We already fouund a treelet, but we are still iterating to check that the count matches
+            //The next if already matched once, and it would match again. Skip to next iteration.
+            if(child_treelet.is_valid())
+                continue;
 #endif
+            if (r >= c * it.count())
+                r -= c*it.count();
+            else
             {
-                if (r >= c * it.count())
-                    r -= c*it.count();
-                else
-                {
-                    child_treelet = t2;
-                    child_vertex = v;
+                child_treelet = t2;
+                child_vertex = v;
 #ifdef NDEBUG
                     goto end_loop; //Children found, exit early
 #endif
-                }
             }
         }
     }
