@@ -205,7 +205,7 @@ int main(const int argc, const char** argv)
             std::chrono::time_point<std::chrono::steady_clock> start_time = std::chrono::steady_clock::now();
 
             AdaptiveSampler sampler(&G, &ttc, opts.size, opts.threads, store_only_on_0, opts.treelet_buffer_size, opts.treelet_buffer_degree);
-            samples = sampler.sample(nonstar_nsamples, &rng, time_budget);
+            samples = sampler.sample(nonstar_nsamples, &rng, time_budget, build_selector);
 
             std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - start_time;
             std::cout << "Adaptive sampler: taken " << samples->get_num_samples() << " samples in " << elapsed.count() << " s\n";
@@ -219,12 +219,16 @@ int main(const int argc, const char** argv)
 
             if(star_samples)
             {
-                double w = (static_cast<double>(tot_colorful_treelets) / p) / (static_cast<double>(number_of_stars_rooted_in_center) + static_cast<double>(tot_colorful_treelets) / p);
+                double w = (static_cast<double>(tot_colorful_treelets) / p) / (opts.size*static_cast<double>(number_of_stars_rooted_in_center) + static_cast<double>(tot_colorful_treelets) / p);
 
-                std::cout << "Merging samples with weights " << (1-w) << " and " << w << std::endl;
+                std::cout << "Averaging samples with weights " << (1-w) << " and " << w << std::endl;
                 //SampleTable::average takes care of estimating occurrences and frequencies
                 samples->sort_by_footprint();
-                SampleTable* merged = SampleTable::average(*samples, *star_samples, w, 1-w);
+                star_samples->estimate_occurrences(static_cast<double>(number_of_stars_rooted_in_center));
+
+                //std::cerr << "Samples \n" << *samples << "\n Star Samples\n" << *star_samples << std::endl;
+
+                SampleTable* merged = SampleTable::weighted_average(*samples, *star_samples, 1-w, w);
 
                 delete samples;
                 delete star_samples;

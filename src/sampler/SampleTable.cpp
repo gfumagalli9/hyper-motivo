@@ -274,7 +274,7 @@ SampleTable* SampleTable::merge(SampleTable& t1, SampleTable& t2, double tcount1
  *	 t1 and t2 need to be grouped and sorted by footprints
 
  */
-SampleTable* SampleTable::average(SampleTable& t1, SampleTable& t2, double w1, double w2)
+SampleTable* SampleTable::weighted_average(SampleTable &t1, SampleTable &t2, double w1, double w2)
 {
     SampleTable &t = *(new SampleTable());
 
@@ -317,7 +317,7 @@ SampleTable* SampleTable::average(SampleTable& t1, SampleTable& t2, double w1, d
             it2++;
         }
 
-        e.type = 'A';
+        e.type = 'W';
         tot_est_occ += e.estimated_graph_occurrences;
         t.add_entry(e);
     }
