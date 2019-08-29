@@ -1,14 +1,26 @@
+// MIT License
 //
-// Created by steven on 12/18/16.
+// Copyright (c) 2017-2019 Stefano Leucci and Marco Bressan
 //
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 #include "Occurrence.h"
-#include <lapacke.h>
-
-
-constexpr unsigned int Occurrence::binary_footprint_bits;
-constexpr unsigned int Occurrence::binary_footprint_bytes;
-constexpr unsigned int Occurrence::text_footprint_bytes;
 
 Occurrence::Occurrence(const unsigned int size, const UndirectedGraph *graph, const UndirectedGraph::vertex_t *occ) : size(size)
 {
@@ -69,78 +81,7 @@ const char* Occurrence::text_footprint() const
     return text_footprint_buffer;
 }
 
-uint64_t Occurrence::number_of_spanning_trees() const
-{
-    if(spanning_trees!=0)
-        return spanning_trees;
 
-    //Handle small cases
-    if(size<=2) //Isolated vertex or 2 vertices and a single edge
-        return spanning_trees=1;
-
-    if(size==3)
-    {
-        //Triangle?
-        if( has_edge(1,0) && has_edge(2,1) && has_edge(2,0) )
-            return 3;
-
-        return spanning_trees=1;
-    }
-
-    auto matrix = new double[(size-1)*(size-1)];
-
-    //Compute the num_vertices-1 x num_vertices-1 submatrix of the Laplacian matrix of the subgraph of G induced by "subgraph"
-    unsigned int nedges=0;
-    for(unsigned int i=0; i<size-1; i++)
-    {
-        matrix[i*size] = 0; //i*num_vertices == i*(num_vertices-1)+i
-        for(unsigned int j=0; j<i; j++)
-        {
-            if(has_edge(i, j))
-            {
-                matrix[i*size]++; //Involves only elements already set to 0
-                matrix[j*size]++; //Ditto
-                matrix[i*(size-1)+j]=-1;
-                nedges++;
-            }
-            else
-                matrix[i*(size-1)+j]=0;
-        }
-    }
-
-    //The degress of the Laplacian matrix are not accounting  for the edges incident to the last vertex of the subgraph, add them
-    for(unsigned int j=0; j<size-1; j++)
-    {
-        if(has_edge(size - 1, j))
-        {
-            matrix[j*size]++;
-            nedges++;
-        }
-    }
-
-    if(nedges==size-1) //The subgraph is a tree
-    {
-        delete[] matrix;
-        return 1;
-    }
-
-    //Compute the lower factor L of a  Cholesky factorization
-    //L is stored in the lower triangular part of matrix
-#ifndef NDEBUG
-    int r =
-#endif
-    LAPACKE_dpotrf_work(LAPACK_ROW_MAJOR, 'L', static_cast<int>(size-1), matrix, static_cast<int>(size-1));
-    assert(r==0);
-
-    //The determinant is the product of the squares of the elements on the diagonal of L
-    double det = 1;
-    for(unsigned int i=0; i<size-1; i++)
-        det*=matrix[i*size];
-
-    delete[] matrix;
-
-    return spanning_trees=static_cast<uint64_t>(det*det + 0.5); //fast round(det*det)
-}
 
 
 

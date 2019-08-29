@@ -1,6 +1,24 @@
+// MIT License
 //
-// Created by steven on 12/10/16.
+// Copyright (c) 2017-2019 Stefano Leucci and Marco Bressan
 //
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 #include <cstdlib>
 #include <iostream>
@@ -13,29 +31,31 @@
 #include "../common/OptionsParser.h"
 #include "../common/io/CompressedRecordFile.h"
 #include "../common/util.h"
+#include "../common/io/PropertyStore.h"
 
 struct vertex_info
 {
     char* ptr;
-    uint64_t count=0;
+    uint64_t count;
 };
 
-void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, vertex_info* info, double compression_threshold);
+void write_table(const std::string &output_basename, UndirectedGraph::vertex_t num_vertices, vertex_info* info, double compression_threshold);
 
 void merge(const std::vector<std::string>& count_filenames, const std::string& output_basename, double compression_threshold)
 {
     const unsigned long no_files = count_filenames.size();
     UndirectedGraph::vertex_t num_vertices = 0;
-    std::pair<char*, size_t>* cnt_map = new std::pair<char*, size_t>[no_files];
-    FILE** count_files = new FILE*[no_files];
+    auto cnt_map = new std::pair<char*, size_t>[no_files];
+    auto count_files = new FILE*[no_files];
     vertex_info* info = nullptr;
     std::vector<bool> seen_vertices;
+    UndirectedGraph::vertex_t seen_vertices_no = 0;
     for(unsigned int i=0; i<no_files; i++)
     {
         const std::string &filename = count_filenames[i];
         count_files[i] = fopen(filename.c_str(), "rb");
 
-        if(count_files[i]==NULL)
+        if(count_files[i]== nullptr)
             throw std::runtime_error("Unable to open file " + filename );
 
         UndirectedGraph::vertex_t nv;
@@ -77,6 +97,7 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
                 throw std::runtime_error("Error while processing " + filename + ": duplicate vertex " + std::to_string(vertex));
 
             seen_vertices[vertex]=true;
+            seen_vertices_no++;
 
             info[vertex].ptr = ptr;
             info[vertex].count = number_of_occurrences;
@@ -89,6 +110,9 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
 
         std::cout << "Loaded offsets for file " << filename << " vertices" << std::endl;
     }
+
+    if(seen_vertices_no!=num_vertices)
+        throw std::runtime_error("Missing vertices");
 
     std::cout << "Writing output" << std::endl;
     write_table(output_basename, num_vertices, info, compression_threshold);
@@ -121,9 +145,9 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
     for(UndirectedGraph::vertex_t u=0; u < num_vertices; u++)
     {
         num_treelet_count_pairs+=info[u].count;
-        TreeletTable::treelet_count_pair *to_write = new TreeletTable::treelet_count_pair[info[u].count + 1];
-        TreeletTable::treelet_count_pair *p = to_write;
-        p->treelet = Treelet::invalid_treelet;
+        auto to_write = new TreeletTable::treelet_count_pair[info[u].count + 1];
+        auto p = to_write;
+        p->treelet = invalid_treelet;
         p->count = 0;
         for (TreeletTable::treelet_count_t i = 0; i < info[u].count; i++)
         {
@@ -163,24 +187,24 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
     std::cout << "Total number of treelet occurrences: ";
     if(num_occ_total_overflow)
         std::cout <<"Overflow!" << std::endl;
-    else {
+    else
+    {
         std::cout << uint128_to_string(num_occ_total) << " (" << uint128_bits_needed(num_occ_total) << " bits)" << std::endl;
-        std::ofstream infofile;
-        infofile.open(output_basename + ".info", std::ofstream::app);
-        infofile << "TotTreelets " << uint128_to_string(num_occ_total) << std::endl;
-        infofile.close();
+
+        //FIXME: .cnt and .dtz might have different file names
+        PropertyStore properties(std::string(output_basename) + ".info");
+        properties.set_uint128("TotTreelets", num_occ_total);
+        properties.save(output_basename + ".info");
     }
-    std::cout << "Maximum number of occurrences rooted in a single vertex: " << uint128_to_string(num_occ_max) << " ("<< uint128_bits_needed(
-            num_occ_max) << " bits)" << std::endl;
-    std::cout << "Maximum number of occurrences of a single rooted treelet: " << uint128_to_string(num_occ_treelet) << " ("<< uint128_bits_needed(
-            num_occ_treelet) << " bits)" << std::endl;
+    std::cout << "Maximum number of occurrences rooted in a single vertex: " << uint128_to_string(num_occ_max) << " ("<< uint128_bits_needed(num_occ_max) << " bits)" << std::endl;
+    std::cout << "Maximum number of occurrences of a single rooted treelet: " << uint128_to_string(num_occ_treelet) << " ("<< uint128_bits_needed(num_occ_treelet) << " bits)" << std::endl;
     std::cout << "Output written to files: " << output_filename << ", and " << root_sampler_filename << std::endl;
 }
 
 
 int main(const int argc, const char** argv)
 {
-    std::cout << "This is motivo-merge. Version: " << MOTIVO_VERSION_STRING << std::endl;
+    std::cout << "This is motivo-merge. Version: " << MOTIVO_VERSION_STRING << "\n" << MOTIVO_COPYRIGHT_NOTICE << std::endl;
 
     OptionsParser op;
     OptionsParser::Option *help_opt = op.add_option(false, false, "help", '\0', "", "Print help and exit");
@@ -217,7 +241,7 @@ int main(const int argc, const char** argv)
 
 
     const std::vector<std::string> &count_files = op.positional_arguments();
-    if (count_files.size() == 0)
+    if (count_files.empty())
     {
         std::cout << "No inputs specified" << std::endl;
         return EXIT_FAILURE;

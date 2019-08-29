@@ -1,27 +1,39 @@
-/*
- * OccurrenceStarSampler.h
- *
- *  Created on: 25 mag 2018
- *      Author: brix
- */
+// MIT License
+//
+// Copyright (c) 2017-2019 Stefano Leucci and Marco Bressan
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 #ifndef SRC_SAMPLER_OCCURRENCESTARSAMPLER_H_
 #define SRC_SAMPLER_OCCURRENCESTARSAMPLER_H_
 
-#include "Occurrence.h"
 #include "../common/graph/UndirectedGraph.h"
-#include "../common/AliasMethodSampler.h"
-#include "../common/sequencer/DynamicSequencer.h"
-#include <sparsehash/dense_hash_map>
-
-class SampleTable;
+#include "../common/random/AliasMethodSampler.h"
+#include "Occurrence.h"
+#include "DynamicSequencer.h"
+#include "SampleTable.h"
+#include "TimeoutThreadSync.h"
 
 class OccurrenceStarSampler
 {
 public:
     typedef DynamicSequencer<uint64_t> sequencer_t;
-	typedef google::dense_hash_map<Occurrence, int, Occurrence::OccurrenceFootprintHash,
-			Occurrence::OccurrenceFootprintEquality> occ_count_table_t;
 
 private:
     static constexpr UndirectedGraph::vertex_t sampling_vs_shuffling_degree_threshold = 1024;
@@ -29,16 +41,16 @@ private:
 	const UndirectedGraph *g; // the host graph
     const unsigned int size; // k, the size of the stars
 	const bool canonicize; // whether to canonicalize the occurrences
-    unsigned int number_of_threads;
 
     AliasMethodSampler<UndirectedGraph::vertex_t, uint128_t>* root_sampler = nullptr;
 
 	void sample_one(Occurrence* occurrence, Random* rng);
-    void do_sample_mt(occ_count_table_t* tab, sequencer_t *sequencer, Random *rng);
 
+	void sample_thread(unsigned int thread_no, std::vector<Occurrence>& samples, sequencer_t *sequencer, Random *rng, TimeoutThreadSync &sync);
 
 public:
-    OccurrenceStarSampler(const UndirectedGraph *g, unsigned int size, unsigned int number_of_threads, bool canonicize);
+    OccurrenceStarSampler(const UndirectedGraph *g, unsigned int size, bool canonicize);
+
     ~OccurrenceStarSampler();
 
     uint128_t number_of_stars() const
@@ -46,8 +58,7 @@ public:
 		return root_sampler->get_total_weight();
 	}
 
-//    Occurrence* sample(uint64_t num_samples, Random *rng);
-    SampleTable* sample(uint64_t num_samples, Random *rng, double time_budget = std::numeric_limits<double>::infinity());
+    SampleTable* sample(uint64_t num_samples, unsigned int number_of_threads, Random *rng, double time_budget);
 };
 
 #endif /* SRC_SAMPLER_OCCURRENCESTARSAMPLER_H_ */

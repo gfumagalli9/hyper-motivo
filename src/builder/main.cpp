@@ -1,16 +1,40 @@
+// MIT License
+//
+// Copyright (c) 2017-2019 Stefano Leucci and Marco Bressan
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 #include <cstdlib>
 #include <limits>
 #include <iostream>
 #include <fstream>
 #include <thread>
 #include <chrono>
+#include <cmath>
 #include "config.h"
+#include "../common/util.h"
 #include "../common/OptionsParser.h"
 #include "../common/graph/UndirectedGraph.h"
 #include "Size1Builder.h"
 #include "SequentialBuilder.h"
 #include "MultithreadedBuilder.h"
-#include "SimpleMultithreadedBuilder.h"
+#include "../common/io/PropertyStore.h"
 
 struct builder_opts
 {
@@ -25,6 +49,7 @@ struct builder_opts
     char output_basename[MOTIVO_ARG_MAX];
     bool store0;
     char selective_filename[MOTIVO_ARG_MAX];
+    double coloring_bias;
 };
 
 bool parse_builder_args(const int argc, const char **argv, const std::string &name, builder_opts *opts)
@@ -40,8 +65,10 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *seed_opt = op.add_option(false, true, "seed", '\0', "", "String used to seed the random number generator for the initial coloring (default or empty string: seed from system random device)");
     OptionsParser::Option *threads_opt = op.add_option(false, true, "threads", '\0', "1", "Number of threads to use or 0 for to use the number of logical processors (default: 1, ignored if size=1)");
     OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output file (required)");
-    OptionsParser::Option *store0_opt  = op.add_option(false, false, "store-on-0-colored-vertices-only", '0', "", "Store treelet counts only for the vertices with color 0 (default: false)");
+    OptionsParser::Option *store0_opt  = op.add_option(false, false, "store-on-0-colored-vertices-only", '0', "", "Store treelet counts only for the vertices with color 0 (default: false, ignored if size=1)");
     OptionsParser::Option *selective_opt = op.add_option(false, true, "selective", '\0', "", "Count only treelets whose structures are allowed in file ARG");
+    OptionsParser::Option *coloring_bias_opt = op.add_option(false, true, "coloring-bias", '\0', "1", "Cut the k-colorful probability by a given factor, by reducing the weight of the first k/2 colors.");
+
 
     if (!op.parse(argc, argv) || help_opt->is_found())
     {
@@ -79,8 +106,8 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     opts->from_vertex = 0;
     if(from_opt->is_found())
     {
-        int64_t from = std::stoll(from_opt->get_value());
-        if(from < 0 || from >=G.number_of_vertices())
+        uint64_t from = std::stoull(from_opt->get_value());
+        if(from >=G.number_of_vertices())
             throw std::runtime_error("'from-vertex' option specifies an invalid vertex");
 
         opts->from_vertex = static_cast<UndirectedGraph::vertex_t>(from);
@@ -89,8 +116,8 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     opts->to_vertex = G.number_of_vertices()-1;
     if(to_opt->is_found())
     {
-        int64_t to = std::stoll(to_opt->get_value());
-        if(to < 0 || to >=G.number_of_vertices())
+        uint64_t to = std::stoull(to_opt->get_value());
+        if(to >=G.number_of_vertices())
             throw std::runtime_error("'to-vertex' option specifies an invalid vertex");
 
         opts->to_vertex = static_cast<UndirectedGraph::vertex_t>(to);
@@ -135,12 +162,16 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     else
         *(opts->selective_filename)='\0';
 
+    opts->coloring_bias = std::stod(coloring_bias_opt->get_value());
+    if(!std::isnormal(opts->coloring_bias) || opts->coloring_bias>1 || opts->coloring_bias<=0)
+        throw std::runtime_error("'coloring-bias' must be between 0 (exclusive) and 1 (inclusive)");
+
     return true;
 }
 
 int main(const int argc, const char** argv)
 {
-    std::cout << "This is motivo-build. Version: " << MOTIVO_VERSION_STRING << std::endl;
+    std::cout << "This is motivo-build. Version: " << MOTIVO_VERSION_STRING << "\n" << MOTIVO_COPYRIGHT_NOTICE << std::endl;
 
     static builder_opts opts;
     try
@@ -151,6 +182,20 @@ int main(const int argc, const char** argv)
         UndirectedGraph G(opts.graph);
         G.prefault();
         std::cout << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
+
+        double* color_distribution = nullptr;
+        if(!double_equality(opts.coloring_bias, 1))
+        {
+            color_distribution = new double[opts.colors];
+            int lpcn = opts.colors - 1; // number of low-probability colors
+            double lpc = std::min(1.0 * lpcn / opts.colors, opts.coloring_bias * lpcn); // aggregate prob of the first lpcn colors
+            bimodal_distribution(color_distribution, opts.colors, lpcn, lpc);
+            std::cout << "color 0 has probability " << color_distribution[0] << std::endl;
+            std::cout << "k-colorful probability=" << pcold(color_distribution, opts.colors) << std::endl;
+
+            if(color_distribution[0] < 100.0 / G.number_of_vertices())
+                std::cerr << "Warning! Less than 100 nodes in expectation with color 0" << std::endl;
+        }
 
         TreeletTableCollection ttc;
         CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>* readers = nullptr;
@@ -179,18 +224,18 @@ int main(const int argc, const char** argv)
                   << opts.to_vertex << " using " << opts.threads << " thread(s)" << std::endl;
 
         bool selective = *opts.selective_filename!='\0' && opts.size>1;
-        TreeletSelector* selector = nullptr;
+        TreeletStructureSelector* selector = nullptr;
         if(selective)
         {
-            selector = new TreeletSelector(opts.selective_filename, opts.size);
-            std::cout << "Selectively " << ((selector->get_mode()==TreeletSelector::MODE_INCLUDE)?"counting only ":"ignoring ") << selector->get_size() << " treelet(s) of the given size" << std::endl;
+            selector = new TreeletStructureSelector(TreeletStructureSelector(opts.selective_filename).restrict_to_sizes(opts.size,opts.size));
+            std::cout << "Selectively " << ((selector->get_mode()==TreeletStructureSelector::MODE_INCLUDE)?"counting only ":"ignoring ") << selector->size() << " treelet(s) of the given size" << std::endl;
         }
 
         std::chrono::time_point<std::chrono::steady_clock> tstart;
         if(opts.size==1)
         {
             Random rng(opts.seed);
-            Size1Builder builder(G.number_of_vertices(), opts.from_vertex, opts.to_vertex, opts.colors, opts.store0, &rng, &out);
+            Size1Builder builder(G.number_of_vertices(), opts.from_vertex, opts.to_vertex, opts.colors, color_distribution, &rng, &out);
             tstart = std::chrono::steady_clock::now();
             builder.build();
         }
@@ -202,7 +247,7 @@ int main(const int argc, const char** argv)
         }
         else
         {
-            SimpleMultithreadedBuilder builder(&G, opts.from_vertex, opts.to_vertex, opts.size, &ttc, opts.store0, selector, &out, opts.threads);
+            MultithreadedBuilder builder(&G, opts.from_vertex, opts.to_vertex, opts.size, &ttc, opts.store0, selector, &out, opts.threads);
             tstart = std::chrono::steady_clock::now();
             builder.build();
         }
@@ -214,10 +259,16 @@ int main(const int argc, const char** argv)
         std::cout << "Output written to " << filename << std::endl;
 
         // write info for later phases
-        std::ofstream infofile;
-        infofile.open(std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".info", std::ofstream::trunc);
-        infofile << "StoreOnlyOn0 " << std::to_string(opts.store0) << std::endl;
-        infofile.close();
+        PropertyStore properties;
+        properties.set_bool("StoreOnlyOn0", opts.store0);
+
+        if(color_distribution!= nullptr)
+            properties.set_double("ColoringProbability", pcold(color_distribution, opts.colors));
+
+        if(opts.size==1)
+            properties.set_uint8("NumberOfColors", opts.colors);
+
+        properties.save(std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".info");
 
         delete selector;
 

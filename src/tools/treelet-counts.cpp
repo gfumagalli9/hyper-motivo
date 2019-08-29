@@ -1,35 +1,33 @@
+// MIT License
 //
-// Created by steven on 6/21/18.
+// Copyright (c) 2017-2019 Stefano Leucci and Marco Bressan
 //
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 #include <map>
 #include <exception>
+#include "../common/util.h"
 #include "../common/treelets/TreeletTable.h"
-
-inline std::string uint128_to_string(uint128_t n) {
-    static const constexpr uint128_t ten_19 = 0x8ac7230489e80000; //10^19;
-    static const constexpr uint128_t ten_38 = ten_19 * ten_19; //Maximum power of 10 representable with an uint128_t
-
-    if (n == 0)
-        return "0";
-
-    std::string s = "";
-    bool significant_digit_found = false;
-    for (uint128_t max_dec = ten_38; max_dec != 0; max_dec /= 10) {
-        unsigned int digit = static_cast<unsigned int>(n / max_dec);
-        n = n % max_dec;
-        assert(digit <= 9);
-        if (significant_digit_found || digit != 0) {
-            significant_digit_found = true;
-            s += static_cast<char>('0' + digit);
-        }
-    }
-
-    return s;
-}
 
 int main(const int argc, const char** argv)
 {
-    std::cout << "This is motivo-treelet-counts. Version: " << MOTIVO_VERSION_STRING << std::endl;
+    std::cout << "This is motivo-treelet-counts. Version: " << MOTIVO_VERSION_STRING << "\n" << MOTIVO_COPYRIGHT_NOTICE << std::endl;
 
     if(argc!=2)
     {

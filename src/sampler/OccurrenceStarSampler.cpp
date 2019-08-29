@@ -1,202 +1,190 @@
-/*
- * OccurrenceStarSampler.cpp
- *
- *  Created on: 25 mag 2018
- *      Author: brix
- */
+// MIT License
+//
+// Copyright (c) 2017-2019 Stefano Leucci and Marco Bressan
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 #include <thread>
 #include <queue>
 #include <algorithm>
 #include "OccurrenceStarSampler.h"
 #include "../common/util.h"
-#include "SpanningTreeCounter.h"
 #include "../sampler/SampleTable.h"
+#include "SpanningTreeCounter.h"
 
-OccurrenceStarSampler::OccurrenceStarSampler(const UndirectedGraph* g, unsigned int size,
-		unsigned int number_of_threads, bool canonicize) :
-		g(g), size(size), number_of_threads(number_of_threads), canonicize(canonicize) {
-	root_sampler = new AliasMethodSampler<UndirectedGraph::vertex_t, uint128_t>(
-			g->number_of_vertices());
-	for (UndirectedGraph::vertex_t v = 0; v < g->number_of_vertices(); v++)
-		root_sampler->set(v, binomial(g->degree(v), size - 1)); //FIXME: Check type size. Fix return type of binomial
+OccurrenceStarSampler::OccurrenceStarSampler(const UndirectedGraph* g, unsigned int size, bool canonicize) :
+        g(g), size(size), canonicize(canonicize)
+{
+    root_sampler = new AliasMethodSampler<UndirectedGraph::vertex_t, uint128_t>(g->number_of_vertices());
 
-	root_sampler->build();
+    for (UndirectedGraph::vertex_t v = 0; v < g->number_of_vertices(); v++)
+        root_sampler->set(v, static_cast<uint128_t>(binomial(g->degree(v), size - 1)+0.5)); //FIXME: Check type size. Fix return type of binomial
+
+    root_sampler->build();
 }
 
-OccurrenceStarSampler::~OccurrenceStarSampler() {
-	delete root_sampler;
+OccurrenceStarSampler::~OccurrenceStarSampler()
+{
+    delete root_sampler;
 }
 
 /**
  * Draw one sample.
  */
-void OccurrenceStarSampler::sample_one(Occurrence *occurrence, Random *rng) {
-	static thread_local OccurrenceCanonicizer canonicizer(size);
+void OccurrenceStarSampler::sample_one(Occurrence *occurrence, Random *rng)
+{
+    static thread_local OccurrenceCanonicizer canonicizer(size);
 
-	//FIXME: Handle the case of no stars to sample
-	UndirectedGraph::vertex_t r = root_sampler->sample(rng);
+    //FIXME: Handle the case of no stars to sample
+    UndirectedGraph::vertex_t r = root_sampler->sample(rng);
 
-	const UndirectedGraph::vertex_t d = g->degree(r);
-	assert(size - 1 <= d);
+    const UndirectedGraph::vertex_t d = g->degree(r);
+    assert(size - 1 <= d);
 
-	// now we select (size-1) indices picked u.a.r. from {0,...,d-1}
-	static thread_local UndirectedGraph::vertex_t buf[sampling_vs_shuffling_degree_threshold]; //FIXME: avoid big stack allocation?
-	if (d < sampling_vs_shuffling_degree_threshold) {
-		// we use Knuth's shuffle
-		for (UndirectedGraph::vertex_t i = 0; i < d; i++) // we will put our occurrence in buf[0],...,buf[size-1]
-			buf[i] = i;
+    // now we select (size-1) indices picked u.a.r. from {0,...,d-1}
+    static thread_local UndirectedGraph::vertex_t buf[sampling_vs_shuffling_degree_threshold]; //FIXME: avoid big stack allocation?
+    if (d <= sampling_vs_shuffling_degree_threshold)
+    {
+        // we use Knuth's shuffle
+        for (UndirectedGraph::vertex_t i = 0; i < d; i++) // we will put our occurrence in buf[0],...,buf[size-1]
+            buf[i] = i;
 
-		for (unsigned int i = 0; i < size - 1; i++) //stop early (we don't need buf[size-1],...,buf[d-1])
-				{
-			UndirectedGraph::vertex_t j = rng->random_uint<UndirectedGraph::vertex_t>(i, d - 1);
-			UndirectedGraph::vertex_t t = buf[j];
-			buf[j] = buf[i];
-			buf[i] = t;
-		}
-	} else {
-		// random sampling
-		bool are_distinct = false;
-		//FIXME: We don't need to reroll all the indices
-		// (when a duplicate is found, just reroll the previous index. In this way we also exploit the sorted
-		// order when checking whether the next element is also duplicated)
-		while (!are_distinct) {
-			// with high probability we'll get (size-1) distinct indices quickly
-			for (unsigned int i = 0; i < size - 1; i++)
-				buf[i] = rng->random_uint<UndirectedGraph::vertex_t>(0, d - 1);
+        for (unsigned int i = 0; i < size - 1; i++) //stop early (we don't need buf[size-1],...,buf[d-1])
+        {
+            UndirectedGraph::vertex_t j = rng->random_uint<UndirectedGraph::vertex_t>(i, d - 1);
+            UndirectedGraph::vertex_t t = buf[j];
+            buf[j] = buf[i];
+            buf[i] = t;
+        }
+    }
+    else
+    {
+        // random sampling
+        bool are_distinct = false;
+        //FIXME: We don't need to reroll all the indices
+        // (when a duplicate is found, just reroll the previous index. In this way we also exploit the sorted
+        // order when checking whether the next element is also duplicated)
+        while (!are_distinct)
+        {
+            // with probability > 81.47%  we'll get (size-1) distinct indices (<1.228 iterations needed in expectation)
+            for (unsigned int i = 0; i < size - 1; i++)
+                buf[i] = rng->random_uint<UndirectedGraph::vertex_t>(0, d - 1);
 
-			std::sort(buf, buf + size - 1);
-			are_distinct = true;
-			for (unsigned int i = 1; i < size - 1 && are_distinct; i++)
-				are_distinct = (buf[i] != buf[i - 1]);
-		}
-	}
+            std::sort(buf, buf + size - 1);
+            are_distinct = true;
+            for (unsigned int i = 1; i < size - 1 && are_distinct; i++)
+                are_distinct = (buf[i] != buf[i - 1]);
+        }
+    }
 
-	// our indices are in buf[0],...,buf[size - 2]
-	// we convert the indices into actual nodes, and add the root
-	for (unsigned int i = 0; i < size - 1; i++)
-		buf[i] = g->neighbor(r, buf[i]);
+    // our indices are in buf[0],...,buf[size - 2]
+    // we convert the indices into actual nodes, and add the root
+    for (unsigned int i = 0; i < size - 1; i++)
+        buf[i] = g->neighbor(r, buf[i]);
 
-	buf[size - 1] = r;
-	new (occurrence) Occurrence(size, g, buf);
+    buf[size - 1] = r;
+    new (occurrence) Occurrence(size, g, buf);
 
-	if (canonicize)
-		canonicizer.canonicize(occurrence);
+    if (canonicize)
+        canonicizer.canonicize(occurrence);
 
 }
 
-void OccurrenceStarSampler::do_sample_mt(occ_count_table_t* tab, sequencer_t *sequencer,
-		Random* rng) {
-	while (true) {
-		sequencer_t::sequence_batch_t batch = sequencer->next_batch();
-		if (batch.from >= batch.to)
-			break;
+void OccurrenceStarSampler::sample_thread(unsigned int thread_no, std::vector<Occurrence>& samples, sequencer_t *sequencer, Random *rng, TimeoutThreadSync &sync)
+{
+    auto &terminate_flag = sync.get_termination_flag(thread_no);
 
-		for (uint64_t i = batch.from; i < batch.to; i++) {
-			Occurrence o;
-			sample_one(&o, rng);
-			(*tab)[o]++;
-		}
-	}
+    while(true)
+    {
+        sequencer_t::sequence_batch_t batch = sequencer->next_batch();
+        if (batch.from >= batch.to_exclusive)
+            break;
 
-	delete rng;
+        for (uint64_t i = batch.from; i<batch.to_exclusive; i++)
+        {
+            Occurrence o;
+            sample_one(&o, rng);
+            samples.push_back(o);
+
+            if(terminate_flag) //FIXME: Do we want to check at every iteration?
+                goto end;
+        }
+    }
+
+    end:
+    sync.signal_termination_one();
 }
 
-/**
- * Take a given number of samples using a given number of threads.
- */
-SampleTable* OccurrenceStarSampler::sample(uint64_t num_samples, Random *rng, double time_budget) {
-	SampleTable* table = new SampleTable();
-	bool on_budget = (num_samples == 0 && time_budget > 0
-			&& time_budget != std::numeric_limits<double>::infinity());
-	if (num_samples == 0 && !on_budget)
-		return table;
-	if (!on_budget && num_samples < 10 * number_of_threads)
-		number_of_threads = std::ceil(1.0 * num_samples / 10);
-	std::chrono::time_point < std::chrono::steady_clock > totTimeStart =
-			std::chrono::steady_clock::now();
-	double totTime = 0;
-	occ_count_table_t count_tab;
-	count_tab.set_empty_key(Occurrence());
-	OccurrenceCanonicizer canon(size);
-	if (number_of_threads <= 1) {
-		Occurrence o;
-		uint64_t i = 0;
-		while ((i < num_samples || num_samples == 0) && totTime < time_budget) {
-			sample_one(&o, rng);
-			count_tab[o]++;
-			totTime = (static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
-					- totTimeStart)).count();
-		}
-	} else {
-		std::cout << number_of_threads << " " << on_budget << " " << num_samples << std::endl;
-		uint64_t samples_rem = num_samples;
-		uint64_t batch_size = 10; // samples batch size (per thread)
-		occ_count_table_t* count_tabs = new occ_count_table_t[number_of_threads];
-		for (int id = 0; id < number_of_threads; id++)
-			count_tabs[id].set_empty_key(Occurrence());
-		while (samples_rem > 0 || (on_budget && totTime < time_budget)) {
-			std::chrono::time_point < std::chrono::steady_clock > roundStart =
-					std::chrono::steady_clock::now();
-			if (num_samples == 0)
-				samples_rem = (uint64_t) batch_size * number_of_threads;
-			const uint64_t round_samples = std::min((uint64_t) batch_size * number_of_threads,
-					samples_rem);
-			auto sequencer = new sequencer_t(0, round_samples, number_of_threads);
-			uint64_t thread_samples = std::ceil(1.0 * round_samples / number_of_threads);
-			std::queue<std::thread> thread_q;
-			uint64_t round_samples_rem = round_samples;
-			int id = 0;
-			while (id < number_of_threads && round_samples_rem > 0) {
-				thread_samples = std::min(thread_samples, round_samples_rem);
-				Random* r = rng->derived_rng();
-				auto ct = &count_tabs[id];
-				thread_q.push(
-						std::thread([this, ct, sequencer, r] {do_sample_mt(ct, sequencer, r);}));
-				round_samples_rem -= thread_samples;
-				samples_rem -= thread_samples;
-				id++;
-			}
-			while (!thread_q.empty()) { // join threads
-				thread_q.front().join();
-				thread_q.pop();
-			}
-			delete sequencer;
-			for (int id = 0; id < number_of_threads; id++) { // cumulate counts
-				for (auto &it : count_tabs[id]) {
-					Occurrence o = it.first;
-					count_tab[o] += it.second;
-				}
-				count_tabs[id].clear();
-			}
-			double totTime =
-					(static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
-							- totTimeStart)).count();
-			if (totTime >= time_budget)
-				break;
-			double roundElapsed =
-					(static_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now()
-							- roundStart)).count();
-			// Adapt the batch size so to make the time per round approx 5% of the budget
-			if (on_budget
-					&& ((roundElapsed < 0.05 * time_budget) || (roundElapsed > 0.1 * time_budget)))
-				batch_size *= (0.05 * time_budget / roundElapsed);
-			batch_size = std::max(batch_size, 10ul);
-		}
-		delete[] count_tabs;
-	}
 
-	SpanningTreeCounter stc;
-	for (auto &it : count_tab) {
-		Occurrence o = it.first;
-		SampleTable::Entry e;
-		e.fingerprint = o.text_footprint();
-		e.occ = o;
-		e.sample_count = it.second;
-		e.num_spanning_trees = stc.num_spanning_stars(o);
-		table->addEntry(e);
-	}
-	table->estimateFrequencies();
-	return table;
+
+SampleTable* OccurrenceStarSampler::sample(const uint64_t num_samples, unsigned int number_of_threads, Random *rng, double time_budget)
+{
+    if(std::isnan(time_budget) || time_budget<=0 || (num_samples == 0 && std::isinf(time_budget)) ) //Either nothing to do or infinite samples
+        return new SampleTable();
+
+    if (num_samples != 0 && num_samples < 10 * number_of_threads)
+        number_of_threads = static_cast<unsigned int>((num_samples + 9) / 10 ); //ceil(samples/10)
+
+    //Init per-thread structures
+    TimeoutThreadSync threadSync(number_of_threads);
+    auto threads = new std::thread[number_of_threads];
+    auto rngs = new Random *[number_of_threads];
+    auto samples = new std::vector<Occurrence>[number_of_threads]();
+
+    for (unsigned int i = 0; i < number_of_threads; i++)
+        rngs[i] = rng->derived_rng();
+
+    //Launch threads
+    sequencer_t sequencer(0, (num_samples!=0)?num_samples:sequencer_t::to_max, number_of_threads);
+    for (unsigned int i = 0; i < number_of_threads; i++)
+        threads[i] = std::thread([this, i, samples, &sequencer, rngs, &threadSync] {
+            sample_thread(i, samples[i], &sequencer, rngs[i], threadSync);
+        });
+
+    //Wait for the threads to be done or for time_budget seconds
+    if (!std::isinf(time_budget))
+        threadSync.wait_timeout(time_budget);
+    else
+        threadSync.wait();
+
+    //Either all the threads are done already or we hit a timeout. Ask the threads to terminate regardless
+    threadSync.request_termination();
+    for (unsigned int i = 0; i < number_of_threads; i++)
+        threads[i].join();
+
+
+    // Create sample table
+    auto sample_table = new SampleTable();
+    for (unsigned int i = 0; i < number_of_threads; i++)
+    {
+        sample_table->add_occurrences(samples[i].begin(), samples[i].end(), 'S');
+        samples[i].clear();
+    }
+
+
+    //Cleanup
+    delete[] samples;
+    delete[] threads;
+    for (unsigned int i = 0; i < number_of_threads; i++)
+        delete rngs[i];
+    delete[] rngs;
+
+    return sample_table;
 }
 

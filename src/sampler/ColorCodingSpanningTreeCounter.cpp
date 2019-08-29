@@ -1,10 +1,32 @@
+// MIT License
+//
+// Copyright (c) 2017-2019 Stefano Leucci and Marco Bressan
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 #include "ColorCodingSpanningTreeCounter.h"
 
-ColorCodingSpanningTreeCounter::ColorCodingSpanningTreeCounter(const Occurrence *occurrence, const TreeletSelector *selector)
-        : occurrence(occurrence), selector(selector), size(occurrence->get_size())
+ColorCodingSpanningTreeCounter::ColorCodingSpanningTreeCounter(const Occurrence *occurrence, bool store_only_0, const TreeletStructureSelector *selector)
+        : occurrence(occurrence), size(occurrence->get_size()), store_only_0(store_only_0), selector(selector)
 {
     if(!occurrence->is_valid())
-        throw new std::runtime_error("Invalid occurrence");
+        throw std::runtime_error("Invalid occurrence");
 }
 
 ColorCodingSpanningTreeCounter::~ColorCodingSpanningTreeCounter()
@@ -47,17 +69,30 @@ void ColorCodingSpanningTreeCounter::count()
 
 void ColorCodingSpanningTreeCounter::do_build(const unsigned int current_size)
 {
-    for(unsigned int u = 0; u < occurrence->get_size(); u++)
+    if(!store_only_0 || current_size != size)
     {
-        COLORCODINGSPANNINGTREECOUNTER_INIT_HASHMAP(tables[current_size-1][u]);
-
-        for(unsigned int v = 0; v < u; v++)
+        for (unsigned int u = 0; u < occurrence->get_size(); u++)
         {
-            if(occurrence->has_edge(u,v)) //u > v must hold
+            COLORCODINGSPANNINGTREECOUNTER_INIT_HASHMAP(tables[current_size - 1][u]);
+
+            for (unsigned int v = 0; v < u; v++)
             {
-                combine(u, v, current_size);
-                combine(v, u, current_size);
+                if (occurrence->has_edge(u, v)) //u > v must hold
+                {
+                    combine(u, v, current_size);
+                    combine(v, u, current_size);
+                }
             }
+        }
+    }
+    else
+    {
+        COLORCODINGSPANNINGTREECOUNTER_INIT_HASHMAP(tables[current_size - 1][0]);
+        for (unsigned int v=1; v<size; v++)
+        {
+            COLORCODINGSPANNINGTREECOUNTER_INIT_HASHMAP(tables[current_size - 1][v]);
+            if (occurrence->has_edge(v, 0))
+                combine(0, v, current_size);
         }
     }
 
@@ -95,7 +130,7 @@ void ColorCodingSpanningTreeCounter::combine(const unsigned int u, const unsigne
                 assert(entry2.second != 0);
 
                 Treelet merged = entry1.first.merge(entry2.first);
-                if (!merged.is_valid() || (selector && !selector->is_included(merged)))
+                if (!merged.is_valid() || (selector && !selector->is_included(merged.get_structure())))
                     continue; //We could break early in case of invalid merge if we use a sorted vector (like in TreeletTableBuilder)
 
                 tables[current_size-1][u][merged] += entry1.second * entry2.second;
@@ -104,23 +139,11 @@ void ColorCodingSpanningTreeCounter::combine(const unsigned int u, const unsigne
     }
 }
 
-/**
- * The total number of spanning trees of this graphlet.
- */
-uint64_t ColorCodingSpanningTreeCounter::number_of_spanning_trees() const
-{
-    uint64_t spanning_trees = 0;
-    for(unsigned int u = 0; u < occurrence->get_size(); u++)
-        for (auto &entry : tables[size-1][u])
-            spanning_trees += entry.second;
-
-    return spanning_trees / size;
-}
 
 /**
  * The total number of *rooted* spanning trees of this graphlet; that is, k times the number of distinct spanning trees.
  */
-uint64_t ColorCodingSpanningTreeCounter::number_of_rooted_spanning_trees() const
+uint64_t ColorCodingSpanningTreeCounter::number_of_counted_rooted_spanning_trees() const
 {
     uint64_t spanning_trees = 0;
     for(unsigned int u = 0; u < occurrence->get_size(); u++)
@@ -134,7 +157,7 @@ uint64_t ColorCodingSpanningTreeCounter::number_of_rooted_spanning_trees() const
  * The total number of spanning trees of this graphlet *rooted* at a given node.
  * Due to TreeletSelector, in this is not simply the number of spanning trees divided by k.
  */
-uint64_t ColorCodingSpanningTreeCounter::number_of_spanning_trees_rooted_at(const unsigned int root) const
+uint64_t ColorCodingSpanningTreeCounter::number_of_counted_spanning_trees_rooted_at(const unsigned int root) const
 {
     uint64_t spanning_trees = 0;
     for (auto &entry : tables[size-1][root])

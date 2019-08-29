@@ -1,6 +1,24 @@
+// MIT License
 //
-// Created by steven on 12/21/18.
+// Copyright (c) 2017-2019 Stefano Leucci and Marco Bressan
 //
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 #ifndef MOTIVO_COLORCODINGBUILDER_H
 #define MOTIVO_COLORCODINGBUILDER_H
@@ -9,17 +27,18 @@
 #include "../common/treelets/Treelet.h"
 #include "../common/treelets/TreeletTable.h"
 #include "../common/treelets/TreeletTableCollection.h"
-#include "../common/treelets/TreeletSelector.h"
+#include "../common/treelets/TreeletStructureSelector.h"
+
 
 class ColorCodingBuilder
 {
 private:
     const unsigned int size;
     const TreeletTableCollection* const lower;
-    const TreeletSelector* const selector;
+    const TreeletStructureSelector* const selector;
 
 public:
-    ColorCodingBuilder(const unsigned int size, const TreeletTableCollection* lower, const TreeletSelector* const selector)  : size(size), lower(lower), selector(selector)
+    ColorCodingBuilder(const unsigned int size, const TreeletTableCollection* lower, const TreeletStructureSelector* const selector)  : size(size), lower(lower), selector(selector)
     {
         if(size==0)
             throw std::runtime_error("Invalid size");
@@ -48,14 +67,14 @@ public:
                     assert(v_it.count() != 0);
 
                     Treelet merged = t1.merge(t2);
-                    if(merged.is_valid() && (!selector || selector->is_included(merged)))
+                    if(merged.is_valid() && (!selector || selector->is_included(merged.get_structure())))
                     {
                         TreeletTable::treelet_count_t &count = counts[merged];
                         TreeletTable::treelet_count_t tmp;
                         safe_mul(u_it.count(), v_it.count(), &tmp);
                         safe_add(count, tmp, &count);
                     }
-                    else if(merged == Treelet::invalid_merge_structure)
+                    else if(merged == invalid_merge_structure)
                         break; //All the remaining treelets t2 will have a structure that is too small.
                 }
             }
@@ -75,7 +94,7 @@ public:
 
         //Make sure array is properly aligned
         static_assert( (sizeof(UndirectedGraph::vertex_t) + sizeof(uint64_t)) % alignof(TreeletTable::treelet_count_pair) == 0, "treelet_count_pair not aligned in buffer" );
-        TreeletTable::treelet_count_pair *counts = new(result.first+sizeof(UndirectedGraph::vertex_t)+sizeof(uint64_t)) TreeletTable::treelet_count_pair[size];
+        auto counts = new(result.first+sizeof(UndirectedGraph::vertex_t)+sizeof(uint64_t)) TreeletTable::treelet_count_pair[size];
         TreeletTable::treelet_count_t i=0;
         typename T::const_iterator u_it = table.begin();
         while(u_it != table.end())

@@ -1,6 +1,24 @@
+// MIT License
 //
-// Created by steven on 11/19/17.
+// Copyright (c) 2017-2019 Stefano Leucci and Marco Bressan
 //
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 #include <iostream>
 #include <config.h>
@@ -10,21 +28,24 @@
 class SJTPermutationGenerator
 {
 private:
-    int n;
+    const unsigned int n;
     unsigned int* elements;
     signed char* direction;
 
 public:
-    SJTPermutationGenerator(int n) : n(n)
+    explicit SJTPermutationGenerator(const unsigned int n) : n(n)
     {
+        if(n==0)
+            throw std::runtime_error("n must be positive");
+
         elements = new unsigned int[n];
         direction = new signed char[n];
 
         elements[0] = 0;
         direction[0] = 0;
-        for(int i=1; i<n; i++)
+        for(unsigned int i=1; i<n; i++)
         {
-            elements[i]= static_cast<unsigned int>(i);
+            elements[i]=i;
             direction[i]=-1;
         }
     }
@@ -39,29 +60,37 @@ public:
 
     bool next()
     {
-        int i,j=-1;
+        unsigned int j=0;
         unsigned int x=0;
-        for(i=0; i<n; i++) // finds the largest element with a nonzero direction
-            if(direction[i]!=0 && elements[i]>=x)
-                x=elements[j=i];
+        bool found=false;
+        for(unsigned int i=0; i<n; i++) // finds the largest element with a nonzero direction
+        {
+            if(direction[i] != 0 && elements[i] >= x)
+            {
+                found=true;
+                j=i;
+                x=elements[i];
+            }
+        }
 
-        if(j==-1)
+        if(!found)
             return false;
 
-        int k = j + direction[j];
+        unsigned int k = (direction[j]>0)?(j+1):(j-1);
 
         {unsigned int t=elements[j]; elements[j]=elements[k]; elements[k]=t;}
         {signed char t=direction[j]; direction[j]=direction[k]; direction[k]=t;}
 
-        //If this causes the chosen element to reach the first or last position within the permutation, or if the next element in the same direction is larger than the chosen element, the direction of the chosen element is set to zero
-        if(k==0 || k==n-1 || elements[k+direction[k]] > x)
+        //If this causes the chosen element to reach the first or last position within the permutation,
+        //or if the next element in the same direction is larger than the chosen element, the direction of the chosen element is set to zero
+        if(k==0 || k==n-1 || elements[(direction[k]>0)?(k+1):(k-1)] > x)
             direction[k]=0;
 
-        for(i=0; i<k; i++)
+        for(unsigned int i=0; i<k; i++)
             if(elements[i]>x)
                 direction[i]=1;
 
-        for(i=k+1; i<n; i++)
+        for(unsigned int i=k+1; i<n; i++)
             if(elements[i]>x)
                 direction[i]=-1;
 
@@ -72,7 +101,7 @@ public:
 
 unsigned int nverts=0;
 unsigned int parents[16] = {0};
-bool adj_matrix[16][16] = {0};
+bool adj_matrix[16][16] = {{false}};
 
 inline bool is_homomorfism(const unsigned int* perm)
 {
@@ -88,7 +117,7 @@ inline bool is_homomorfism(const unsigned int* perm)
 uint64_t compute()
 {
     uint64_t count=0;
-    SJTPermutationGenerator P(static_cast<int>(nverts));
+    SJTPermutationGenerator P(nverts);
     do
     {
         count+=is_homomorfism(P.permutation());
@@ -172,8 +201,8 @@ int main(const int argc, const char** argv)
     bool parse_ok = op.parse(argc, argv);
     if(!parse_ok || help_opt->is_found())
     {
-        std::cout << "motivo-homomorphism [OPTION]..." << std::endl;
-        std::cout << "  Counts the number of induced homomorfisms from a treelet to an occurrence" << std::endl << std::endl;
+        std::cout << "motivo-homomorphism [OPTION]..." << "\n" << MOTIVO_COPYRIGHT_NOTICE << std::endl;
+        std::cout << "  Counts the number of induced homomorphisms from a treelet to an occurrence" << std::endl << std::endl;
         std::cout << op.help() << std::endl;
 
         return parse_ok?EXIT_SUCCESS:EXIT_FAILURE;

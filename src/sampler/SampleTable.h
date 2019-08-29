@@ -1,58 +1,102 @@
-/*
- * SampleTable.h
- *
- *  Created on: 30 mag 2018
- *      Author: brix
- */
+// MIT License
+//
+// Copyright (c) 2017-2019 Stefano Leucci and Marco Bressan
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 #ifndef SRC_SAMPLER_SAMPLETABLE_H_
 #define SRC_SAMPLER_SAMPLETABLE_H_
 
-#include "Occurrence.h"
 #include <ostream>
 #include <string>
+#include <vector>
 #include <sparsehash/dense_hash_map>
-#include "OccurrenceSampler.h"
+#include "../common/treelets/TreeletStructureSelector.h"
+#include "Occurrence.h"
+#include "DynamicSequencer.h"
+#include "SpanningTreeCounter.h"
 
 class SampleTable
 {
 public:
-    //typedef google::dense_hash_map<Occurrence, uint64_t, Occurrence::OccurrenceHash, Occurrence::compare_eq> table_t;
-
     class Entry // a table entry
     {
     public:
-        Occurrence occ;
-        std::string fingerprint = "";
-        uint128_t num_spanning_trees = 0;
+        Occurrence occurrence;
+        uint64_t num_spanning_trees = 0;
         uint64_t sample_count = 0;
-        double estimate_graph_frequency = 0;
-        double estimate_graph_occurrences = 0;
+        double estimated_graph_frequency = 0;
+        double estimated_graph_occurrences = 0;
+        char type = '?';
     };
+
+    typedef std::vector<Entry>::const_iterator const_iterator;
+
+    static constexpr const char* header = "footprint, vertices, sample_count, type, spanning_trees, estimated_frequencies, estimated_occurences";
 
 private:
     std::vector<Entry> entries;
     uint64_t num_samples = 0;
+    typedef DynamicSequencer<uint64_t> sequencer_t;
+
+    void spanning_tree_count_thread(const std::vector<std::vector<Entry>::iterator> &distinct_footprints, sequencer_t &sequencer, SpanningTreeCounter &counter);
 
 
 public:
 	SampleTable() = default;
-	SampleTable(Occurrence *occurrences, uint64_t noccurrences, TreeletSelector *ts = nullptr); // build from list of Occurrecens;
 
-    void addEntry(Entry e);
+    void add_entry(Entry e);
 
-    void estimateOccurrences(double num_graph_treelets, unsigned int k, bool store_only_0 = false);
-	void estimateFrequencies();
-	void update_spanning_trees(TreeletSelector *ts);
+    template<typename Iterator> void add_occurrences(const Iterator first, const Iterator end, const char type)
+    {
+        for(Iterator it=first; it!=end; it++)
+        {
+            SampleTable::Entry e;
+            e.occurrence = *it;
+            e.sample_count = 1;
+            e.type = type;
+            entries.push_back(e);
+            num_samples++;
+        }
+    }
 
-	void sort_by_estimate_occ();
+    void count_rooted_spanning_trees(const TreeletStructureSelector *selector, unsigned int ntherads);
 
-    std::string header();
+    void count_rooted_spanning_stars();
 
-    static SampleTable merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2); // merge two tables (see source for details)
-    static SampleTable average(SampleTable& t1, SampleTable& t2, double w1, double w2); // average two tables (see source for details)
-	static SampleTable saverage(SampleTable& t1, SampleTable& t2);
-	friend std::ostream& operator<<(std::ostream& os, const SampleTable& st);
+    void estimate_occurrences(double num_graph_treelets);
+
+	void estimate_frequencies();
+
+    void rescale_occurrences(double factor);
+
+    void sort_by_estimate_occurrences();
+
+    void sort_by_footprint();
+
+    void group_by_footprint();
+
+    static SampleTable* merge(SampleTable& t1, SampleTable& t2, double tcount1, double tcount2); // merge two tables (see source for details)
+
+    static SampleTable* weighted_average(SampleTable &t1, SampleTable &t2, double w1, double w2); // average two tables (see source for details)
+
+    friend std::ostream& operator<<(std::ostream& os, const SampleTable& st);
 
 	uint64_t get_num_samples() const
     {
@@ -64,10 +108,10 @@ public:
 		return entries.size();
 	}
 
-	const Entry* get_entries() const
-    {
-        return entries.data();
-    }
+	double norm2() const;
+
+	const_iterator begin() const { return entries.cbegin(); };
+    const_iterator end() const { return entries.cend(); }
 };
 
 #endif /* SRC_SAMPLER_SAMPLETABLE_H_ */

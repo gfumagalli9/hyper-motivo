@@ -3,7 +3,7 @@
 # Only use spaces to indent your .yml configuration.
 # -----
 # You can specify a custom docker image from Docker Hub as your build environment.
-image: debian:stretch
+image: debian:buster
 
 pipelines:
   default:
@@ -11,11 +11,13 @@ pipelines:
         script:
           - apt-get update
           - apt-get install -y cmake g++
-          - apt-get install -y libsparsehash-dev libopenblas-dev liblapacke-dev libnauty2-dev liblz4-dev
+          - apt-get install -y valgrind
+          - apt-get install -y libsparsehash-dev libnauty2-dev liblz4-dev
           - mkdir build
           - cd build
           - cmake -DENABLE_ASSERTS=YES -DMOTIVO_OVERFLOW_SAFE=YES ..
           - make
-          - make test
+          - ctest
+          - ctest -T memcheck
           - make package
           - dpkg -i Motivo-*-Linux.deb

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.12)
 project(Motivo)
 
 set(MOTIVO_VERSION_MAJOR 0)
@@ -26,7 +26,7 @@ option(MOTIVO_DENSE_HASHMAP "Use dense hashmaps" OFF)
 
 set(MOTIVO_FLAGS "")
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wconversion -Wall -Wextra -Wpedantic -pedantic-errors -Wdisabled-optimization -Wfloat-equal -Wold-style-cast -Wsign-conversion -Winline -Wzero-as-null-pointer-constant -Wuseless-cast -Wno-zero-as-null-pointer-constant -Wno-unknown-warning-option")
 
 if(ENABLE_ASSERTS)
@@ -149,42 +149,10 @@ else()
     set(MOTIVO_FLAGS "${MOTIVO_FLAGS} al")
 endif()
 
-find_library(OPENBLAS NAMES openblas)
-if(OPENBLAS)
-    message(STATUS "openblas library found")
-    set(ALGEBRA_LIBRARIES ${ALGEBRA_LIBRARIES} openblas)
-
-    set(OLD_CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES})
-    set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} openblas)
-    check_cxx_source_compiles("#include <lapacke.h>\n int main() { LAPACKE_dpotrf_work('X', 'X', 0, NULL, 0); }" OPENBLAS_HAS_LAPACKE)
-    set(CMAKE_REQUIRED_LIBRARIES ${OLD_CMAKE_REQUIRED_LIBRARIES})
-else()
-    find_library(BLAS NAMES blas)
-    if(BLAS)
-        message(STATUS "blas library found")
-        set(ALGEBRA_LIBRARIES ${ALGEBRA_LIBRARIES} blas)
-    else()
-        message(FATAL_ERROR "Could not find cblas library")
-    endif()
-endif()
-
-if(OPENBLAS AND OPENBLAS_HAS_LAPACKE)
-    message(STATUS "openblas includes lapacke library")
-else()
-    find_library(LAPACKE NAMES lapacke)
-    if(LAPACKE)
-        message(STATUS "lapacke library found")
-        set(ALGEBRA_LIBRARIES ${ALGEBRA_LIBRARIES} lapacke)
-    else()
-        message(FATAL_ERROR "Could not find lapacke library")
-    endif()
-endif()
-
 find_library(NAUTY NAMES nauty)
 if(NOT NAUTY)
     message(FATAL_ERROR "Could not find nauty library")
 endif()
-
 
 find_path(NAUTY_INCLUDE_DIR nauty/nauty.h)
 if(NAUTY_INCLUDE_DIR)
@@ -205,25 +173,19 @@ endif()
 
 add_custom_target(hg_id COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/hg_id.cmake)
 
-file(COPY scripts/build-and-sample.sh DESTINATION .)
-file(COPY scripts/build-many.sh DESTINATION .)
-file(COPY scripts/loe_to_graph.py DESTINATION .)
-
 string(STRIP "${MOTIVO_FLAGS}" MOTIVO_FLAGS)
 configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-include(src/common/CMakeLists.txt)
-include(src/merger/CMakeLists.txt)
-include(src/builder/CMakeLists.txt)
-include(src/sampler/CMakeLists.txt)
-include(src/tools/CMakeLists.txt)
-include(tests/CMakeLists.txt)
 
-
+add_subdirectory(src/common/)
+add_subdirectory(src/builder/)
+add_subdirectory(src/merger/)
+add_subdirectory(src/sampler/)
+add_subdirectory(src/tools/)
+add_subdirectory(src/tests/)
 
 include(testing.cmake)
-
 
 
 INSTALL(TARGETS motivo-build DESTINATION bin)
@@ -232,10 +194,6 @@ INSTALL(TARGETS motivo-sample DESTINATION bin)
 INSTALL(TARGETS motivo-graph DESTINATION bin)
 INSTALL(TARGETS motivo-decompose DESTINATION bin)
 INSTALL(TARGETS motivo-homomorphism DESTINATION bin)
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/build-many.sh DESTINATION share/motivo)
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/build-and-sample.sh DESTINATION share/motivo)
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/loe_to_graph.py DESTINATION share/motivo)
-
 
 
 SET(CPACK_GENERATOR "DEB")
