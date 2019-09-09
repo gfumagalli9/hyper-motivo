@@ -127,7 +127,7 @@ Example:
 $ cmake -DCMAKE_BUILD_TYPE=Release -DOPTIMIZE_MORE=YES -DMOTIVO_OVERFLOW_SAFE=NO ..
 ~~~
 
-##Usage
+##Basic usage
 
 ###Graph format
 
@@ -219,11 +219,11 @@ Files ../graphs/test-graph.txt and test-graph-dump.txt are identical
 
 #### Building the first table
 ~~~
-$ bin/motivo-build -g test-graph --size 1 --colors 5 --output tables
+$ bin/motivo-build -g test-graph --size 1 --colors 4 --output tables
 [...]
 Loaded graph with 60 vertices and 159 edges
 Computing counts of treelets of size 1 for vertices 0--59 using 1 thread(s)
-Building time: 2.8309e-05 s
+Building time: 9.2341e-05 s
 Output written to tables.1.cnt
 ~~~
 
@@ -240,7 +240,7 @@ Total number of treelet occurrences: 60 (6 bits)
 Maximum number of occurrences rooted in a single vertex: 1 (1 bits)
 Maximum number of occurrences of a single rooted treelet: 1 (1 bits)
 Output written to files: tables.1.dtz, and tables.1.rts
-Merge time: 0.000682108 s
+Merge time: 0.00128869 s
 ~~~
 
 
@@ -252,29 +252,40 @@ $ bin/motivo-build -g test-graph --size 2 --tables-basename tables --output tabl
 Loaded graph with 60 vertices and 159 edges
 Loading tables for smaller sizes
 Computing counts of treelets of size 2 for vertices 0--59 using 4 thread(s)
-Building time: 0.000835162 s
+Building time: 0.00138115 s
 Output written to tables.2.cnt
 ~~~
 
 ~~~
 $ bin/motivo-merge --output tables.2 tables.2.cnt
+[...]
 ~~~
 
 ~~~
 $ bin/motivo-build -g test-graph --size 3 --tables-basename tables --output tables --threads 0
 $ bin/motivo-merge --output tables.3 tables.3.cnt
 $
-$ bin/motivo-build -g test-graph --size 4 --tables-basename tables --output tables --threads 0
+$ bin/motivo-build -g test-graph --size 4 --tables-basename tables --output tables --threads 0 --store-on-0-colored-vertices-only
 $ bin/motivo-merge --output tables.4 tables.4.cnt
-$
-$ bin/motivo-build -g test-graph --size 5 --tables-basename tables --output tables --threads 0
-$ bin/motivo-merge --output tables.5 tables.5.cnt
 ~~~
 
 ### Sampling
 
 ~~~
-
+$ bin/motivo-sample -g test-graph -i tables -s 4 -n 100000 --graphlets --estimate-occurrences --canonicize -o test --threads 0
+[...]
+Loaded graph with 60 vertices and 159 edges
+Loading tables and root sampler
+Using seed 6EA0024E9E1EB153
+Sampling using 4 thread(s)
+Using naive sampler
+Naive sampler: taken 100000 samples in 0.800924 s
+Sampling time: 0.861864 s
+$ cat test.csv 
+footprint, vertices, sample_count, type, spanning_trees, estimated_frequencies, estimated_occurences
+PMAAAAAAAAAAAAAAAAAAAAAAAAAAAA, 7 14 6 11, 99410, N, 64, 0.913275, 1919.94
+BMAAAAAAAAAAAAAAAAAAAAAAAAAAAA, 18 26 23 16, 547, N, 4, 0.0804042, 169.03
+EMAAAAAAAAAAAAAAAAAAAAAAAAAAAA, 35 32 34 33, 43, N, 4, 0.00632062, 13.2876
 ~~~
 
 ### Advanced options
