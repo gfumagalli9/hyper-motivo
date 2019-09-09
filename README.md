@@ -292,10 +292,10 @@ EMAAAAAAAAAAAAAAAAAAAAAAAAAAAA, 35 32 34 33, 43, N, 4, 0.00632062, 13.2876
 
 TODO
 
-##Bug reports
+## Bug reports
 
 Here: https://bitbucket.org/steven_/motivo/issues
 
-##License
+## License
 
 Motivo is released under the MIT License. Please see the file `LICENSE` provided with the source code for details. 
