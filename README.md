@@ -11,9 +11,9 @@ PVLDB, 12(11):1651-1663, 2019.
 DOI: https://doi.org/10.14778/3342263.3342640
 ~~~
 
-##Setup
+## Setup
 
-###Requirements
+### Requirements
 
 Motivo depends on the following libraries:
 
@@ -35,7 +35,7 @@ And, if you want to use the tcmalloc allocator:
 A C++17 aware compiler is required along with support for [u]int{8,16,32,64,128} types.
 Support for the [mmap](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mmap.html) (POSIX.1-2001 and later) function is also currently required.
 
-###Compiling
+### Compiling
 
 Install CMake (>= 3.12), checkout the source files and run:
 
@@ -86,7 +86,7 @@ If you want to run the tests with a memory checker (e.g., [valgrind](http://valg
 $ ctest -T memcheck
 ~~~~
 
-###Installing
+### Installing
 
 ~~~
 # make install
@@ -98,7 +98,7 @@ On Linux, motivo is installed in /usr/local by default. If you wish to chose ano
 $ cmake -DCMAKE_INSTALL_PREFIX:PATH=~/motivo ..
 ~~~
 
-###Building a Debian package
+### Building a Debian package
 
 If you prefer to install a Debian package, you can build one by running:
 
@@ -113,7 +113,7 @@ This will generate a package named "Motivo-<version>-Linux.deb", to install it r
 # apt-get install -f
 ~~~
 
-###Additional build< options
+### Additional build< options
 
 In addition to `-DCMAKE_BUILD_TYPE=...` you can pass the option `-DOPTIMIZE_MORE=YES` to cmake to enable additional optimization flags including `-march=native`. The resulting binaries might not work on other machines.
 
@@ -127,9 +127,9 @@ Example:
 $ cmake -DCMAKE_BUILD_TYPE=Release -DOPTIMIZE_MORE=YES -DMOTIVO_OVERFLOW_SAFE=NO ..
 ~~~
 
-##Basic usage
+## Basic usage
 
-###Graph format
+### Graph format
 
 Motivo uses its own binary graph format. The tool motivo-graph allows to convert between a text representation of the graph to motivo's binary format, and vice-versa.
 All graphs are simple, undirected, and loop-free. Vertices are consecutive integers starting from 0.
