@@ -179,8 +179,10 @@ Treelet Treelet::reroot(unsigned int new_root, const unsigned int* parents, cons
     //Generate structure corresponding to a dfs visit from new_root
 
     //Copy the subtree rooted at new_root
-    treelet_structure_t dfs_structure = STRUCTURE_BITSELECT(structure, subtree_bit_start[new_root], subtree_bit_end[new_root]- subtree_bit_start[new_root], 0);
+    treelet_structure_t dfs_structure=0;
     unsigned int index = subtree_bit_end[new_root] - subtree_bit_start[new_root];
+    if(index>0)
+        dfs_structure = STRUCTURE_BITSELECT(structure, subtree_bit_start[new_root], index, 0);
 
     //Handle the parents of new_root
     for(unsigned int completed = new_root; completed!=0; completed=parents[completed])

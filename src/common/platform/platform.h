@@ -106,7 +106,7 @@ inline int popcount32 [[gnu::const]] (uint32_t v)
 #endif
 #endif
 
-///@pre the leftmost bit of x is 0
+///@pre the leftmost bit of x is 1
 ///@returns the index of the smallest index i>0 such that the number of 0s and 1s in the leftmost i bits of x are equal
 inline uint8_t leftmost_bit_tie1 [[gnu::pure]] (uint32_t x)
 {
