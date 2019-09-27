@@ -68,7 +68,7 @@ done
 set -- "${POSITIONAL[@]}" # restore positional parameters
 
 print_usage() {
-    echo "Usage: $0 (-g|--graph) GRAPH (-k) GRAPHLET_SIZE (-s|--samples) NUM_SAMPLES (-o|--output) OUTPUT [--smart] [-c compress_threshold] [-t threads] [--smart-stars]"
+    echo "Usage: $0 (-g|--graph) GRAPH (-k) GRAPHLET_SIZE (-s|--samples) NUM_SAMPLES (-o|--output) OUTPUT [(-a|--adaptive)] [-c compress_threshold] [-t threads] [--smart-stars]"
 }
 
 if [ -z ${GRAPH+x} ]; then echo "Missing input graph basename (-g,--graph)"; print_usage; exit 1; fi
