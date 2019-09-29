@@ -215,7 +215,7 @@ int main(const int argc, const char** argv)
                 samples->count_rooted_spanning_trees(build_selector, opts.threads);
 
             //AdaptiveSampler already estimates occurrences
-            samples->rescale_occurrences(opts.size);
+            samples->rescale_occurrences(1/pcol(opts.size, colors));
 
             if(star_samples)
             {
