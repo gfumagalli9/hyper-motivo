@@ -48,7 +48,7 @@ public:
 
     typedef std::vector<Entry>::const_iterator const_iterator;
 
-    static constexpr const char* header = "footprint, vertices, sample_count, type, spanning_trees, estimated_frequencies, estimated_occurences";
+    static constexpr const char* header = "motif, est_occurrences, est_frequency, samples, sampling_algo, spanning_trees, vertices";
 
 private:
     std::vector<Entry> entries;
