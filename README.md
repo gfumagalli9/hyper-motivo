@@ -127,7 +127,7 @@ Example:
 $ cmake -DCMAKE_BUILD_TYPE=Release -DOPTIMIZE_MORE=YES -DMOTIVO_OVERFLOW_SAFE=NO ..
 ~~~
 
-## Basic usage
+## Input format
 
 ### Graph format
 
@@ -214,8 +214,71 @@ $ diff -bs ../graphs/test-graph.txt test-graph-dump.txt
 Files ../graphs/test-graph.txt and test-graph-dump.txt are identical
 ~~~
 
+## Basic usage
 
-### Building the tables
+From the `build/` folder, Motivo can be launched in two ways: (1) the easy way, via the wrapper `../scripts/motivo.sh` (2) the hard way, via `bin/motivo-build` and `bin/motivo-sample`.
+
+### The easy way
+
+The following example will compute 5-motif counts, using 100000 samples, storing the result in `output.csv`.
+
+~~~~
+$ ../scripts/motivo.sh -g /path/to/my/graph -k 5 -o output -s 100000
+[Mon 01 Jan 1900 00:00:00 AM CEST] Done
+size            build           merge           sample
+1               .01             .04
+2               .68             .07
+3               .61             .10
+4               .45             .12
+5               .19             .02             .51
+[Mon 01 Jan 1900 00:00:04 AM CEST] Done
+Samples are in output.csv:
+motif, est_occurrences, est_frequency, samples, sampling_algo, spanning_trees, vertices
+AHE, 8.4178e+11, 4.5161e-01, 30040, N, 5, 19544 26346 16176 9899 3702
+BFI, 4.0509e+11, 2.1733e-01, 14456, N, 5, 13422 7817 9903 22668 5188
+ADM, 3.2281e+11, 1.7319e-01, 11520, N, 5, 11799 26937 3720 3626 3693
+BFM, 8.6186e+10, 4.6238e-02, 9227, N, 15, 2038 11377 15212 22166 6125
+AHM, 7.6537e+10, 4.1062e-02, 8194, N, 15, 20794 3714 7898 9805 2331
+~~~~
+
+The output can be read as follows:
+
+- `motif`: the string signature of the motif (see `motivo_utils.py` for how to convert this signature, or how to plot the motif as a graph)
+- `est_occurrences`: the estimated absolute number of induced occurrences of the motif in the graph
+- `est_frequency`: the estimated relative frequency of induced occurrences of the motif in the graph
+- `samples`: how many copies of this motif did appear in the sample
+- `sampling_algo`: `N` for naive sampling, `A` for adaptive sampling
+- `spanning_trees`: the number of spanning trees in the motif
+- `vertices`: vertices of an occurrence of the motif in the graph
+
+After the first run, you can use the tables built by Motivo to sample again at your will:
+
+~~~
+$ ../scripts/motivo.sh -g /path/to/my/graph -k 5 -o output --sample -s 100000
+~~~
+
+On the other hand, you can build the tables without sampling:
+
+~~~
+$ ../scripts/motivo.sh -g /path/to/my/graph -k 5 -o output --build
+~~~
+
+In fact, the first example is perfectly equivalent to:
+
+~~~
+$ ../scripts/motivo.sh -g /path/to/my/graph -k 5 -o output --build
+$ ../scripts/motivo.sh -g /path/to/my/graph -k 5 -o output --sample -s 100000
+~~~
+
+All the examples above use the naive sampling. To use AGS (adaptive graphlet sampling):
+
+~~~
+$ ../scripts/motivo.sh -g /path/to/my/graph -k 5 -o output --sample -s 100000 -a
+~~~
+
+### The hard way
+
+If you need more control over Motivo, you can build the tables yourself and then proceed to sampling.
 
 #### Building the first table
 ~~~
@@ -269,7 +332,7 @@ $ bin/motivo-build -g test-graph --size 4 --tables-basename tables --output tabl
 $ bin/motivo-merge --output tables.4 tables.4.cnt
 ~~~
 
-### Sampling
+#### Sampling
 
 ~~~
 $ bin/motivo-sample -g test-graph -i tables -s 4 -n 100000 --graphlets --estimate-occurrences --canonicize -o test --threads 0
@@ -282,11 +345,57 @@ Using naive sampler
 Naive sampler: taken 100000 samples in 0.800924 s
 Sampling time: 0.861864 s
 $ cat test.csv 
-footprint, vertices, sample_count, type, spanning_trees, estimated_frequencies, estimated_occurences
-PMAAAAAAAAAAAAAAAAAAAAAAAAAAAA, 7 14 6 11, 99410, N, 64, 0.913275, 1919.94
-BMAAAAAAAAAAAAAAAAAAAAAAAAAAAA, 18 26 23 16, 547, N, 4, 0.0804042, 169.03
-EMAAAAAAAAAAAAAAAAAAAAAAAAAAAA, 35 32 34 33, 43, N, 4, 0.00632062, 13.2876
+motif, est_occurrences, est_frequency, samples, sampling_algo, spanning_trees, vertices
+AHE, 8.4178e+11, 4.5161e-01, 30040, N, 5, 19544 26346 16176 9899 3702
+BFI, 4.0509e+11, 2.1733e-01, 14456, N, 5, 13422 7817 9903 22668 5188
+ADM, 3.2281e+11, 1.7319e-01, 11520, N, 5, 11799 26937 3720 3626 3693
 ~~~
+
+### Converting and plotting motifs
+
+In the output, Motivo represents each motif as an ASCII string.
+For instance, `ADM` is the star on 5 nodes.
+This ASCII signature is, in fact, just a compact serialization of the adjacency matrix of the motif.
+To convert the signature to other formats (adjacency list, adjacency matrix, edge list), use `scripts/motivo_utils.py`.
+
+~~~
+>>> import motivo_utils as mu
+>>> mu.signature_to_matrix("ADM")
+array([[0, 0, 0, 0, 1],
+       [0, 0, 0, 0, 1],
+       [0, 0, 0, 0, 1],
+       [0, 0, 0, 0, 1],
+       [1, 1, 1, 1, 0]])
+~~~
+
+~~~
+>>> g = mu.Graphlet("ADM")
+>>> g.n()
+5
+>>> g.m()
+4
+>>> g.edge_list()
+array([[0, 4],
+       [1, 4],
+       [2, 4],
+       [3, 4],
+       [4, 0],
+       [4, 1],
+       [4, 2],
+       [4, 3]])
+~~~
+
+You can also graphically plot each motif in the csv table, as in this example:
+
+~~~
+$ ../scripts/motivo_utils.py plotmotif output.csv
+plotting from output.csv in pdf format
+$ ls *.pdf
+ADM.pdf AHM.pdf APM.pdf BFM.pdf BPM.pdf CPM.pdf EPM.pdf IFM.pdf JFM.pdf MNM.pdf PPM.pdf
+AHE.pdf API.pdf BFI.pdf BPI.pdf COM.pdf DPM.pdf HPM.pdf IHM.pdf MIM.pdf MPM.pdf
+~~~
+
+
 
 ### Advanced options
 
