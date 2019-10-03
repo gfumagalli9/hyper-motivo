@@ -75,11 +75,11 @@ private:
     const uint32_t buffer_size;
     const UndirectedGraph::vertex_t buffer_degree;
 
-    const TreeletStructureSelector* selector = nullptr;
+    bool use_selector = false;
     RangeSampler<TreeletTable::treelet_count_t>** range_samplers = nullptr;
     AliasMethodSampler<UndirectedGraph::vertex_t,TreeletTable::treelet_count_t>* root_sampler = nullptr;
 
-    void populate_root_and_range_sampler_mt(DynamicSequencer<UndirectedGraph::vertex_t> &sequencer);
+    void populate_root_and_range_sampler_mt(DynamicSequencer<UndirectedGraph::vertex_t> &sequencer, const TreeletStructureSelector *selector);
 
     void populate_buffer(DecompositionFIFOBuffer &buffer, UndirectedGraph::vertex_t u, const Treelet& t, Random *rng);
 
@@ -92,25 +92,24 @@ public:
 
     UndirectedGraph::vertex_t sample_root [[gnu::hot]] (Random* rng)
     {
-        if(!selector)
-            return table_collection->get_table(size)->get_random_root(rng);
-        else
+        if(use_selector)
             return root_sampler->sample(rng);
+	else
+            return table_collection->get_table(size)->get_random_root(rng);
     }
 
     Treelet sample_treelet [[gnu::hot]] (UndirectedGraph::vertex_t root, Random* rng)
     {
-        if(!selector)
-        {
-            Treelet t = table_collection->get_table(size)->get_random_treelet(root, rng);
-            assert(t.is_valid());
-            return t;
-        }
-        else
+        if(use_selector)
         {
             Treelet t = table_collection->get_table(size)->get_treelet_no(root, range_samplers[root]->sample(rng));
             assert(t.is_valid());
-            assert(selector->is_included(t.get_structure()));
+            return t;
+        }
+	else
+        {
+            Treelet t = table_collection->get_table(size)->get_random_treelet(root, rng);
+            assert(t.is_valid());
             return t;
         }
     }

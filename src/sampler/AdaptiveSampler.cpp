@@ -67,7 +67,7 @@ AdaptiveSampler::AdaptiveSampler(UndirectedGraph* graph, TreeletTableCollection*
 
 	// init the residuals and the priorities -- the most frequent treelet comes first
 	for (const auto &[structure, count] : numTreelets)
-        treeletPriority.insert(structure, 100.0 + static_cast<double>(numTreelets[structure]) / static_cast<double>(totTreelets) );
+        treeletPriority.insert(structure, 100.0 + static_cast<double>(count) / static_cast<double>(totTreelets) );
 
 	update_sampler();
 }
@@ -189,9 +189,12 @@ SampleTable* AdaptiveSampler::sample(const uint64_t n_samples, Random* rng, cons
                 for(const auto &[t, nocc] : stc.get_table(u))
                 {
                     const Treelet::treelet_structure_t representant_structure = t.canonical_rooting().get_structure();
-		    if (occurrences_to_spanning_representants[entry.occurrence][representant_structure]==0)
-		      representant_to_containing_occurrences[representant_structure].push_back(entry.occurrence);
-                    occurrences_to_spanning_representants[entry.occurrence][representant_structure] += nocc;
+
+                    uint64_t &nrepresentants = occurrences_to_spanning_representants[entry.occurrence][representant_structure];
+                    if (nrepresentants==0)
+		                representant_to_containing_occurrences[representant_structure].push_back(entry.occurrence);
+                    
+                    nrepresentants += nocc;
                 }
             }
         }
@@ -219,14 +222,13 @@ SampleTable* AdaptiveSampler::sample(const uint64_t n_samples, Random* rng, cons
 
 	//FIXME: Remove?
 	std::cerr << "Time spent in sampling treelets: " << sampleTime << std::endl;
-    std::cerr << "Time spent in count merge: " << mergeTime << std::endl;
+    std::cerr << "Time spent in merging counts: " << mergeTime << std::endl;
     std::cerr << "Time spent in weights update: " << weightsTime << std::endl;
     std::cerr << "Time spent in sampler update: " << updateTime << std::endl;
     std::cerr << "Time spent in computing efficiencies: " << effTime << std::endl;
     std::cerr << "Time spent in updating priorities: " << prioTime << std::endl;
     std::cerr << "Total treelet switches: " << totTreeletSwitches << std::endl;
 
-	const double p = pcol(size, size); //FIXME!! Does not take into account that the number of colors might be larger than size
 	auto table = new SampleTable();
 	for (const auto &[occurrence, info] : occTab)
 	{

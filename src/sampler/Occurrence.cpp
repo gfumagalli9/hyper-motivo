@@ -71,10 +71,14 @@ const char* Occurrence::text_footprint() const
 {
     if(text_footprint_buffer[0]==0)
     {
-        for(unsigned int i=0; i<binary_footprint_bytes; i++)
+        const unsigned int len = ((size*(size-1))/2  + 3)/4; //ceil( (size choose 2) / 4 ), i.e., one character every 4 entries in the adjacency matrix
+
+        for(unsigned int i=0; i<len; i++)
         {
-            text_footprint_buffer[2*i]= static_cast<char>('A'+ (edges[i]>>4u));
-            text_footprint_buffer[2*i+1]= static_cast<char>('A'+ (edges[i] & 0x0Fu));
+            if(i%2==0)
+                text_footprint_buffer[i]= static_cast<char>('A'+ (edges[i/2]>>4u));
+            else
+                text_footprint_buffer[i]= static_cast<char>('A'+ (edges[i/2] & 0x0Fu));
         }
     }
 

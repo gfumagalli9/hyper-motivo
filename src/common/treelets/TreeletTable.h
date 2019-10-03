@@ -129,7 +129,7 @@ public:
     UndirectedGraph::vertex_t get_random_root(Random* rng) const;
 
     ///@returns a Treelet  chosen uniformly at random from all the treelts rooted in @param root
-    const Treelet get_treelet_no(UndirectedGraph::vertex_t root, treelet_count_t no);
+    const Treelet get_treelet_no(UndirectedGraph::vertex_t root, treelet_count_t no) const;
 
     ///@returns a Treelet  chosen uniformly at random from all the treelts rooted in @param root
     const Treelet get_random_treelet(UndirectedGraph::vertex_t root, Random *rng);

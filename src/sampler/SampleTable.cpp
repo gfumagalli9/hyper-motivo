@@ -335,21 +335,25 @@ SampleTable* SampleTable::weighted_average(SampleTable &t1, SampleTable &t2, dou
  */
 std::ostream& operator<<(std::ostream& os, const SampleTable& st)
 {
+    std::ios_base::fmtflags flags( os.flags() );
+    os << std::scientific << std::setprecision(4) << std::setfill('0');
+
 	for(const auto& e : st.entries)
 	{
-	  int k = e.occurrence.get_size();
-	  int sl = std::ceil(k*(k-1)/8.0);
-	  os << std::string(e.occurrence.text_footprint()).substr(0,sl) << ", ";
-		
-		os << std::scientific << std::setprecision(4) << std::setfill( '0' ) << e.estimated_graph_occurrences;
-		os << ", " << std::scientific << std::setprecision(4) << e.estimated_graph_frequency
-		   << ", " << e.sample_count
-		   << ", " << e.type
-		   << ", " << uint128_to_string(e.num_spanning_trees) << ",";
-				for(unsigned int i=0; i<e.occurrence.get_size(); i++)
-					os << " " << e.occurrence.vertices()[i];
-		   os << "\n";
+        os << e.occurrence.text_footprint()
+           << ", " << e.estimated_graph_occurrences
+           << ", " << e.estimated_graph_frequency
+           << ", " << e.sample_count
+           << ", " << e.type
+           << ", " << uint128_to_string(e.num_spanning_trees) << ",";
+
+        for(unsigned int i=0; i<e.occurrence.get_size(); i++)
+		    os << " " << e.occurrence.vertices()[i];
+
+        os << "\n";
 	}
+
+    os.flags( flags ); 
 	return os;
 }
 

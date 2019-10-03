@@ -137,7 +137,7 @@ const Treelet TreeletTable::get_random_treelet(UndirectedGraph::vertex_t root, R
     return t;
 }
 
-const Treelet TreeletTable::get_treelet_no(UndirectedGraph::vertex_t root, TreeletTable::treelet_count_t no)
+const Treelet TreeletTable::get_treelet_no(UndirectedGraph::vertex_t root, TreeletTable::treelet_count_t no) const
 {
     assert(root<num_vertices);
     Record<const treelet_count_pair_maybe_alias> record = reader->get_record(root);
