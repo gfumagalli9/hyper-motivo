@@ -51,6 +51,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *selective_opt = op.add_option(false, true, "selective", '\0', "", "Sample only treelets whose structures are allowed in file ARG");
     OptionsParser::Option *selective_build_opt = op.add_option(false, true, "selective-build", '\0', "", "The --selective file used when building the tables");
     OptionsParser::Option *smart_stars_opt = op.add_option(false, false, "smart-stars", '\0', "", "Sample star treelets separately and then merge the sample results");
+    OptionsParser::Option *num_stars_opt = op.add_option(false, true, "num-stars", '\0', "", "Number of star treelets to sample (ignored if --smart-stars is not specified, default: proportional to the number of stars in the graph)");
     OptionsParser::Option *vertices_opt = op.add_option(false, false, "vertices", '\0', "", "Output the IDs of the sampled vertices");
     OptionsParser::Option *graphlets_opt = op.add_option(false, false, "graphlets", '\0', "", "Sample graphlets occurrences (instead of treelets, implies --vertices)");
     OptionsParser::Option *group_opt = op.add_option(false, false, "group", '\0', "", "Group samples with the same footprint");
@@ -60,7 +61,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
 
 
     bool parse_ok = op.parse(argc, argv);
-    if (!parse_ok || help_opt->is_found())
+    if(!parse_ok || help_opt->is_found())
     {
         std::cout << name << " [OPTION]..." << std::endl;
         std::cout << "  Samples treelets from tables" << std::endl << std::endl;
@@ -72,7 +73,7 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
         throw std::runtime_error("Required options are missing");
 
     int size = std::stoi(size_opt->get_value());
-    if (size < 1 || size > 16)
+    if(size < 1 || size > 16)
         throw std::runtime_error("'size' option is invalid");
     opts->size = static_cast<unsigned int>(size);
 
@@ -82,45 +83,46 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     opts->number_of_samples = std::numeric_limits<uint64_t>::max();
     if(numsamples_opt->is_found())
         opts->number_of_samples = std::stoull(numsamples_opt->get_value());
-    if(opts->number_of_samples==0)
+    if(opts->number_of_samples == 0)
         throw std::runtime_error("'num-samples' option is invalid");
 
-    if (time_budget_opt->is_found())
+    if(time_budget_opt->is_found())
     {
-    	opts->time_budget = std::stod(time_budget_opt->get_value());
-    	if (!numsamples_opt->is_found())
-    		opts->number_of_samples = 0;
-    } else
-    	opts->time_budget = std::numeric_limits<double>::infinity();
+        opts->time_budget = std::stod(time_budget_opt->get_value());
+        if(!numsamples_opt->is_found())
+            opts->number_of_samples = 0;
+    }
+    else
+        opts->time_budget = std::numeric_limits<double>::infinity();
 
     opts->spanning_trees = spanning_opt->is_found();
 
-    if(input_opt->get_value().size()>=MOTIVO_ARG_MAX)
+    if(input_opt->get_value().size() >= MOTIVO_ARG_MAX)
         throw std::runtime_error("'tables-basename' option is too long");
-    strcpy(opts->tables_basename,input_opt->get_value().c_str());
+    strcpy(opts->tables_basename, input_opt->get_value().c_str());
 
-    if(graph_opt->get_value().size()>=MOTIVO_ARG_MAX)
+    if(graph_opt->get_value().size() >= MOTIVO_ARG_MAX)
         throw std::runtime_error("'graph' option is too long");
-    strcpy(opts->graph,graph_opt->get_value().c_str());
+    strcpy(opts->graph, graph_opt->get_value().c_str());
 
-    if(output_opt->get_value().size()>=MOTIVO_ARG_MAX)
+    if(output_opt->get_value().size() >= MOTIVO_ARG_MAX)
         throw std::runtime_error("'output' option is too long");
-    strcpy(opts->output_basename,output_opt->get_value().c_str());
+    strcpy(opts->output_basename, output_opt->get_value().c_str());
 
-    if(seed_opt->get_value().length()>=MOTIVO_ARG_MAX)
+    if(seed_opt->get_value().length() >= MOTIVO_ARG_MAX)
         throw std::runtime_error("'seed' option is too long");
     strcpy(opts->seed, seed_opt->get_value().c_str());
 
     int threads = std::stoi(threads_opt->get_value());
-    if(threads<0)
+    if(threads < 0)
         throw std::runtime_error("The number of threads is invalid");
 
-    if (threads == 0)
+    if(threads == 0)
         opts->threads = std::thread::hardware_concurrency();
     else
         opts->threads = static_cast<unsigned int>(threads);
 
-    if(opts->threads<=0)
+    if(opts->threads <= 0)
         throw std::runtime_error("Failed to determine the number of logical processors");
 
     uint64_t treelet_bs = std::stoull(treelet_buffer_size_opt->get_value());
@@ -135,29 +137,39 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
 
     if(selective_opt->is_found())
     {
-        if(selective_opt->get_value().length()>=MOTIVO_ARG_MAX)
+        if(selective_opt->get_value().length() >= MOTIVO_ARG_MAX)
             throw std::runtime_error("'selective' option is too long");
 
         strcpy(opts->selective_filename, selective_opt->get_value().c_str());
     }
     else
-        *(opts->selective_filename)='\0';
+        *(opts->selective_filename) = '\0';
 
     if(selective_build_opt->is_found())
     {
-        if(selective_build_opt->get_value().length()>=MOTIVO_ARG_MAX)
+        if(selective_build_opt->get_value().length() >= MOTIVO_ARG_MAX)
             throw std::runtime_error("'selective-build' option is too long");
 
         strcpy(opts->selective_build_filename, selective_build_opt->get_value().c_str());
     }
     else
-        *(opts->selective_build_filename)='\0';
+        *(opts->selective_build_filename) = '\0';
 
     opts->canonicize = canonicize_opt->is_found();
     opts->vertices = vertices_opt->is_found();
     opts->graphlets = graphlets_opt->is_found();
     opts->group = group_opt->is_found();
+
     opts->smart_stars = smart_stars_opt->is_found();
+    if(num_stars_opt->is_found())
+    {
+        opts->number_of_star_samples = std::stoull(num_stars_opt->get_value());
+        if(opts->number_of_star_samples > opts->number_of_samples)
+            throw std::runtime_error("--num-stars is larger than --num-samples");
+    }
+    else
+        opts->auto_number_of_stars = true;
+
     opts->estimate_occurrences = estimate_occurrences_opt->is_found();
     opts->adaptive = adaptive_opt->is_found();
 

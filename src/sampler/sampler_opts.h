@@ -40,6 +40,8 @@ struct sampler_opts
     bool canonicize;
     bool spanning_trees;
     bool smart_stars;
+    bool auto_number_of_stars;
+    uint64_t number_of_star_samples;
     bool vertices;
     bool graphlets;
     bool group;

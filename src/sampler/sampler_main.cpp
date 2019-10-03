@@ -111,11 +111,16 @@ int main(const int argc, const char** argv)
         {
             OccurrenceStarSampler star_sampler(&G, opts.size, opts.canonicize);
             number_of_stars_rooted_in_center = star_sampler.number_of_stars();
-            //FIXME: Sample from binomial distribution?
-            //If we had counted stars, the total number of colorful treelets (in expectation) would be tot_colorful_treelets + number_of_stars_rooted_in_center * opts.size * p
-            //We sample proportionally to the fraction of stars w.r.t. this number of treelets
-            number_of_star_samples = static_cast<uint64_t>(static_cast<double>(opts.number_of_samples) * static_cast<double>(number_of_stars_rooted_in_center*opts.size) / (static_cast<double>(tot_colorful_treelets)*p + static_cast<double>(number_of_stars_rooted_in_center*opts.size)) + 0.5);
 
+            if(opts.auto_number_of_stars)
+            {
+                //FIXME: Sample from binomial distribution?
+                //If we had counted stars, the total number of colorful treelets (in expectation) would be tot_colorful_treelets + number_of_stars_rooted_in_center * opts.size * p
+                //We sample proportionally to the fraction of stars w.r.t. this number of treelets
+                number_of_star_samples = static_cast<uint64_t>(static_cast<double>(opts.number_of_samples) * static_cast<double>(number_of_stars_rooted_in_center*opts.size) / (static_cast<double>(tot_colorful_treelets)*p + static_cast<double>(number_of_stars_rooted_in_center*opts.size)) + 0.5);
+            }
+            else
+                number_of_star_samples = opts.number_of_star_samples;
 
             std::chrono::time_point < std::chrono::steady_clock > start_time = std::chrono::steady_clock::now();
             std::cout << "Star sampler: sampling " << number_of_star_samples << " stars" << std::endl;
@@ -125,7 +130,7 @@ int main(const int argc, const char** argv)
             time_budget *= 0.95;
 
             std::chrono::duration<double> el = std::chrono::steady_clock::now() - start_time;
-            std::cout << "Star sampler: taken " << star_samples->get_num_samples() << " samples in " << el.count() << " s\n";
+            std::cout << "Star sampler: took " << star_samples->get_num_samples() << " samples in " << el.count() << " s\n";
 
             if(opts.group || opts.spanning_trees)
                 star_samples->sort_by_footprint();
@@ -208,7 +213,7 @@ int main(const int argc, const char** argv)
             samples = sampler.sample(nonstar_nsamples, &rng, time_budget, build_selector);
 
             std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - start_time;
-            std::cout << "Adaptive sampler: taken " << samples->get_num_samples() << " samples in " << elapsed.count() << " s\n";
+            std::cout << "Adaptive sampler: took " << samples->get_num_samples() << " samples in " << elapsed.count() << " s\n";
 
             //There is no need to bother counting the spanning trees w.r.t. the build selector if we are going to average with star samples
             if(opts.spanning_trees && star_samples==nullptr) //FIXME: Can we compute this in the adaptive sampler itself?
