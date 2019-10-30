@@ -134,7 +134,9 @@ void TreeletSampler::populate_buffer(DecompositionFIFOBuffer &buffer, const Undi
         for(TreeletTable::const_iterator it = split_table->begin(v, split); !it.is_over(); ++it)
         {
             const Treelet& t2 = it.treelet();
-            assert(t2.get_structure() == split.get_structure());
+
+            if(t2.get_structure() != split.get_structure())
+                break;
 
             if( t2.get_colors() & ~t.get_colors() )
                 continue;
@@ -218,11 +220,10 @@ bool TreeletSampler::sample_rooted_occurrence(const Treelet& t, const Undirected
         for(TreeletTable::const_iterator it = split_table->begin(v, split); !it.is_over(); ++it)
         {
             const Treelet& t2 = it.treelet();
-#ifndef NDEBUG
+
             if(t2.get_structure() != split.get_structure())
                 break;
-#endif
-            
+
             if( t2.get_colors() & ~t.get_colors() )
                 continue;
 
