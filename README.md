@@ -113,7 +113,7 @@ This will generate a package named "Motivo-<version>-Linux.deb", to install it r
 # apt-get install -f
 ~~~
 
-### Additional build< options
+### Additional build options
 
 In addition to `-DCMAKE_BUILD_TYPE=...` you can pass the option `-DOPTIMIZE_MORE=YES` to cmake to enable additional optimization flags including `-march=native`. The resulting binaries might not work on other machines.
 
