@@ -25,7 +25,7 @@
 #include "../platform/platform.h"
 #include "../random/RangeSampler.h"
 
-TreeletTable::TreeletTable(BaseRecordSource<const treelet_count_pair_maybe_alias>* record_sorce) : reader(record_sorce)
+TreeletTable::TreeletTable(BaseRecordSource<const treelet_count_pair_maybe_alias>* record_source) : reader(record_source)
 {
     num_vertices = static_cast<UndirectedGraph::vertex_t>(reader->number_of_records());
     assert(num_vertices < std::numeric_limits<UndirectedGraph::vertex_t>::max()-1);

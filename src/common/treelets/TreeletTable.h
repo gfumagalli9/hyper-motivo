@@ -114,7 +114,7 @@ public:
     void operator=(const TreeletTable&) = delete;
 
     ///Loads a table stored with the given @param basename.
-    explicit TreeletTable(BaseRecordSource<const treelet_count_pair_maybe_alias>* record_sorce);
+    explicit TreeletTable(BaseRecordSource<const treelet_count_pair_maybe_alias>* record_source);
 
     ~TreeletTable();
 
@@ -128,10 +128,10 @@ public:
     ///the associated root sampler must be loaded
     UndirectedGraph::vertex_t get_random_root(Random* rng) const;
 
-    ///@returns a Treelet  chosen uniformly at random from all the treelts rooted in @param root
+    ///@returns the Treelet number @param no (counting from 0) among the ones stored in @param root
     const Treelet get_treelet_no(UndirectedGraph::vertex_t root, treelet_count_t no) const;
 
-    ///@returns a Treelet  chosen uniformly at random from all the treelts rooted in @param root
+    ///@returns a Treelet chosen uniformly at random from all the treelts rooted in @param root
     const Treelet get_random_treelet(UndirectedGraph::vertex_t root, Random *rng);
 
     ///@returns the number of occurrences of @param treelet rooted in @param u, as stored in the table.
@@ -140,7 +140,7 @@ public:
 
     RangeSampler<treelet_count_t>* build_range_sampler(UndirectedGraph::vertex_t u, const TreeletStructureSelector* selector);
 
-    ///@returns a costant iterator that iterates through all the stored treelets for vertex @param u.
+    ///@returns a constant iterator that iterates through all the stored treelets for vertex @param u.
     ///The iterator initially points to the first treelet of @param u.
     inline const_iterator begin(const UndirectedGraph::vertex_t u)
     {

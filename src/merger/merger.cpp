@@ -108,7 +108,7 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
         if(ptr!=end)
             throw std::runtime_error("Error while processing " + filename + ": abnormal file termination");
 
-        std::cout << "Loaded offsets for file " << filename << " vertices" << std::endl;
+        std::cout << "Loaded offsets for file " << filename << std::endl;
     }
 
     if(seen_vertices_no!=num_vertices)

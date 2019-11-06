@@ -89,7 +89,7 @@ double pcold(const double* D, int k)
 /**
  * Normalize entries to have sum s
  */
-void normalize(double *v, int k, double s = 1)
+void normalize(double *v, int k, double s)
 {
     double s0 = 0;
     for (int i = 0; i < k; i++)
