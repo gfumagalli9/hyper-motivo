@@ -69,6 +69,11 @@ do
 	    ADAPTIVE=YES
 	    shift # past argument
 	    ;;
+	--time-budget)
+	    TBUD="$2"
+	    shift # past argument
+	    shift # past value
+	    ;;
 	*)    # unknown option
 	    POSITIONAL+=("$1") # save it in an array for later
 	    shift # past argument
@@ -184,6 +189,10 @@ if [ "$SELECTIVE_FILE" != "" ]; then
     EXTRA_SAMPLE_OPTS+=(--selective-build "$SELECTIVE_FILE")
 fi
 
+if [ "$TBUD" != "" ]; then
+    EXTRA_SAMPLE_OPTS+=(--time-budget "$TBUD")
+fi
+
 if [ "$ADAPTIVE" == "YES" ]; then
     EXTRA_SAMPLE_OPTS+=(--estimate-occurrences-adaptive)
 else
@@ -196,7 +205,8 @@ sample() {
     ($TIME $BUILDPATH/motivo-sample --graph "$GRAPH" --size "$SIZE" -n "$NSAMPLES" -i "$OUTPUT" -c --graphlets -o "$OUTPUT" --threads "$THREADS" ${EXTRA_SAMPLE_OPTS[@]} > "$OUTPUT.s$SIZE.log" 2>&1) || exit 1
     if [[ "$BUILD" == "NO" ]]; then 	echo -en "\t\t\t\t"; fi
     echo $(get_walltime "$OUTPUT.s${SIZE}.log")
-    echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,sample,0,$NSAMPLES,$(get_nthreads "$OUTPUT.s$SIZE.log"),$(get_walltime "$OUTPUT.s$SIZE.log"),$(get_usertime "$OUTPUT.s$SIZE.log"),$(get_systemtime "$OUTPUT.s$SIZE.log"),$(get_actualtime "$OUTPUT.s$SIZE.log")" >> $TIMEFILE
+    SAMPLES_TAKEN=`cat $OUTPUT.csv | awk -F"," '{N+=$4} END {print N}'`
+    echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,sample,0,$SAMPLES_TAKEN,$(get_nthreads "$OUTPUT.s$SIZE.log"),$(get_walltime "$OUTPUT.s$SIZE.log"),$(get_usertime "$OUTPUT.s$SIZE.log"),$(get_systemtime "$OUTPUT.s$SIZE.log"),$(get_actualtime "$OUTPUT.s$SIZE.log")" >> $TIMEFILE
     
     echo "[$(date)] Done" | tee -a $LOGFILE
     
