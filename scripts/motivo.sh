@@ -205,8 +205,17 @@ sample() {
     ($TIME $BUILDPATH/motivo-sample --graph "$GRAPH" --size "$SIZE" -n "$NSAMPLES" -i "$OUTPUT" -c --graphlets -o "$OUTPUT" --threads "$THREADS" ${EXTRA_SAMPLE_OPTS[@]} > "$OUTPUT.s$SIZE.log" 2>&1) || exit 1
     if [[ "$BUILD" == "NO" ]]; then 	echo -en "\t\t\t\t"; fi
     echo $(get_walltime "$OUTPUT.s${SIZE}.log")
-    SAMPLES_TAKEN=`cat $OUTPUT.csv | awk -F"," '{N+=$4} END {print N}'`
-    echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,sample,0,$SAMPLES_TAKEN,$(get_nthreads "$OUTPUT.s$SIZE.log"),$(get_walltime "$OUTPUT.s$SIZE.log"),$(get_usertime "$OUTPUT.s$SIZE.log"),$(get_systemtime "$OUTPUT.s$SIZE.log"),$(get_actualtime "$OUTPUT.s$SIZE.log")" >> $TIMEFILE
+    ACTUALNSAMPLES=`awk -F',' '{N+=$4} END{print N}' $OUTPUT.csv`
+    echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,sample,0,$ACTUALNSAMPLES,$(get_nthreads "$OUTPUT.s$SIZE.log"),$(get_walltime "$OUTPUT.s$SIZE.log"),$(get_usertime "$OUTPUT.s$SIZE.log"),$(get_systemtime "$OUTPUT.s$SIZE.log"),$(get_actualtime "$OUTPUT.s$SIZE.log")" >> $TIMEFILE
+    STARS=`cat "$OUTPUT.s$SIZE.log" | grep "took" | grep -i "star" | awk '{print $4}'`
+    START=`cat "$OUTPUT.s$SIZE.log" | grep "took" | grep -i "star" | awk '{print $7}'`
+    NAIVES=`cat "$OUTPUT.s$SIZE.log" | grep "took" | grep -i "naive" | awk '{print $4}'`
+    NAIVET=`cat "$OUTPUT.s$SIZE.log" | grep "took" | grep -i "naive" | awk '{print $7}'`
+    ADAPTIVES=`cat "$OUTPUT.s$SIZE.log" | grep "took" | grep -i "adaptive" | awk '{print $4}'`
+    ADAPTIVET=`cat "$OUTPUT.s$SIZE.log" | grep "took" | grep -i "adaptive" | awk '{print $7}'`
+    echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,sample_star,0,$STARS,$(get_nthreads "$OUTPUT.s$SIZE.log"),$START,,," >> $TIMEFILE
+    echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,sample_naive,0,$NAIVES,$(get_nthreads "$OUTPUT.s$SIZE.log"),$NAIVET,,," >> $TIMEFILE
+    echo "$OUTPUT,$GRAPH,$i,$SIZE,$COMPRESS_THRESHOLD,sample_ags,0,$ADAPTIVES,$(get_nthreads "$OUTPUT.s$SIZE.log"),$ADAPTIVET,,," >> $TIMEFILE
     
     echo "[$(date)] Done" | tee -a $LOGFILE
     

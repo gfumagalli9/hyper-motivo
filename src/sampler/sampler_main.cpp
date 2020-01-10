@@ -117,7 +117,9 @@ int main(const int argc, const char** argv)
                 //FIXME: Sample from binomial distribution?
                 //If we had counted stars, the total number of colorful treelets (in expectation) would be tot_colorful_treelets + number_of_stars_rooted_in_center * opts.size * p
                 //We sample proportionally to the fraction of stars w.r.t. this number of treelets
-                number_of_star_samples = static_cast<uint64_t>(static_cast<double>(opts.number_of_samples) * static_cast<double>(number_of_stars_rooted_in_center*opts.size) / (static_cast<double>(tot_colorful_treelets)*p + static_cast<double>(number_of_stars_rooted_in_center*opts.size)) + 0.5);
+                number_of_star_samples = static_cast<uint64_t>(static_cast<double>(opts.number_of_samples) * static_cast<double>(number_of_stars_rooted_in_center*opts.size) / (static_cast<double>(tot_colorful_treelets)/p + static_cast<double>(number_of_stars_rooted_in_center*opts.size)) + 0.5);
+		if(opts.adaptive) // for AGS it does not make much sense to sample stars proportionally to their number
+		  number_of_star_samples = number_of_star_samples <= opts.number_of_samples/2 ? number_of_star_samples : opts.number_of_samples/2;
             }
             else
                 number_of_star_samples = opts.number_of_star_samples;
@@ -127,11 +129,12 @@ int main(const int argc, const char** argv)
 
             //Sample stars rooted in the center
             star_samples = star_sampler.sample(number_of_star_samples, opts.threads, &rng, 0.05 * opts.time_budget); //Resulting time budget is infinite if opts.time_budget i
-            time_budget *= 0.95;
 
             std::chrono::duration<double> el = std::chrono::steady_clock::now() - start_time;
             std::cout << "Star sampler: took " << star_samples->get_num_samples() << " samples in " << el.count() << " s\n";
-
+	    number_of_star_samples = star_samples->get_num_samples();
+            time_budget = time_budget - el.count();
+	    
             if(opts.group || opts.spanning_trees)
                 star_samples->sort_by_footprint();
 
@@ -157,7 +160,7 @@ int main(const int argc, const char** argv)
             samples = sampler.sample(nonstar_nsamples, opts.threads, &rng, time_budget);
 
             std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - start_time;
-            std::cout << "Naive sampler: taken " << samples->get_num_samples() << " samples in " << elapsed.count() << " s\n";
+            std::cout << "Naive sampler: took " << samples->get_num_samples() << " samples in " << elapsed.count() << " s\n";
 
             if(opts.group || opts.spanning_trees)
                 samples->sort_by_footprint();
