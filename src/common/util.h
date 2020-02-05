@@ -88,6 +88,6 @@ double pcol(unsigned int k, unsigned int c);
 double binomial(unsigned long n, unsigned long m); //FIXME: types?
 
 //Compares two normal doubles for equality, without generating a warning
-bool double_equality(const double x, const double y);
+bool double_equality [[gnu::const]] (double x, double y);
 
 #endif /* SRC_COMMON_UTIL_H_ */

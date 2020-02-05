@@ -131,5 +131,5 @@ double binomial(const unsigned long n, unsigned long m)
 
 bool double_equality(const double x, const double y)
 {
-    return (x<=y) && (y>=x);
+    return (x<=y) && (x>=y);
 }
