@@ -27,21 +27,37 @@
 #include "../common/util.h"
 #include "../sampler/SampleTable.h"
 #include "SpanningTreeCounter.h"
+#include <random>
 
 OccurrenceStarSampler::OccurrenceStarSampler(const UndirectedGraph* g, unsigned int size, bool canonicize) :
         g(g), size(size), canonicize(canonicize)
 {
+#ifdef MOTIVO_STAR_SAMPLER_FLOATS
+    double* weights = new double[g->number_of_vertices()];
+    for (UndirectedGraph::vertex_t v = 0; v < g->number_of_vertices(); v++) {
+        weights[v] = binomial(g->degree(v), size - 1);
+	tot_stars += weights[v];
+    }
+    root_sampler_dbl = new std::discrete_distribution<UndirectedGraph::vertex_t>(weights, weights+g->number_of_vertices());
+#else
     root_sampler = new AliasMethodSampler<UndirectedGraph::vertex_t, uint128_t>(g->number_of_vertices());
 
     for (UndirectedGraph::vertex_t v = 0; v < g->number_of_vertices(); v++)
         root_sampler->set(v, static_cast<uint128_t>(binomial(g->degree(v), size - 1)+0.5)); //FIXME: Check type size. Fix return type of binomial
 
     root_sampler->build();
+#endif
 }
 
 OccurrenceStarSampler::~OccurrenceStarSampler()
 {
-    delete root_sampler;
+#ifdef MOTIVO_STAR_SAMPLER_FLOATS
+    if(root_sampler_dbl)
+        delete root_sampler_dbl;
+#else
+    if(root_sampler)
+        delete root_sampler;
+#endif
 }
 
 /**
@@ -52,7 +68,11 @@ void OccurrenceStarSampler::sample_one(Occurrence *occurrence, Random *rng)
     static thread_local OccurrenceCanonicizer canonicizer(size);
 
     //FIXME: Handle the case of no stars to sample
+#ifdef MOTIVO_STAR_SAMPLER_FLOATS
+    UndirectedGraph::vertex_t r = (*root_sampler_dbl)(*(rng->underlying_generator()));
+#else
     UndirectedGraph::vertex_t r = root_sampler->sample(rng);
+#endif
 
     const UndirectedGraph::vertex_t d = g->degree(r);
     assert(size - 1 <= d);

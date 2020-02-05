@@ -59,6 +59,8 @@
 
 #cmakedefine MOTIVO_MAY_ALIAS
 
+#cmakedefine MOTIVO_STAR_SAMPLER_FLOATS 1
+
 #define MOTIVO_ARG_MAX 4096
 
 #endif //MOTIVO_CONFIG_H

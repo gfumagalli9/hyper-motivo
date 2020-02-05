@@ -62,6 +62,14 @@ else()
     set(MOTIVO_FLAGS "${MOTIVO_FLAGS} dh")
 endif()
 
+if(MOTIVO_STAR_SAMPLER_FLOATS)
+    message(STATUS "Using floating point distribution for star sampler")
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} SF")
+else()
+    set(MOTIVO_FLAGS "${MOTIVO_FLAGS} sf")
+endif()
+
+
 INCLUDE(CheckCXXSourceCompiles)
 check_cxx_source_compiles("int main() { __builtin_popcount(0xFFFFFFFF); return 0; } " MOTIVO_HAS_BUILTIN_POPCOUNT)
 check_cxx_source_compiles("int main() { __builtin_popcountl(0xFFFFFFFF); return 0; } " MOTIVO_HAS_BUILTIN_POPCOUNTL)

@@ -33,7 +33,6 @@
 #include "AdaptiveSampler.h"
 #include "SampleTable.h"
 
-
 int main(const int argc, const char** argv)
 {
     std::cerr << "This is motivo-sample. Version: " << MOTIVO_VERSION_STRING << "\n" << MOTIVO_COPYRIGHT_NOTICE << std::endl;
@@ -104,7 +103,7 @@ int main(const int argc, const char** argv)
 
         // FAST STAR SAMPLING
         SampleTable* star_samples = nullptr;  //TODO: If we don't care about vertices we can trivially fill this
-        uint128_t number_of_stars_rooted_in_center = 0;
+        double number_of_stars_rooted_in_center = 0;
         uint64_t number_of_star_samples = 0;
         double time_budget = opts.time_budget;
         if (opts.smart_stars)
@@ -114,12 +113,14 @@ int main(const int argc, const char** argv)
 
             if(opts.auto_number_of_stars)
             {
-                //FIXME: Sample from binomial distribution?
+
+	            //FIXME: Sample from binomial distribution?
                 //If we had counted stars, the total number of colorful treelets (in expectation) would be tot_colorful_treelets + number_of_stars_rooted_in_center * opts.size * p
                 //We sample proportionally to the fraction of stars w.r.t. this number of treelets
-                number_of_star_samples = static_cast<uint64_t>(static_cast<double>(opts.number_of_samples) * static_cast<double>(number_of_stars_rooted_in_center*opts.size) / (static_cast<double>(tot_colorful_treelets)/p + static_cast<double>(number_of_stars_rooted_in_center*opts.size)) + 0.5);
-		if(opts.adaptive) // for AGS it does not make much sense to sample stars proportionally to their number
-		  number_of_star_samples = number_of_star_samples <= opts.number_of_samples/2 ? number_of_star_samples : opts.number_of_samples/2;
+                number_of_star_samples = static_cast<uint64_t>(static_cast<double>(opts.number_of_samples) * number_of_stars_rooted_in_center*opts.size / (static_cast<double>(tot_colorful_treelets)/p + number_of_stars_rooted_in_center*opts.size) + 0.5);
+
+                if(opts.adaptive) // for AGS it does not make much sense to sample stars proportionally to their number
+		            number_of_star_samples = (number_of_star_samples <= opts.number_of_samples/2) ? number_of_star_samples : opts.number_of_samples/2;
             }
             else
                 number_of_star_samples = opts.number_of_star_samples;
@@ -179,9 +180,9 @@ int main(const int argc, const char** argv)
                 if(star_samples)
                 {
                     //At this point star_samples are already grouped by footprint
-                    std::cout << "Merging samples with weights " << static_cast<double>(tot_colorful_treelets)/p  << " and " << static_cast<double>(number_of_stars_rooted_in_center)  << std::endl;
+                    std::cout << "Merging samples with weights " << static_cast<double>(tot_colorful_treelets)/p  << " and " << number_of_stars_rooted_in_center  << std::endl;
                     //SampleTable::merge takes care of estimating occurrences and frequencies
-                    SampleTable *merged = SampleTable::merge(*samples, *star_samples, static_cast<double>(tot_colorful_treelets)/p , static_cast<double>(number_of_stars_rooted_in_center));
+                    SampleTable *merged = SampleTable::merge(*samples, *star_samples, static_cast<double>(tot_colorful_treelets)/p , number_of_stars_rooted_in_center);
 
                     delete samples;
                     delete star_samples;
@@ -227,12 +228,12 @@ int main(const int argc, const char** argv)
 
             if(star_samples)
             {
-                double w = (static_cast<double>(tot_colorful_treelets) / p) / (opts.size*static_cast<double>(number_of_stars_rooted_in_center) + static_cast<double>(tot_colorful_treelets) / p);
+                double w = (static_cast<double>(tot_colorful_treelets) / p) / (opts.size*number_of_stars_rooted_in_center + static_cast<double>(tot_colorful_treelets) / p);
 
                 std::cout << "Averaging samples with weights " << (1-w) << " and " << w << std::endl;
                 //SampleTable::average takes care of estimating occurrences and frequencies
                 samples->sort_by_footprint();
-                star_samples->estimate_occurrences(static_cast<double>(number_of_stars_rooted_in_center));
+                star_samples->estimate_occurrences(number_of_stars_rooted_in_center);
 
                 //std::cerr << "Samples \n" << *samples << "\n Star Samples\n" << *star_samples << std::endl;
 

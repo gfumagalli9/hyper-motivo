@@ -23,6 +23,7 @@
 #ifndef SRC_SAMPLER_OCCURRENCESTARSAMPLER_H_
 #define SRC_SAMPLER_OCCURRENCESTARSAMPLER_H_
 
+#include <random>
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/random/AliasMethodSampler.h"
 #include "Occurrence.h"
@@ -42,7 +43,12 @@ private:
     const unsigned int size; // k, the size of the stars
 	const bool canonicize; // whether to canonicalize the occurrences
 
+#ifdef MOTIVO_STAR_SAMPLER_FLOATS
+    std::discrete_distribution<UndirectedGraph::vertex_t>* root_sampler_dbl = nullptr;
+    double tot_stars = 0;
+#else
     AliasMethodSampler<UndirectedGraph::vertex_t, uint128_t>* root_sampler = nullptr;
+#endif
 
 	void sample_one(Occurrence* occurrence, Random* rng);
 
@@ -53,10 +59,11 @@ public:
 
     ~OccurrenceStarSampler();
 
-    uint128_t number_of_stars() const
-	{
-		return root_sampler->get_total_weight();
-	}
+#ifdef MOTIVO_STAR_SAMPLER_FLOATS
+    double number_of_stars() const { return  tot_stars; }
+#else
+    uint128_t number_of_stars() const { return root_sampler->get_total_weight(); }
+#endif
 
     SampleTable* sample(uint64_t num_samples, unsigned int number_of_threads, Random *rng, double time_budget);
 };
