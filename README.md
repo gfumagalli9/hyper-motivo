@@ -403,7 +403,7 @@ TODO
 
 ## Bug reports
 
-Here: https://bitbucket.org/steven_/motivo/issues
+Here: https://gitlab.com/steven3k/motivo/-/issues
 
 ## License
 
