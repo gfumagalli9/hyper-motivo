@@ -90,7 +90,7 @@ void graph2bin(const std::string &graph_filename, const std::string &output_base
 				}
 			}
 		}
-		else //format==ARC
+		else //format==LOE
 		{
 			while(true)
 			{
@@ -207,7 +207,7 @@ int main(const int argc, const char** argv)
 	OptionsParser::Option* dump_opt = op.add_option(false, false, "dump", '\0', "", "Dumps the contents of the given binary graph in text format");
 	OptionsParser::Option* input_opt = op.add_option(true, true, "input", 'i', "", "Input graph file or basename if --dump is specified (required)");
 	OptionsParser::Option* output_opt = op.add_option(true, true, "output", 'o', "", "Output basename or file if --dump is specified (required)");
-	OptionsParser::Option* fmt_opt = op.add_option(false, true, "format", 'f', "NODE_DEGREE", "Text format: ARC (one arc per line), NODE (one node and its neighbors per line), NODE_DEGREE (the i-th line contains the degree of node i followed by its neighbors, default)");
+	OptionsParser::Option* fmt_opt = op.add_option(false, true, "format", 'f', "NODE_DEGREE", "Text format: LOE (list of edges, one edge per line), NODE (one node and its neighbors per line), NODE_DEGREE (the i-th line contains the degree of node i followed by its neighbors, default)");
 
 	bool parse_ok = op.parse(argc, argv);
 	if (!parse_ok || help_opt->is_found())
