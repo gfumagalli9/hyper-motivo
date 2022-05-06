@@ -26,7 +26,7 @@
 #include <ostream>
 #include <string>
 #include <vector>
-#include <sparsehash/dense_hash_map>
+#include <dense_hash_map>
 #include "../common/treelets/TreeletStructureSelector.h"
 #include "Occurrence.h"
 #include "DynamicSequencer.h"

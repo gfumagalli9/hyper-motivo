@@ -23,12 +23,12 @@
 #ifndef MOTIVO_CONFIG_H
 #define MOTIVO_CONFIG_H
 
-#include "hg_id.h"
+#include "git_id.h"
 
 #define MOTIVO_VERSION "@MOTIVO_VERSION_MAJOR@.@MOTIVO_VERSION_MINOR@.@MOTIVO_VERSION_PATCH@"
 #define MOTIVO_BUILD_TYPE "@CMAKE_BUILD_TYPE@"
 #define MOTIVO_FLAGS "@MOTIVO_FLAGS@"
-#define MOTIVO_VERSION_STRING ( MOTIVO_VERSION " (" MOTIVO_HG_ID " " MOTIVO_BUILD_TYPE " " MOTIVO_FLAGS ")" )
+#define MOTIVO_VERSION_STRING ( MOTIVO_VERSION " (" MOTIVO_GIT_ID " " MOTIVO_BUILD_TYPE " " MOTIVO_FLAGS ")" )
 
 #define MOTIVO_COPYRIGHT_NOTICE "Copyright (c) 2017-2019 Stefano Leucci and Marco Bressan\n" \
 "Distributed under the MIT Software License \n" \

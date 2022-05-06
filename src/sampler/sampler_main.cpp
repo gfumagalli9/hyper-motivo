@@ -109,7 +109,7 @@ int main(const int argc, const char** argv)
         if (opts.smart_stars)
         {
             OccurrenceStarSampler star_sampler(&G, opts.size, opts.canonicize);
-            number_of_stars_rooted_in_center = star_sampler.number_of_stars();
+            number_of_stars_rooted_in_center = static_cast<double>(star_sampler.number_of_stars());
 
             if(opts.auto_number_of_stars)
             {

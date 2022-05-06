@@ -15,6 +15,6 @@ set(BUILDER_SOURCE_FILES
 
 add_executable(motivo-build ${BUILDER_SOURCE_FILES})
 target_link_libraries(motivo-build ${COMMON_LIBRARIES})
-add_dependencies(motivo-build hg_id)
+add_dependencies(motivo-build git_id)
 
 set_target_properties(motivo-build PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

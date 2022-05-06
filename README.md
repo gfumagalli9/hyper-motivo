@@ -24,7 +24,7 @@ Motivo depends on the following libraries:
 
 Your Linux distribution might have premade packages, i.e., on Debian you can run:
 ~~~~
-# apt-get install libsparsehash-dev libnauty2-dev
+# apt-get install libsparsehash-dev libnauty2-dev liblz4-dev
 ~~~~
 
 And, if you want to use the tcmalloc allocator:
@@ -34,6 +34,52 @@ And, if you want to use the tcmalloc allocator:
 
 A C++17 aware compiler is required along with support for [u]int{8,16,32,64,128} types.
 Support for the [mmap](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mmap.html) (POSIX.1-2001 and later) function is also currently required.
+
+### Missing libraries
+
+If any of the required libraries are not available in your distribution, you can manually install them
+Either follow the instructions in the corresponding sources to install them for the whole system or see below.
+
+If you cannot or do not want to copy files into system-wide directories, you can  create a local prefix to install the missing libraries and headers
+In this example I'm going to use `$HOME/local`
+
+~~~~
+mkdir $HOME/local
+
+# This will ensure that Motivo's cmake knows where to look for libraries
+export CPATH=$CPATH:$HOME/local/include
+export LIBRARY_PATH=$LIBRARY_PATH:$HOME/local/lib
+~~~~
+
+To install lz4:
+~~~~
+git clone https://github.com/lz4/lz4.git
+cd lz4
+make
+make install prefix=$HOME/local
+cd ..
+~~~~
+
+To install Google's sparsehash:
+~~~~
+git clone https://github.com/sparsehash/sparsehash
+cd sparsehash
+./configure --prefix=$HOME/local
+make
+make install
+cd ..
+~~~~
+
+To install Nauty (at the time of writing the latest version of nauty is 2.7r3, you might want to check for a more up to date version):
+~~~~
+wget https://pallini.di.uniroma1.it/nauty27r3.tar.gz
+tar xvzf nauty27r3.tar.gz
+cd nauty27r3
+./configure --enable-tls --prefix=$HOME/local
+make
+make install
+cd ..
+~~~~
 
 ### Compiling
 
@@ -91,6 +137,8 @@ $ ctest -T memcheck
 ~~~
 # make install
 ~~~
+
+You can find the Motivo binaries in the build/bin subdirectory. These can either be used directly or, if you wish, you can install them in your system.
 
 On Linux, motivo is installed in /usr/local by default. If you wish to chose another directory you can pass the option -DCMAKE_INSTALL_PREFIX:PATH=/your/path to the cmake invocation, e.g.:
 

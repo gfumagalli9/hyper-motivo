@@ -27,7 +27,8 @@
     #error defines clash
 #endif
 
-#include <nauty/nauty.h>
+#pragma GCC system_header
+#include <nauty.h>
 
 #if(!defined(HAVE_TLS) || HAVE_TLS==0)
     #error Nauty does not have multithreading support

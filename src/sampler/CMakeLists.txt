@@ -29,6 +29,6 @@ set(SAMPLER_SOURCE_FILES
 
 add_executable(motivo-sample ${SAMPLER_SOURCE_FILES})
 target_link_libraries(motivo-sample ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
-add_dependencies(motivo-sample hg_id)
+add_dependencies(motivo-sample git_id)
 
 set_target_properties(motivo-sample PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

@@ -162,14 +162,14 @@ if(NOT NAUTY)
     message(FATAL_ERROR "Could not find nauty library")
 endif()
 
-find_path(NAUTY_INCLUDE_DIR nauty/nauty.h)
+find_path(NAUTY_INCLUDE_DIR nauty.h PATH_SUFFIXES nauty)
 if(NAUTY_INCLUDE_DIR)
    include_directories("${NAUTY_INCLUDE_DIR}")
 else()
     message(FATAL_ERROR "Could not find nauty header files")
 endif()
 
-find_path(SPARSEHASH_INCLUDE_DIR sparsehash/sparse_hash_map)
+find_path(SPARSEHASH_INCLUDE_DIR sparse_hash_map PATH_SUFFIXES sparsehash google)
 if(SPARSEHASH_INCLUDE_DIR)
     include_directories("${SPARSEHASH_INCLUDE_DIR}")
 else()
@@ -179,7 +179,7 @@ endif()
 
 
 
-add_custom_target(hg_id COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/hg_id.cmake)
+add_custom_target(git_id COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/git_id.cmake)
 
 string(STRIP "${MOTIVO_FLAGS}" MOTIVO_FLAGS)
 configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)

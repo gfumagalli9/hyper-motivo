@@ -24,8 +24,8 @@
 #define SRC_SAMPLER_ADAPTIVESAMPLER_H_
 
 #include "Occurrence.h"
-#include <sparsehash/dense_hash_map>
-#include <sparsehash/dense_hash_set>
+#include <dense_hash_map>
+#include <dense_hash_set>
 #include <map>
 #include <unordered_set>
 

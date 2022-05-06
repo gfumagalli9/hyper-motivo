@@ -19,6 +19,6 @@ set(TEST_SOURCE_FILES
 
 add_executable(motivo-tests ${TEST_SOURCE_FILES})
 target_link_libraries(motivo-tests ${COMMON_LIBRARIES} ${ALGEBRA_LIBRARIES} ${NAUTY})
-add_dependencies(motivo-tests hg_id)
+add_dependencies(motivo-tests git_id)
 
 set_target_properties(motivo-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")

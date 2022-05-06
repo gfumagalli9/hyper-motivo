@@ -26,9 +26,9 @@
 #include "config.h"
 
 #ifdef MOTIVO_DENSE_HASHMAP
-    #include <sparsehash/dense_hash_map>
+    #include <dense_hash_map>
 #else
-    #include <sparsehash/sparse_hash_map>
+    #include <sparse_hash_map>
 #endif
 
 #include "../common/treelets/Treelet.h"
