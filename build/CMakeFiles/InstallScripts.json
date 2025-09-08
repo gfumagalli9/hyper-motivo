@@ -1,0 +1,13 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/jack/Desktop/motivo/motivo/build/cmake_install.cmake",
+		"/Users/jack/Desktop/motivo/motivo/build/src/common/cmake_install.cmake",
+		"/Users/jack/Desktop/motivo/motivo/build/src/builder/cmake_install.cmake",
+		"/Users/jack/Desktop/motivo/motivo/build/src/merger/cmake_install.cmake",
+		"/Users/jack/Desktop/motivo/motivo/build/src/sampler/cmake_install.cmake",
+		"/Users/jack/Desktop/motivo/motivo/build/src/tools/cmake_install.cmake",
+		"/Users/jack/Desktop/motivo/motivo/build/src/tests/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
