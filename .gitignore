@@ -1,0 +1,160 @@
+# -------------------------
+# CMake / CTest (any depth)
+# -------------------------
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+install_manifest.txt
+
+# Makefiles generated in build dirs
+*/Makefile
+**/Makefile
+
+# Keep root compile_commands.json, ignore others
+**/compile_commands.json
+!/compile_commands.json
+
+# -------------------------
+# Build dirs (any depth)
+# -------------------------
+build/
+bin/
+build-*/
+cmake-build-*/
+out/
+obj/
+dist/
+Debug/
+Release/
+RelWithDebInfo/
+MinSizeRel/
+
+# Binaries / libs
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+*.exe
+*.out
+*.app
+*.pdb
+*.mod
+*.smod
+
+# -------------------------
+# Motivo artifacts (tables/IE/alias/counters)
+# -------------------------
+*.dtz
+*.cnt
+*.info
+
+# IE tables / sidecar
+*.ie
+*.ie.dtz
+*.ie.cnt
+*.iee
+
+# Root sampler / alias
+*.rts
+*.rts.*
+
+# NWS / heavy outputs (if any)
+*.nws
+
+# -------------------------
+# Data / outputs / caches (root-level; adjust if needed)
+# -------------------------
+data/
+datasets/
+outputs/
+results/
+tmp/
+cache/
+.cache/
+
+# Keep placeholders/README in data dirs
+!data/.gitkeep
+!datasets/.gitkeep
+!outputs/.gitkeep
+!results/.gitkeep
+!data/README*
+!datasets/README*
+!outputs/README*
+!results/README*
+
+# -------------------------
+# Logs / temp files
+# -------------------------
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+*.pid
+
+# -------------------------
+# Coverage / profiler
+# -------------------------
+*.gcda
+*.gcno
+*.gcov
+*.profraw
+*.profdata
+lcov.info
+coverage.*
+
+# -------------------------
+# IDE / Editor
+# -------------------------
+# VSCode
+.vscode/
+*.code-workspace
+
+# CLion / IntelliJ
+.idea/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.opendb
+ipch/
+
+# Xcode
+*.xcworkspace/
+*.xcodeproj/
+DerivedData/
+*.xcuserdatad
+*.xcuserdata/
+
+# -------------------------
+# OS-specific
+# -------------------------
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# -------------------------
+# Graph-specific rules
+# -------------------------
+# Ignore binary_files directory under graph/
+graphs/binary_files/
+graphs/binary_files/**
+
+# Ignore all .txt graph files, except specific test files
+graphs/**/*.txt
+!graphs/**/test-graph.txt
+!graphs/**/test-hypergraph.txt
+
+# Do not ignore this file
+!.gitignore

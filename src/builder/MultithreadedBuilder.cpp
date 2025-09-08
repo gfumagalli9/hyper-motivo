@@ -21,6 +21,13 @@
 // SOFTWARE.
 
 #include "MultithreadedBuilder.h"
+#include <vector>
+#include <thread>
+#include <mutex>
+#include <atomic>
+#include <unordered_set>
+#include <algorithm>
+#include <queue>
 
 void MultithreadedBuilder::build()
 {
@@ -98,7 +105,7 @@ void MultithreadedBuilder::merge_and_write(ConcurrentWriter *writer, phase2_vert
         delete state->tables[i];
     }
 
-    auto to_write = builder.to_normalized_sorted_byte_array(state->vertex, table);
+    auto to_write = builder.to_normalized_sorted_byte_array(state->vertex, table, normalize); // Da sistemare normalize
     table.clear();
     writer->write(to_write.first, to_write.second);
 }
@@ -127,7 +134,7 @@ void MultithreadedBuilder::phase1_thread_loop(const unsigned int thread_no, phas
         else //The vertex is complete
         {
             //Write the vertex table
-            std::pair<char*, std::size_t> to_write = builder.to_normalized_sorted_byte_array(state.current_vertex, state.table);
+            std::pair<char*, std::size_t> to_write = builder.to_normalized_sorted_byte_array(state.current_vertex, state.table, normalize); // da sistemare normalize
             writer->write(to_write.first, to_write.second);
             state.table.clear();
 
@@ -208,7 +215,7 @@ MultithreadedBuilder::MultithreadedBuilder(const UndirectedGraph *G, UndirectedG
                                                        UndirectedGraph::vertex_t to_vertex, const unsigned int size,
                                                        const TreeletTableCollection *ttc, const bool store_only_0,
                                                        TreeletStructureSelector *selector, std::ostream *output,
-                                                       unsigned int nthreads)
+                                                       unsigned int nthreads, const bool normalize)
         : G(G), from_vertex(from_vertex), to_vertex(to_vertex), ttc(ttc), store_only_0(store_only_0),
-          output(output), builder(size, ttc, selector), nthreads(nthreads)
+          output(output), builder(size, ttc, selector), nthreads(nthreads), normalize(normalize)
 {}

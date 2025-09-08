@@ -141,6 +141,14 @@ if(NOT LZ4)
 endif()
 set(COMMON_LIBRARIES ${COMMON_LIBRARIES} ${LZ4})
 
+# Cerca gli header di lz4 (lz4.h)
+find_path(LZ4_INCLUDE_DIR NAMES lz4.h PATH_SUFFIXES lz4)
+if(LZ4_INCLUDE_DIR)
+    include_directories("${LZ4_INCLUDE_DIR}")
+else()
+    message(FATAL_ERROR "Could not find lz4 header files")
+endif()
+
 
 if(USE_TCMALLOC)
     message(STATUS "Building with tcmalloc allocator")
@@ -177,14 +185,11 @@ else()
 endif()
 
 
-
-
 add_custom_target(git_id COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/git_id.cmake)
 
 string(STRIP "${MOTIVO_FLAGS}" MOTIVO_FLAGS)
 configure_file(src/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
-
 
 add_subdirectory(src/common/)
 add_subdirectory(src/builder/)
@@ -192,9 +197,10 @@ add_subdirectory(src/merger/)
 add_subdirectory(src/sampler/)
 add_subdirectory(src/tools/)
 add_subdirectory(src/tests/)
+add_subdirectory(src/nws)
 
 include(testing.cmake)
-
+include(hypergraph_testing.cmake)
 
 INSTALL(TARGETS motivo-build DESTINATION bin)
 INSTALL(TARGETS motivo-merge DESTINATION bin)
@@ -202,7 +208,8 @@ INSTALL(TARGETS motivo-sample DESTINATION bin)
 INSTALL(TARGETS motivo-graph DESTINATION bin)
 INSTALL(TARGETS motivo-decompose DESTINATION bin)
 INSTALL(TARGETS motivo-homomorphism DESTINATION bin)
-
+INSTALL(TARGETS motivo-gaifman DESTINATION bin)
+INSTALL(TARGETS motivo-hypergraph DESTINATION bin)
 
 SET(CPACK_GENERATOR "DEB")
 SET(CPACK_PACKAGE_CONTACT "Stefano Leucci")

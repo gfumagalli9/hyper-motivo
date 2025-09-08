@@ -20,36 +20,34 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef MOTIVO_SEQUENTIAL_BUILDER_H
-#define MOTIVO_SEQUENTIAL_BUILDER_H
+#ifndef MOTIVO_HYPER_SEQUENTIAL_BUILDER_H
+#define MOTIVO_HYPER_SEQUENTIAL_BUILDER_H
 
-#include "ColorCodingBuilder.h"
-#include "../common/graph/UndirectedGraph.h"
+#include "InclusionExclusionBuilder.h"
+#include "../common/graph/Hypergraph.h"
 #include "../common/io/ConcurrentWriter.h"
-#include "../common/types/PairSet.h"
 
-class SequentialBuilder
+class HyperSequentialBuilder
 {
-private:         
-    const UndirectedGraph* const G;
-    const UndirectedGraph::vertex_t from_vertex;
-    UndirectedGraph::vertex_t to_vertex;
+private:
+    const Hypergraph* const H;
+    const Hypergraph::vertex_t from_vertex;
+    Hypergraph::vertex_t to_vertex;
     const unsigned int size;
     const TreeletTableCollection* const ttc;
+    const TreeletTableCollection* const tIEc;
     const bool store_only_0;
     std::ostream* const output;
-    ColorCodingBuilder builder;
-    PairSet common_pairs;
+    IEBuilder builder;
     const bool normalize;
 
 public:
-    SequentialBuilder(const UndirectedGraph* G, UndirectedGraph::vertex_t from_vertex, UndirectedGraph::vertex_t to_vertex,
-                          unsigned int size, const TreeletTableCollection* ttc, bool store_only_0,
-                          TreeletStructureSelector* selector, std::ostream* output, 
-                          PairSet common_pairs, const bool normalize);
+    HyperSequentialBuilder(const Hypergraph* H, Hypergraph::vertex_t from_vertex, Hypergraph::vertex_t to_vertex,
+                          unsigned int size, const TreeletTableCollection* ttc, const TreeletTableCollection* tIEc, bool store_only_0,
+                          TreeletStructureSelector* selector, std::ostream* output, const bool normalize);
 
     void build [[gnu::hot]] ();
 };
 
 
-#endif //MOTIVO_SEQUENTIAL_BUILDER_H
+#endif //MOTIVO_HYPER_SEQUENTIAL_BUILDER_H

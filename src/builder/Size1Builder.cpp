@@ -39,7 +39,6 @@ void Size1Builder::build()
     {
         //auto color = static_cast<uint8_t>(rng->random_uint(0, number_of_colors-1));
         auto color = static_cast<uint8_t>(cd(*rng->underlying_generator()));
-
         memcpy(buffer, &u, sizeof(UndirectedGraph::vertex_t));
         tcp.treelet = Treelet::singleton(color);
         memcpy(buffer + sizeof(UndirectedGraph::vertex_t) + sizeof(uint64_t), &tcp, sizeof(TreeletTable::treelet_count_pair));

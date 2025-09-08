@@ -62,6 +62,7 @@ private:
     const bool store_only_0;
     std::ostream *const output;
     ColorCodingBuilder builder;
+    const bool normalize;
 
     unsigned int nthreads;
     std::atomic<UndirectedGraph::vertex_t> next_vertex {UndirectedGraph::INVALID_VERTEX};
@@ -70,7 +71,7 @@ private:
 public:
     MultithreadedBuilder(const UndirectedGraph *G, UndirectedGraph::vertex_t from_vertex, UndirectedGraph::vertex_t to_vertex,
             unsigned int size, const TreeletTableCollection *ttc, bool store_only_0, TreeletStructureSelector *selector,
-            std::ostream *output, unsigned int nthreads);
+            std::ostream *output, unsigned int nthreads, const bool normalize);
 
     void phase1_thread_loop [[gnu::hot]] (unsigned int thread_no, phase1_thread_state_t *states, ConcurrentWriter *writer);
 

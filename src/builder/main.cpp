@@ -34,23 +34,48 @@
 #include "Size1Builder.h"
 #include "SequentialBuilder.h"
 #include "MultithreadedBuilder.h"
+#include "HyperSequentialBuilder.h"
+#include "../common/graph/Hypergraph.h"
 #include "../common/io/PropertyStore.h"
+#include "../common/io/IEReader.h"
+#include "../common/types/PairSet.h"
 
-struct builder_opts
-{
-    char graph[MOTIVO_ARG_MAX];
+struct builder_opts {
+    char    graph[MOTIVO_ARG_MAX];
+    bool    use_hyper;            // <— nuovo flag
     unsigned int size;
     uint8_t colors;
-    char tables_basename[MOTIVO_ARG_MAX];
-    UndirectedGraph::vertex_t from_vertex;
-    UndirectedGraph::vertex_t to_vertex;
-    char seed[MOTIVO_ARG_MAX + 2 + std::numeric_limits<unsigned int>::digits/3]; //Enough space to append one character + 1 integer
+    char    tables_basename[MOTIVO_ARG_MAX];
+    typename UndirectedGraph::vertex_t from_vertex;
+    typename UndirectedGraph::vertex_t to_vertex;
+    char    seed[MOTIVO_ARG_MAX + 32];
     unsigned int threads;
-    char output_basename[MOTIVO_ARG_MAX];
-    bool store0;
-    char selective_filename[MOTIVO_ARG_MAX];
-    double coloring_bias;
+    char    output_basename[MOTIVO_ARG_MAX];
+    bool    store0;
+    bool    normalize;
+    char    selective_filename[MOTIVO_ARG_MAX];
+    double  coloring_bias;
 };
+
+// Carica da disco
+PairSet load_pairs(const std::string& filename) {
+    std::ifstream in{filename, std::ios::binary};
+    if (!in) {
+        throw std::runtime_error("Impossibile aprire file di coppie: " + filename);
+    }
+    size_t n;
+    in.read(reinterpret_cast<char*>(&n), sizeof(n));
+    PairSet S;
+    S.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        UndirectedGraph::vertex_t u, v;
+        in.read(reinterpret_cast<char*>(&u), sizeof(u));
+        in.read(reinterpret_cast<char*>(&v), sizeof(v));
+
+        S.emplace(u, v);
+    }
+    return S;
+}
 
 bool parse_builder_args(const int argc, const char **argv, const std::string &name, builder_opts *opts)
 {
@@ -68,6 +93,8 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *store0_opt  = op.add_option(false, false, "store-on-0-colored-vertices-only", '0', "", "Store treelet counts only for the vertices with color 0 (default: false, ignored if size=1)");
     OptionsParser::Option *selective_opt = op.add_option(false, true, "selective", '\0', "", "Count only treelets whose structures are allowed in file ARG");
     OptionsParser::Option *coloring_bias_opt = op.add_option(false, true, "coloring-bias", '\0', "1", "Cut the k-colorful probability by a given factor, by reducing the weight of the first k/2 colors.");
+    OptionsParser::Option *hz = op.add_option(false,false,"hyper",'\0',"","Load as Hypergraph instead of UndirectedGraph");
+    OptionsParser::Option *normalize_opt = op.add_option(false, true, "normalize", '\0', "true", "Normalize counts (true/false)");
 
 
     if (!op.parse(argc, argv) || help_opt->is_found())
@@ -101,23 +128,35 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
         throw std::runtime_error("'graph' option is too long");
     strcpy(opts->graph,graph_opt->get_value().c_str());
 
-    UndirectedGraph G(graph_opt->get_value());
+    opts->use_hyper = hz->is_found();
+
+    uint32_t nv;
+    if (opts->use_hyper) {
+        Hypergraph H(opts->graph);
+        nv = H.number_of_vertices();
+    }
+    else {
+        UndirectedGraph G(opts->graph);
+        nv = G.number_of_vertices();
+    }
+
+    // UndirectedGraph G(graph_opt->get_value()); Rimuovo per il momento il controllo
 
     opts->from_vertex = 0;
     if(from_opt->is_found())
     {
         uint64_t from = std::stoull(from_opt->get_value());
-        if(from >=G.number_of_vertices())
+        if(from >= nv)
             throw std::runtime_error("'from-vertex' option specifies an invalid vertex");
 
         opts->from_vertex = static_cast<UndirectedGraph::vertex_t>(from);
     }
 
-    opts->to_vertex = G.number_of_vertices()-1;
+    opts->to_vertex = nv-1;
     if(to_opt->is_found())
     {
         uint64_t to = std::stoull(to_opt->get_value());
-        if(to >=G.number_of_vertices())
+        if(to >=nv)
             throw std::runtime_error("'to-vertex' option specifies an invalid vertex");
 
         opts->to_vertex = static_cast<UndirectedGraph::vertex_t>(to);
@@ -166,123 +205,183 @@ bool parse_builder_args(const int argc, const char **argv, const std::string &na
     if(!std::isnormal(opts->coloring_bias) || opts->coloring_bias>1 || opts->coloring_bias<=0)
         throw std::runtime_error("'coloring-bias' must be between 0 (exclusive) and 1 (inclusive)");
 
+    // Parse normalize option
+    {
+        std::string normVal = normalize_opt->get_value();
+        opts->normalize = (normVal == "true" || normVal == "1");
+    }
+
     return true;
 }
 
-int main(const int argc, const char** argv)
-{
-    std::cout << "This is motivo-build. Version: " << MOTIVO_VERSION_STRING << "\n" << MOTIVO_COPYRIGHT_NOTICE << std::endl;
+template<typename Graph> int run_build(const builder_opts& opts){
+    Graph G(opts.graph);
+    G.prefault();
+    std::cout << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
 
-    static builder_opts opts;
-    try
+    double* color_distribution = nullptr;
+    if(!double_equality(opts.coloring_bias, 1))
     {
-        if(!parse_builder_args(argc, argv, "motivo-build", &opts))
-            return EXIT_SUCCESS;
+        color_distribution = new double[opts.colors];
+        int lpcn = opts.colors - 1; // number of low-probability colors
+        double lpc = std::min(1.0 * lpcn / opts.colors, opts.coloring_bias * lpcn); // aggregate prob of the first lpcn colors
+        bimodal_distribution(color_distribution, opts.colors, lpcn, lpc);
+        std::cout << "color 0 has probability " << color_distribution[0] << std::endl;
+        std::cout << "k-colorful probability=" << pcold(color_distribution, opts.colors) << std::endl;
 
-        UndirectedGraph G(opts.graph);
-        G.prefault();
-        std::cout << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
+        if(color_distribution[0] < 100.0 / G.number_of_vertices())
+            std::cerr << "Warning! Less than 100 nodes in expectation with color 0" << std::endl;
+    }
 
-        double* color_distribution = nullptr;
-        if(!double_equality(opts.coloring_bias, 1))
-        {
-            color_distribution = new double[opts.colors];
-            int lpcn = opts.colors - 1; // number of low-probability colors
-            double lpc = std::min(1.0 * lpcn / opts.colors, opts.coloring_bias * lpcn); // aggregate prob of the first lpcn colors
-            bimodal_distribution(color_distribution, opts.colors, lpcn, lpc);
-            std::cout << "color 0 has probability " << color_distribution[0] << std::endl;
-            std::cout << "k-colorful probability=" << pcold(color_distribution, opts.colors) << std::endl;
-
-            if(color_distribution[0] < 100.0 / G.number_of_vertices())
-                std::cerr << "Warning! Less than 100 nodes in expectation with color 0" << std::endl;
-        }
-
-        TreeletTableCollection ttc;
-        CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>* readers = nullptr;
-        TreeletTable** tables = nullptr;
-        if(opts.size != 1)
-        {
-            std::cout << "Loading tables for smaller sizes" << std::endl;
-            readers = new CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>[opts.size-1];
-            tables = new TreeletTable*[opts.size-1];
-
-            for(unsigned int i=0; i<opts.size-1; i++)
-            {
-                readers[i].open( std::string(opts.tables_basename) + "." + std::to_string(i+1) + ".dtz" );
-                readers[i].prefault(opts.from_vertex, opts.to_vertex);
-                tables[i] = new TreeletTable(&readers[i]);
-                ttc.add(tables[i]);
-            }
-        }
-
-        const std::string filename = std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".cnt";
-        std::ofstream out(filename , std::ofstream::binary | std::ofstream::trunc);
-        if(out.bad())
-            throw std::runtime_error("Could not open output file for writing");
-
-        std::cout << "Computing counts of treelets of size " << opts.size << " for vertices " << opts.from_vertex << "--"
-                  << opts.to_vertex << " using " << opts.threads << " thread(s)" << std::endl;
-
-        bool selective = *opts.selective_filename!='\0' && opts.size>1;
-        TreeletStructureSelector* selector = nullptr;
-        if(selective)
-        {
-            selector = new TreeletStructureSelector(TreeletStructureSelector(opts.selective_filename).restrict_to_sizes(opts.size,opts.size));
-            std::cout << "Selectively " << ((selector->get_mode()==TreeletStructureSelector::MODE_INCLUDE)?"counting only ":"ignoring ") << selector->size() << " treelet(s) of the given size" << std::endl;
-        }
-
-        std::chrono::time_point<std::chrono::steady_clock> tstart;
-        if(opts.size==1)
-        {
-            Random rng(opts.seed);
-            Size1Builder builder(G.number_of_vertices(), opts.from_vertex, opts.to_vertex, opts.colors, color_distribution, &rng, &out);
-            tstart = std::chrono::steady_clock::now();
-            builder.build();
-        }
-        else if(opts.threads==1)
-        {
-            SequentialBuilder builder(&G, opts.from_vertex, opts.to_vertex, opts.size, &ttc, opts.store0, selector, &out);
-            tstart = std::chrono::steady_clock::now();
-            builder.build();
-        }
-        else
-        {
-            MultithreadedBuilder builder(&G, opts.from_vertex, opts.to_vertex, opts.size, &ttc, opts.store0, selector, &out, opts.threads);
-            tstart = std::chrono::steady_clock::now();
-            builder.build();
-        }
-        std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
-
-        std::cerr << "Building time: " << delta_t.count() << " s\n";
-
-        out.close();
-        std::cout << "Output written to " << filename << std::endl;
-
-        // write info for later phases
-        PropertyStore properties;
-        properties.set_bool("StoreOnlyOn0", opts.store0);
-
-        if(color_distribution!= nullptr)
-            properties.set_double("ColoringProbability", pcold(color_distribution, opts.colors));
-
-        if(opts.size==1)
-            properties.set_uint8("NumberOfColors", opts.colors);
-
-        properties.save(std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".info");
-
-        delete selector;
+    TreeletTableCollection ttc;
+    CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>* readers = nullptr;
+    //CompressedRecordFileReader<const Treelet, /*RAW=*/true>* treelet_readers = nullptr;
+    TreeletTable** tables = nullptr;
+    if(opts.size != 1)
+    {
+        std::cout << "Loading tables for smaller sizes" << std::endl;
+        readers = new CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias>[opts.size-1];
+        //treelet_readers = new CompressedRecordFileReader<const Treelet, true>[opts.size-1];
+        tables = new TreeletTable*[opts.size-1];
 
         for(unsigned int i=0; i<opts.size-1; i++)
-            delete tables[i];
+        {
+            std::string base = std::string(opts.tables_basename) + "." + std::to_string(i+1);
+            readers[i].open(base + ".dtz" );
+            readers[i].prefault(opts.from_vertex, opts.to_vertex);
+            //treelet_readers[i].open(base + ".treelets.dtz");
+            tables[i] = new TreeletTable(&readers[i]);
+            ttc.add(tables[i]);
+        }
+    }
 
-        delete[] readers;
-        delete[] tables;
+    // 2) In modalità ipergrafo, carico anche le tabelle IE nello stesso formato
+    // Open IE tables via adapter (only in hyper mode and size > 1)
+    std::unique_ptr<IEReader> ie_reader;
+    if (opts.use_hyper && opts.size != 1) {
+        ie_reader = std::make_unique<IEReader>(
+            std::string(opts.tables_basename),          // ie_base prefix
+            static_cast<unsigned>(opts.size - 1),       // max IE size
+            opts.from_vertex,                           // prefault start
+            opts.to_vertex                              // prefault end
+        );
     }
-    catch(std::exception &e)
+
+    const std::string filename = std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".cnt";
+    std::ofstream out(filename , std::ofstream::binary | std::ofstream::trunc);
+    if(out.bad())
+        throw std::runtime_error("Could not open output file for writing");
+
+    std::cout << "Computing counts of treelets of size " << opts.size << " for vertices " << opts.from_vertex << "--"
+                << opts.to_vertex << " using " << opts.threads << " thread(s)" << std::endl;
+
+    bool selective = *opts.selective_filename!='\0' && opts.size>1;
+    TreeletStructureSelector* selector = nullptr;
+    if(selective)
     {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return EXIT_FAILURE;
+        selector = new TreeletStructureSelector(TreeletStructureSelector(opts.selective_filename).restrict_to_sizes(opts.size,opts.size));
+        std::cout << "Selectively " << ((selector->get_mode()==TreeletStructureSelector::MODE_INCLUDE)?"counting only ":"ignoring ") << selector->size() << " treelet(s) of the given size" << std::endl;
     }
+
+    std::chrono::time_point<std::chrono::steady_clock> tstart;
+    if(opts.size==1)
+    {
+        Random rng(opts.seed);
+        Size1Builder builder(G.number_of_vertices(), opts.from_vertex, opts.to_vertex, opts.colors, color_distribution, &rng, &out);
+        tstart = std::chrono::steady_clock::now();
+        builder.build();
+    }
+    else{
+        if constexpr (std::is_same_v<Graph, Hypergraph>) {
+            if(opts.threads==1)
+            {
+                TreeletTableCollection* ie_ptr = nullptr;
+                if (ie_reader) ie_ptr = &ie_reader->collection();
+                
+                HyperSequentialBuilder builder(&G, opts.from_vertex, opts.to_vertex, opts.size, &ttc, ie_ptr, opts.store0, selector,&out, opts.normalize);
+                tstart = std::chrono::steady_clock::now();
+                builder.build();
+            }
+            else{
+                printf("Not yet");
+            }
+        }
+        else{
+            const std::string common_pairs_filename = std::string(opts.graph) + ".pairs";
+            PairSet common_pairs;
+            try {
+                common_pairs = load_pairs(common_pairs_filename);
+            } catch (const std::exception& e) {
+                std::cout << "Warning: non ho potuto caricare " << common_pairs_filename << " (" << e.what() << "), userò un PairSet vuoto.\n";
+            }
+            if(opts.threads==1)
+            {
+                SequentialBuilder builder(&G, opts.from_vertex, opts.to_vertex, opts.size, &ttc, opts.store0, selector, &out, common_pairs, opts.normalize);
+                tstart = std::chrono::steady_clock::now();
+                builder.build();
+            }
+            else
+            {
+                MultithreadedBuilder builder(&G, opts.from_vertex, opts.to_vertex, opts.size, &ttc, opts.store0, selector, &out, opts.threads, opts.normalize);
+                tstart = std::chrono::steady_clock::now();
+                builder.build();
+            }
+        }
+    }
+
+    std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
+
+    std::cerr << "Building time: " << delta_t.count() << " s\n";
+
+    out.close();
+    std::cout << "Output written to " << filename << std::endl;
+
+    // write info for later phases
+    PropertyStore properties;
+    properties.set_bool("StoreOnlyOn0", opts.store0);
+
+    if(color_distribution!= nullptr)
+        properties.set_double("ColoringProbability", pcold(color_distribution, opts.colors));
+
+    if(opts.size==1)
+        properties.set_uint8("NumberOfColors", opts.colors);
+
+    properties.save(std::string(opts.output_basename) + "." + std::to_string(opts.size) + ".info");
+
+    delete selector;
+
+    for(unsigned int i=0; i<opts.size-1; i++)
+        delete tables[i];
+
+    delete[] readers;
+    delete[] tables;
 
     return EXIT_SUCCESS;
+}
+
+int main(int argc, const char** argv) {
+    std::cout << "This is motivo-build. Version: " << MOTIVO_VERSION_STRING
+              << "\n" << MOTIVO_COPYRIGHT_NOTICE << "\n";
+
+    builder_opts opts;
+    if (!parse_builder_args(argc, argv, "motivo build", &opts))
+        return EXIT_SUCCESS;
+
+    // Debug: stampa il valore di use_hyper
+    std::cout << std::boolalpha
+              << "DEBUG: opts.use_hyper = " << opts.use_hyper << "\n";
+
+    try {
+        if (opts.use_hyper) {
+            std::cout << "Modo ipergrafo attivo\n";
+            return run_build<Hypergraph>(opts);
+        } else {
+            std::cout << "Modo grafo non-oriented attivo\n";
+            return run_build<UndirectedGraph>(opts);
+        }
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << "\n";
+        return EXIT_FAILURE;
+    }
 }

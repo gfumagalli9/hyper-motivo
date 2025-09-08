@@ -96,4 +96,3 @@ TEST_CASE("SpanningTreeCounter cliques slow")
     for(unsigned int i=10; i<=12; i++)
         test(0, i, ipow<uint64_t>(i, i-2));
 }
-

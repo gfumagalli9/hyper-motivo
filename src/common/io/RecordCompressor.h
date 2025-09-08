@@ -79,7 +79,8 @@ public:
 
             static_assert(!RAW || alignof(T)==1, "Raw read allowed but type is not 1-byte aligned");
             if(RAW)
-                return decompress_result_t<T>{reinterpret_cast<T*>(record+sizeof(header_t)), (length - sizeof(header_t))/sizeof(T), nullptr};
+                //return decompress_result_t<T>{reinterpret_cast<T*>(record+sizeof(header_t)), (length - sizeof(header_t))/sizeof(T), nullptr};
+                return decompress_result_t<T>{reinterpret_cast<T*>(const_cast<char*>(record + sizeof(header_t))), (length - sizeof(header_t))/sizeof(T), nullptr};
 
             /* 5.3.4/10 - New
              * A new-expression passes the amount of space requested to the allocation function as the first argument of type std::

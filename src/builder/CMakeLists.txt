@@ -9,6 +9,9 @@ set(BUILDER_SOURCE_FILES
         Size1Builder.h
         Size1Builder.cpp
         SequentialBuilder.cpp
+        HyperSequentialBuilder.h
+        HyperSequentialBuilder.cpp 
+        InclusionExclusionBuilder.h
         ColorCodingBuilder.h
         ColorCodingHashmap.h
         )

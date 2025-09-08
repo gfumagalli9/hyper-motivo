@@ -1,9 +1,15 @@
 set(COMMON_SOURCE_FILES
         ../../config.h
+        ../builder/Size1Builder.h
+        ../builder/Size1Builder.cpp
+        ../builder/InclusionExclusionBuilder.h
+        types/PairSet.h
         platform/platform.h
         platform/platform.cpp
         graph/UndirectedGraph.cpp
         graph/UndirectedGraph.h
+        graph/Hypergraph.cpp
+        graph/Hypergraph.h
         treelets/Treelet.h
         random/Random.h
         random/AliasMethodSampler.h
@@ -15,6 +21,8 @@ set(COMMON_SOURCE_FILES
         treelets/TreeletTable.h
         treelets/TreeletStructureSelector.cpp
         treelets/TreeletStructureSelector.h
+        treelets/TreeletList.h
+        treelets/TreeletList.cpp
         io/ConcurrentFIFO.h
         io/ConcurrentWriter.cpp
         io/ConcurrentWriter.h
@@ -25,6 +33,8 @@ set(COMMON_SOURCE_FILES
         io/BaseRecordSource.h
         io/PropertyStore.cpp
         io/PropertyStore.h
+        io/IEReader.h
+        io/IEReader.cpp
         OptionsParser.cpp
         OptionsParser.h
         util.cpp

@@ -19,7 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-
+//
 //
 // Created by steven on 12/2/16.
 //
@@ -29,7 +29,17 @@
 
 #include <cstdlib>
 #include <cstdint>
-#include <immintrin.h>
+
+// =====================================================
+// 1) Includi <immintrin.h> SOLO se stai compilando
+//    su architettura x86 (Intel/AMD). In tutti gli altri
+//    casi (es. macOS ARM) viene saltato.
+// =====================================================
+
+#if defined(__x86_64__) || defined(__i386__)
+    #include <immintrin.h>
+#endif
+
 #include <iostream>
 #include <memory.h>
 #include <limits>
@@ -37,17 +47,22 @@
 #include "leftmost_bit_tie_lut.h"
 #include "config.h"
 
-#define FAIL_OVERFLOW do { std::cerr << "Overflow in " << __FILE__ <<":"<< __LINE__ << std::endl << std::flush; std::abort(); } while(false)
+#define FAIL_OVERFLOW \
+    do { \
+        std::cerr << "Overflow in " << __FILE__ << ":" << __LINE__ << std::endl << std::flush; \
+        std::abort(); \
+    } while(false)
 
 #ifdef MOTIVO_HAS_BUILTIN_ADD_OVERFLOW
     #define add_overflow(a, b, res) __builtin_add_overflow( (a), (b), (res) )
 #else
     template<typename T> inline bool add_overflow(T a, T b, T* res)
     {
-        if( (b>0 && a>std::numeric_limits<T>::max()-b) || (b<0 && a < std::numeric_limits<T>::min()-b) )
+        if( (b>0 && a>std::numeric_limits<T>::max()-b) ||
+            (b<0 && a < std::numeric_limits<T>::min()-b) )
             return true;
 
-        *res=a+b;
+        *res = a + b;
         return false;
     }
 #endif
@@ -55,22 +70,27 @@
 #ifdef MOTIVO_HAS_BUILTIN_MUL_OVERFLOW
     #define mul_overflow(a, b, res) __builtin_mul_overflow( (a), (b), (res) )
 #else
-    template<typename T> typename std::enable_if<std::is_unsigned<T>::value, bool>::type inline mul_overflow(T a, T b, T* res)
+    template<typename T>
+    typename std::enable_if<std::is_unsigned<T>::value, bool>::type inline mul_overflow(T a, T b, T* res)
     {
-        if( (a>std::numeric_limits<T>::max()/b) || (a < std::numeric_limits<T>::min()/b) )
+        if( (a > std::numeric_limits<T>::max() / b) ||
+            (a < std::numeric_limits<T>::min() / b) )
             return true;
 
-        *res=a*b;
+        *res = a * b;
         return false;
     }
 
-    template<typename T> typename std::enable_if<!std::is_unsigned<T>::value, bool>::type inline mul_overflow(T a, T b, T* res)
+    template<typename T>
+    typename std::enable_if<!std::is_unsigned<T>::value, bool>::type inline mul_overflow(T a, T b, T* res)
     {
-        if( (a==-1 && b==std::numeric_limits<T>::min())  || (b==-1 && a==std::numeric_limits<T>::min())
-            || (a>std::numeric_limits<T>::max()/b) || (a < std::numeric_limits<T>::min()/b) )
+        if( (a == -1 && b == std::numeric_limits<T>::min())  ||
+            (b == -1 && a == std::numeric_limits<T>::min())  ||
+            (a > std::numeric_limits<T>::max() / b)           ||
+            (a < std::numeric_limits<T>::min() / b) )
             return true;
 
-        *res=a*b;
+        *res = a * b;
         return false;
     }
 #endif
@@ -83,13 +103,13 @@
     #define safe_mul(a, b, res) do { (*res) = ( (a) * (b) ); } while(false)
 #endif
 
-///popcount32 returns the number of bits set to 1 in x where x is a 32 bit integer
-#if MOTIVO_INT_SIZE>=4 && MOTIVO_HAS_BUILTIN_POPCOUNT
+/// popcount32 returns the number of bits set to 1 in x where x is a 32 bit integer
+#if MOTIVO_INT_SIZE >= 4 && MOTIVO_HAS_BUILTIN_POPCOUNT
     #define popcount32(x) ( __builtin_popcount( (x) ) )
-#elif MOTIVO_LONG_SIZE>=4 && MOTIVO_HAS_BUILTIN_POPCOUNTL
+#elif MOTIVO_LONG_SIZE >= 4 && MOTIVO_HAS_BUILTIN_POPCOUNTL
     #define popcount32(x) ( __builtin_popcountl( (x) ) )
 #else
-//From: https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+// From: https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
 inline int popcount32 [[gnu::const]] (uint32_t v)
 {
     v = v - ((v >> 1) & 0x55555555);                    // reuse input as temporary
@@ -99,42 +119,45 @@ inline int popcount32 [[gnu::const]] (uint32_t v)
 #endif
 
 #ifndef MOTIVO_HAS_UINT128_T
-#ifdef MOTIVO_HAS___UINT128_T
-    typedef __uint128_t uint128_t;
-#else
-    #error "No 128-bit unsigned integer type"
-#endif
+  #ifdef MOTIVO_HAS___UINT128_T
+      typedef __uint128_t uint128_t;
+  #else
+      #error "No 128-bit unsigned integer type"
+  #endif
 #endif
 
-///@pre the leftmost bit of x is 1
-///@returns the index of the smallest index i>0 such that the number of 0s and 1s in the leftmost i bits of x are equal
+/// @pre the leftmost bit of x is 1
+/// @returns the index of the smallest index i>0 such that
+/// the number of 0s and 1s in the leftmost i bits of x are equal
 inline uint8_t leftmost_bit_tie1 [[gnu::pure]] (uint32_t x)
 {
-    uint8_t y = leftmost_bit_tie_LUT0[ (x>>24u) & 0b01111111u];
-    if(y & 0b10000000u)
+    uint8_t y = leftmost_bit_tie_LUT0[(x >> 24u) & 0b01111111u];
+    if (y & 0b10000000u)
         return static_cast<uint8_t>(~y);
 
-    y = leftmost_bit_tie_LUT1[ static_cast<unsigned int>(y<<8u) | ((x>>16u) & 0xFFu) ];
-    if(y & 0b10000000u)
+    y = leftmost_bit_tie_LUT1[static_cast<unsigned int>(y << 8u) | ((x >> 16u) & 0xFFu)];
+    if (y & 0b10000000u)
         return static_cast<uint8_t>(~y);
 
-    y = leftmost_bit_tie_LUT2[ static_cast<unsigned int>(y<<8u) | ((x>>8u) & 0xFFu) ];
-    if(y & 0b10000000u)
+    y = leftmost_bit_tie_LUT2[static_cast<unsigned int>(y << 8u) | ((x >> 8u) & 0xFFu)];
+    if (y & 0b10000000u)
         return static_cast<uint8_t>(~y);
 
-    y = leftmost_bit_tie_LUT3[static_cast<unsigned int>(y<<8u) | (x & 0xFFu) ];
+    y = leftmost_bit_tie_LUT3[static_cast<unsigned int>(y << 8u) | (x & 0xFFu)];
     return static_cast<uint8_t>(~y);
 }
 
-///@returns the index of the smallest index i>0 such that the number of 0s and 1s in the leftmost i bits of x are equal
-inline int leftmost_bit_tie [[gnu::pure, gnu::flatten]] (uint32_t x) { return leftmost_bit_tie1((x>>31u)?x:~x); }
+/// @returns the index of the smallest index i>0 tale che
+/// il numero di 0 e 1 nei primi i bit di x sia uguale
+inline int leftmost_bit_tie [[gnu::pure, gnu::flatten]] (uint32_t x)
+{
+    return leftmost_bit_tie1((x >> 31u) ? x : ~x);
+}
 
-///wraps mmap
+/// wrappers per mmap/munmap
 void* motivo_mmap_populate(size_t length, int prot, int fd);
 void* motivo_mmap(size_t length, int prot, int fd);
 void motivo_prefault(off_t off, size_t length, int fd);
-
-//wraps munmap
 int motivo_munmap(void* addr, size_t length);
 
-#endif //MOTIVO_PLATFORM_H
+#endif // MOTIVO_PLATFORM_H

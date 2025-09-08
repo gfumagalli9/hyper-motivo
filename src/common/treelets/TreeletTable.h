@@ -137,7 +137,6 @@ public:
     ///@returns the number of occurrences of @param treelet rooted in @param u, as stored in the table.
     treelet_count_t get_count(UndirectedGraph::vertex_t u, Treelet treelet) const;
 
-
     RangeSampler<treelet_count_t>* build_range_sampler(UndirectedGraph::vertex_t u, const TreeletStructureSelector* selector);
 
     ///@returns a constant iterator that iterates through all the stored treelets for vertex @param u.

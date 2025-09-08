@@ -25,6 +25,8 @@
 #include <fstream>
 #include <vector>
 #include <utility>
+#include <unordered_set>
+#include <unordered_map>
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/treelets/Treelet.h"
 #include "../common/treelets/TreeletTable.h"
@@ -39,11 +41,12 @@ struct vertex_info
     uint64_t count;
 };
 
-void write_table(const std::string &output_basename, UndirectedGraph::vertex_t num_vertices, vertex_info* info, double compression_threshold);
+void write_table(const std::string &output_basename, UndirectedGraph::vertex_t num_vertices, vertex_info* info, double compression_threshold, bool ie);
 
-void merge(const std::vector<std::string>& count_filenames, const std::string& output_basename, double compression_threshold)
+void merge(const std::vector<std::string>& count_filenames, const std::string& output_basename, double compression_threshold, bool ie)
 {
     const unsigned long no_files = count_filenames.size();
+    std::cout << "Numero file " << no_files << std::endl;
     UndirectedGraph::vertex_t num_vertices = 0;
     auto cnt_map = new std::pair<char*, size_t>[no_files];
     auto count_files = new FILE*[no_files];
@@ -115,7 +118,7 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
         throw std::runtime_error("Missing vertices");
 
     std::cout << "Writing output" << std::endl;
-    write_table(output_basename, num_vertices, info, compression_threshold);
+    write_table(output_basename, num_vertices, info, compression_threshold, ie);
 
     delete[] info;
 
@@ -129,7 +132,7 @@ void merge(const std::vector<std::string>& count_filenames, const std::string& o
     delete[] count_files;
 }
 
-void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, vertex_info* info, double compression_threshold)
+void write_table(const std::string &output_basename, const UndirectedGraph::vertex_t num_vertices, vertex_info* info, double compression_threshold, bool ie)
 {
     uint64_t num_treelet_count_pairs=0;
     TreeletTable::treelet_count_t num_occ_treelet = 0;
@@ -137,6 +140,7 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
     uint128_t num_occ_max = 0;
     bool num_occ_total_overflow = false;
 
+    std::unordered_set<Treelet, Treelet::TreeletHash> unique_treelets; // Set per treelet da salvare su disco
     std::string output_filename = output_basename + ".dtz";
     CompressedRecordFileWriter writer(output_filename, num_vertices);
 
@@ -153,7 +157,7 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
         {
             p++;
             memcpy(p, info[u].ptr, sizeof(TreeletTable::treelet_count_pair));
-
+            unique_treelets.insert(p->treelet); // Inserisco il treelet nel set
             if(num_occ_treelet < p->count)
                 num_occ_treelet = p->count;
 
@@ -162,7 +166,7 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
         }
         writer.write_record(reinterpret_cast<char*>(to_write), (info[u].count+1) * sizeof(TreeletTable::treelet_count_pair), compression_threshold);
 
-        if( add_overflow(num_occ_total, p->count, &num_occ_total) )
+        if(add_overflow(num_occ_total, p->count, &num_occ_total) )
             num_occ_total_overflow = true;
 
         if(p->count > num_occ_max)
@@ -171,7 +175,20 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
         alias_sampler.set(u, p->count);
         delete[] to_write;
     }
-
+    if(!ie){
+        std::vector<Treelet> all_treelets(unique_treelets.begin(), unique_treelets.end());
+        std::sort(all_treelets.begin(), all_treelets.end(),[](auto const& a, auto const& b){ return a < b; });
+        uint64_t num_unique = all_treelets.size();
+        CompressedRecordFileWriter treelet_writer(output_basename + ".treelets.dtz", num_unique); // Writer per treelet unici
+    
+        for (uint64_t i = 0; i < num_unique; ++i) {
+            // reinterpret_cast perché write_record prende un char*
+            auto const& t = all_treelets[i];
+            treelet_writer.write_record(reinterpret_cast<char*>(&(all_treelets[i])), sizeof(Treelet), compression_threshold);
+        }
+    
+        treelet_writer.close();
+    }
     writer.close();
 
     std::cout << "Compressed size: " << writer.get_compressed_size() << " Original size: " << writer.get_uncompressed_size()
@@ -191,10 +208,12 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
     {
         std::cout << uint128_to_string(num_occ_total) << " (" << uint128_bits_needed(num_occ_total) << " bits)" << std::endl;
 
-        //FIXME: .cnt and .dtz might have different file names
-        PropertyStore properties(std::string(output_basename) + ".info");
-        properties.set_uint128("TotTreelets", num_occ_total);
-        properties.save(output_basename + ".info");
+        if(!ie){
+            //FIXME: .cnt and .dtz might have different file names
+            PropertyStore properties(std::string(output_basename) + ".info");
+            properties.set_uint128("TotTreelets", num_occ_total);
+            properties.save(output_basename + ".info");
+        }
     }
     std::cout << "Maximum number of occurrences rooted in a single vertex: " << uint128_to_string(num_occ_max) << " ("<< uint128_bits_needed(num_occ_max) << " bits)" << std::endl;
     std::cout << "Maximum number of occurrences of a single rooted treelet: " << uint128_to_string(num_occ_treelet) << " ("<< uint128_bits_needed(num_occ_treelet) << " bits)" << std::endl;
@@ -210,6 +229,7 @@ int main(const int argc, const char** argv)
     OptionsParser::Option *help_opt = op.add_option(false, false, "help", '\0', "", "Print help and exit");
     OptionsParser::Option *compress_opt = op.add_option(false, true, "compress-threshold", '\0', "0", "Compress records if the compressed size is less than ARG times the uncompressed size (default or 0: disables compression)");
     OptionsParser::Option *output_opt = op.add_option(true, true, "output", 'o', "", "Output basename (required)");
+    OptionsParser::Option *ie_opt = op.add_option(false, false, "ie", 'e', "", "Skip building unique treelet list");
 
     bool parse_ok = op.parse(argc, argv);
     if (!parse_ok || help_opt->is_found())
@@ -226,6 +246,9 @@ int main(const int argc, const char** argv)
         std::cout << "Required options are missing" << std::endl;
         return EXIT_FAILURE;
     }
+
+    // New flag: se presente, saltare la treelet-list
+    bool ie = ie_opt->is_found();
 
     double compress_threshold;
     try
@@ -250,7 +273,7 @@ int main(const int argc, const char** argv)
     try
     {
         std::chrono::time_point<std::chrono::steady_clock>  tstart = std::chrono::steady_clock::now();
-        merge(count_files, output_opt->get_value(), compress_threshold);
+        merge(count_files, output_opt->get_value(), compress_threshold, ie);
         std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
         std::cerr << "Merge time: " << delta_t.count() << " s\n";
     }

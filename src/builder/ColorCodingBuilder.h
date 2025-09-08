@@ -27,7 +27,10 @@
 #include "../common/treelets/Treelet.h"
 #include "../common/treelets/TreeletTable.h"
 #include "../common/treelets/TreeletTableCollection.h"
+
 #include "../common/treelets/TreeletStructureSelector.h"
+#include <iostream>
+#include "../common/util.h"
 
 
 class ColorCodingBuilder
@@ -81,7 +84,7 @@ public:
         }
     }
 
-    template<typename T> std::pair<char*, std::size_t > to_normalized_sorted_byte_array [[gnu::hot]](const UndirectedGraph::vertex_t u, const T &table)
+    template<typename T> std::pair<char*, std::size_t > to_normalized_sorted_byte_array [[gnu::hot]](const UndirectedGraph::vertex_t u, const T &table, const bool normalize)
     {
         std::pair<char*, std::size_t> result;
         result.second = sizeof(UndirectedGraph::vertex_t) + sizeof(uint64_t) + table.size() * sizeof(TreeletTable::treelet_count_pair);
@@ -103,7 +106,8 @@ public:
             assert(u_it->second % u_it->first.normalization_factor() == 0);
 
             counts[i].treelet = u_it->first;
-            counts[i].count = u_it->second / counts[i].treelet.normalization_factor();
+            if(normalize) counts[i].count = u_it->second / counts[i].treelet.normalization_factor();
+            else counts[i].count = u_it->second;
 
             u_it++;
             i++;
@@ -113,7 +117,6 @@ public:
 
         return result;
     }
-
 };
 
 #endif //MOTIVO_COLORCODINGBUILDER_H

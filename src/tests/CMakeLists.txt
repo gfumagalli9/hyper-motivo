@@ -3,6 +3,7 @@ list(TRANSFORM COMMON_SOURCE_FILES PREPEND ../common/)
 set(TEST_SOURCE_FILES
         ${COMMON_SOURCE_FILES}
         tests.cpp
+        hypergraph.cpp
         Treelet.cpp
         Treelet.cpp
         leftmost_bit_tie.cpp
