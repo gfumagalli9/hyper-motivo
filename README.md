@@ -3,14 +3,6 @@
 Motivo is a collection of tools for counting and sampling motifs in large graphs — and now **hypergraphs**.  
 It is written in C++ and targets x86_64 processors, although it should compile on other architectures as well.
 
-Motivo is described in [this paper](https://arxiv.org/abs/1906.01599). If you publish results based on Motivo, please acknowledge us by citing:
-```
-M. Bressan, S. Leucci, A. Panconesi.
-Motivo: fast motif counting via succinct color coding and adaptive sampling.
-PVLDB, 12(11):1651-1663, 2019.
-DOI: https://doi.org/10.14778/3342263.3342640
-```
-
 ---
 
 ## Setup
@@ -145,60 +137,6 @@ cmake -DCMAKE_BUILD_TYPE=Release -DOPTIMIZE_MORE=YES -DMOTIVO_OVERFLOW_SAFE=NO .
 
 ---
 
-## Input formats
-
-### Graph format
-
-Motivo uses its own binary graph format. The tool `motivo-graph` converts to/from textual representations.
-
-All graphs are simple, undirected, and loop-free. Vertices are consecutive integers starting at 0.
-
-#### Textual formats
-
-All textual formats begin with line `n m` (number of vertices and **undirected** edges). Edges are listed twice (once per endpoint).
-
-**List of edges (`-f LOE`)**
-```
-4 5
-0 1
-0 2
-1 0
-1 2
-1 3
-2 0
-2 1
-2 3
-3 1
-3 2
-```
-
-**One node per line (`-f NODE`)**
-```
-4 5
-0 1 2
-1 0 2 3
-2 0 1 3
-3 1 2
-```
-
-**One node per line, explicit degree (`-f NODE_DEGREE`)**
-```
-4 5
-2 1 2
-3 0 2 3
-3 0 1 3
-2 1 2
-```
-
-#### Converting textual <-> binary
-
-```bash
-# text -> binary
-bin/motivo-graph --format NODE_DEGREE --input diamond.txt --output test-graph
-
-# binary -> text
-bin/motivo-graph --dump --format NODE_DEGREE --input test-graph --output test-graph-dump.txt
-```
 
 ### Hypergraph format
 
@@ -218,45 +156,6 @@ Motivo’s hypergraph pipeline consumes a compact **binary** format (read by `Hy
 - Offsets arrays (`.hef`, `.vhef`) have length `count+1`; the last element is the total number of items in the corresponding data file.
 - All arrays are little‑endian on x86_64.
 - The loader is read-only and mmaps these files.
-
----
-
-## Basic usage
-
-From `build/`, Motivo can be launched (1) the easy way via the wrapper `../scripts/motivo.sh`, or (2) directly via `bin/motivo-build` and `bin/motivo-sample`.
-
-### The easy way (graphs)
-
-Compute 5‑motif counts, take 100k samples, write `output.csv`:
-```bash
-../scripts/motivo.sh -g /path/to/my/graph -k 5 -o output -s 100000
-```
-
-CSV columns:
-- `motif`: ASCII signature of the motif (see `scripts/motivo_utils.py`)
-- `est_occurrences`: estimated number of induced occurrences
-- `est_frequency`: estimated relative frequency
-- `samples`: how many copies appeared in the sample
-- `sampling_algo`: `N` for naive, `A` for adaptive
-- `spanning_trees`: number of spanning trees of the motif
-- `vertices`: vertices of an occurrence
-
-Reuse built tables to sample again:
-```bash
-../scripts/motivo.sh -g /path/to/my/graph -k 5 -o output --sample -s 100000
-```
-Build without sampling:
-```bash
-../scripts/motivo.sh -g /path/to/my/graph -k 5 -o output --build
-```
-Adaptive graphlet sampling:
-```bash
-../scripts/motivo.sh -g /path/to/my/graph -k 5 -o output --sample -s 100000 -a
-```
-
-### The hard way (graphs)
-
-Build & merge tables for sizes 1..k, then sample with `bin/motivo-sample`. See the original README sections for full command examples.
 
 ---
 
@@ -316,39 +215,6 @@ python3 scripts/hyper_motivo_utils.py <counts.csv> --outdir hyperplots --fmt pdf
 - If drawings look too crowded, reduce node size or switch to PNG: `--fmt png`.
 
 ---
-
-## Converting and plotting (graphs)
-
-Motivo represents each (graph) motif as an ASCII string (e.g., `ADM` is the 5-star). This is a compact encoding of the **upper-triangular** adjacency matrix grouped into base‑16 nybbles mapped to `A..P` (see `scripts/motivo_utils.py`).
-
-Example:
-```python
->>> import motivo_utils as mu
->>> mu.signature_to_matrix("ADM")
-array([[0,0,0,0,1],
-       [0,0,0,0,1],
-       [0,0,0,0,1],
-       [0,0,0,0,1],
-       [1,1,1,1,0]])
-```
-
-You can also plot all motifs from a CSV:
-```bash
-../scripts/motivo_utils.py plotmotif output.csv pdf
-```
-
----
-
-## Advanced options
-
-TBD.
-
----
-
-## Bug reports
-
-https://gitlab.com/steven3k/motivo/-/issues
-
 ---
 
 ## License
