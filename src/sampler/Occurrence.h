@@ -63,6 +63,7 @@ public:
 	Occurrence(const Treelet& treelet, const UndirectedGraph::vertex_t* occ);
 	Occurrence(unsigned int size, const UndirectedGraph* graph, const UndirectedGraph::vertex_t* occ);
 	Occurrence(unsigned int size, const uint8_t* edges);
+    Occurrence(unsigned int size, const UndirectedGraph::vertex_t* occ, const uint8_t* edges); // we already have the edges
 
 	inline bool has_edge(unsigned int i, unsigned int j) const //FIXME: Could be invoked with j>=i
 	{

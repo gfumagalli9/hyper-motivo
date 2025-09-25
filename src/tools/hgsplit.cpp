@@ -1,60 +1,123 @@
 // MIT License
 //
-// Hypergraph split tool: divide an input hypergraph into two based on edge-size threshold
-// and compute common neighbor pairs between small and large parts.
+// Hypergraph split tool
+// ---------------------
+// Given an input hypergraph, split its hyperedges into two parts based on a
+// size threshold T:
+//   - "small":  hyperedges with |e| <= T
+//   - "large":  hyperedges with |e| >  T
+//
+// Then compute the set of vertex pairs (u,v) that:
+//   (a) co-occur in at least one "small" hyperedge, and
+//   (b) also co-occur in at least one "large" hyperedge.
+// Pairs are deduplicated and written to <small_output>.pairs as a compact
+// binary blob: [uint64_t M][(u,v) repeated M times].
+//
+// Outputs:
+//   <small>.{hmeta,hef,hvd,vhef,vhed}  : small-part hypergraph (binary format)
+//   <large>.{hmeta,hef,hvd,vhef,vhed}  : large-part hypergraph (binary format)
+//   <small>.pairs                       : pairs common to small∩large
+//
+// Notes:
+//   * Adjacency in .vhed and .hef is stored sorted for determinism.
+//   * Pair order is normalized (u < v) before dedup.
+//
+// CLI:
+//   --input|-i        <basename>
+//   --threshold|-t    <T>   (max hyperedge size for "small"; default: 0)
+//   --small-output|-s <basename>
+//   --large-output|-l <basename>
 
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <set>
-#include <string>
 #include <algorithm>
+#include <cstdint>
+#include <fstream>
+#include <iostream>
 #include <stdexcept>
+#include <string>
 #include <utility>
+#include <vector>
+
 #include "../common/OptionsParser.h"
 #include "../common/graph/Hypergraph.h"
-#include "../common/treelets/TreeletTable.h"
-#include "../common/io/PropertyStore.h"
+#include "../tools/alpha_beta.cpp"
 
 using vertex_t = Hypergraph::vertex_t;
 using edge_t   = Hypergraph::edge_t;
 
-static void write_hypergraph(const std::string &basename, const std::vector<std::vector<vertex_t>> &hyperedges, const vertex_t num_verts) {
-    edge_t   num_edges = static_cast<edge_t>(hyperedges.size());
+// Build, for each vertex u, the (sorted, duplicate-free) list of incident
+// hyperedge IDs in the "large" hypergraph. This enables fast intersection
+// tests between two vertices' incident sets.
+static std::vector<std::vector<edge_t>>
+build_high_incidence(const Hypergraph& H_high)
+{
+    const std::uint32_t n = H_high.number_of_vertices();
+    std::vector<std::vector<edge_t>> inc(n);
 
-    // build invert mapping
+    for (vertex_t u = 0; u < n; ++u) {
+        const std::uint32_t deg = H_high.vertex_degree(u);
+        auto& lst = inc[u];
+        lst.reserve(deg);
+        for (std::uint32_t i = 0; i < deg; ++i) {
+            const edge_t e = H_high.incident_hyperedge(u, i);
+            lst.push_back(e);
+        }
+        std::sort(lst.begin(), lst.end());
+        lst.erase(std::unique(lst.begin(), lst.end()), lst.end());
+    }
+    return inc;
+}
+
+// Return true if two sorted vectors of edge IDs share at least one common ID.
+static inline bool share_any_high_edge(const std::vector<edge_t>& a,
+                                       const std::vector<edge_t>& b)
+{
+    std::size_t i = 0, j = 0;
+    while (i < a.size() && j < b.size()) {
+        if (a[i] == b[j]) return true;
+        (a[i] < b[j]) ? ++i : ++j;
+    }
+    return false;
+}
+
+// Write a hypergraph (given as explicit hyperedges + vertex count) to the
+// standard Motivo binary format: {hmeta, hef, hvd, vhef, vhed}.
+static void write_hypergraph(const std::string& basename,
+                             const std::vector<std::vector<vertex_t>>& hyperedges,
+                             const vertex_t num_verts)
+{
+    const edge_t num_edges = static_cast<edge_t>(hyperedges.size());
+
+    // Build vertex->edges incidence (unsorted initially)
     std::vector<std::vector<edge_t>> v2e(num_verts);
     for (edge_t e = 0; e < num_edges; ++e)
-        for (auto v : hyperedges[e])
+        for (vertex_t v : hyperedges[e])
             v2e[v].push_back(e);
 
-    // prepare hef/hvd
-    std::vector<uint32_t> offsets_he(num_edges+1);
-    std::vector<vertex_t> hvd;
-    uint32_t off = 0;
+    // HEF/HVD: hyperedge->vertices
+    std::vector<std::uint32_t> offsets_he(num_edges + 1);
+    std::vector<vertex_t>      hvd;
+    std::uint32_t off = 0;
     for (edge_t e = 0; e < num_edges; ++e) {
         offsets_he[e] = off;
-        off += static_cast<uint32_t>(hyperedges[e].size());
-        for (auto v : hyperedges[e])
-            hvd.push_back(v);
+        off += static_cast<std::uint32_t>(hyperedges[e].size());
+        for (vertex_t v : hyperedges[e]) hvd.push_back(v);
     }
     offsets_he[num_edges] = off;
 
-    // prepare vhef/vhed
-    std::vector<uint32_t> offsets_vh(num_verts+1);
-    std::vector<edge_t> vhed;
+    // VHEF/VHED: vertex->hyperedges (sorted for determinism)
+    std::vector<std::uint32_t> offsets_vh(num_verts + 1);
+    std::vector<edge_t>        vhed;
     off = 0;
     for (vertex_t v = 0; v < num_verts; ++v) {
         offsets_vh[v] = off;
-        auto &inc = v2e[v];
+        auto& inc = v2e[v];
         std::sort(inc.begin(), inc.end());
-        off += static_cast<uint32_t>(inc.size());
-        for (auto e : inc)
-            vhed.push_back(e);
+        off += static_cast<std::uint32_t>(inc.size());
+        for (edge_t e : inc) vhed.push_back(e);
     }
     offsets_vh[num_verts] = off;
 
-    // write files
+    // Emit files
     {
         std::ofstream f(basename + ".hmeta", std::ios::binary);
         if (!f) throw std::runtime_error("Unable to write hmeta");
@@ -64,73 +127,44 @@ static void write_hypergraph(const std::string &basename, const std::vector<std:
     {
         std::ofstream f(basename + ".hef", std::ios::binary);
         if (!f) throw std::runtime_error("Unable to write hef");
-        f.write(reinterpret_cast<const char*>(offsets_he.data()), offsets_he.size()*sizeof(uint32_t));
+        f.write(reinterpret_cast<const char*>(offsets_he.data()),
+                static_cast<std::streamsize>(offsets_he.size() * sizeof(std::uint32_t)));
     }
     {
         std::ofstream f(basename + ".hvd", std::ios::binary);
         if (!f) throw std::runtime_error("Unable to write hvd");
-        f.write(reinterpret_cast<const char*>(hvd.data()), hvd.size()*sizeof(vertex_t));
+        f.write(reinterpret_cast<const char*>(hvd.data()),
+                static_cast<std::streamsize>(hvd.size() * sizeof(vertex_t)));
     }
     {
         std::ofstream f(basename + ".vhef", std::ios::binary);
         if (!f) throw std::runtime_error("Unable to write vhef");
-        f.write(reinterpret_cast<const char*>(offsets_vh.data()), offsets_vh.size()*sizeof(uint32_t));
+        f.write(reinterpret_cast<const char*>(offsets_vh.data()),
+                static_cast<std::streamsize>(offsets_vh.size() * sizeof(std::uint32_t)));
     }
     {
         std::ofstream f(basename + ".vhed", std::ios::binary);
         if (!f) throw std::runtime_error("Unable to write vhed");
-        f.write(reinterpret_cast<const char*>(vhed.data()), vhed.size()*sizeof(edge_t));
+        f.write(reinterpret_cast<const char*>(vhed.data()),
+                static_cast<std::streamsize>(vhed.size() * sizeof(edge_t)));
     }
 }
 
-// write .1.cnt color table for subset `used`
-static void writeColorTable(const std::string &basename, const std::vector<vertex_t> &used,TreeletTable &origCT) {
-    Hypergraph::vertex_t m = static_cast<Hypergraph::vertex_t>(used.size());
-    std::ofstream out(basename + ".1.cnt", std::ios::binary);
-    if (!out) throw std::runtime_error("Unable to open " + basename + ".1.cnt");
-
-    // write number of vertices
-    out.write(reinterpret_cast<const char*>(&m), sizeof(m));
-
-    constexpr std::streamsize buf_size =
-        sizeof(Hypergraph::vertex_t)
-      + sizeof(uint64_t)
-      + sizeof(TreeletTable::treelet_count_pair);
-    std::vector<char> buffer(buf_size);
-    // count=1
-    constexpr uint64_t one = 1;
-    memcpy(buffer.data() + sizeof(Hypergraph::vertex_t), &one, sizeof(one));
-
-    TreeletTable::treelet_count_pair tcp;
-    for (Hypergraph::vertex_t new_id = 0; new_id < m; ++new_id) {
-        // record new dense index
-        memcpy(buffer.data(), &new_id, sizeof(new_id));
-        // recover original color
-        auto it = origCT.begin(used[new_id]);
-        tcp.treelet = it.treelet();
-        tcp.count   = 1;
-        // pack tcp
-        memcpy(buffer.data() + sizeof(Hypergraph::vertex_t) + sizeof(one), &tcp, sizeof(tcp));
-        out.write(buffer.data(), buf_size);
-    }
-    out.close();
-}
-
-int main(int argc, const char** argv) {
+int main(int argc, const char** argv)
+{
     OptionsParser op;
-    auto* help_opt    = op.add_option(false, false, "help",          'h', "",   "Print help and exit");
-    auto* input_opt   = op.add_option(true,  true,  "input",         'i', "",   "Input binary hypergraph basename");
-    auto* thresh_opt  = op.add_option(true,  true,  "threshold",     't', "0",  "Maximum hyperedge size for the small hypergraph");
-    auto* small_opt   = op.add_option(true,  true,  "small-output",  's', "",   "Output basename for hyperedges of size <= threshold");
-    auto* large_opt   = op.add_option(true,  true,  "large-output",  'l', "",   "Output basename for hyperedges of size > threshold");
-    //auto* colorOpt    = op.add_option(false,  true,  "color-table", 'c', "", "Basename of size-1 color .dtz table");
+    auto* help_opt   = op.add_option(false, false, "help",         'h', "",  "Print help and exit");
+    auto* input_opt  = op.add_option(true,  true,  "input",        'i', "",  "Input binary hypergraph basename");
+    auto* thresh_opt = op.add_option(false,  false,  "threshold",    't', "0", "Maximum hyperedge size for the small hypergraph");
+    auto* small_opt  = op.add_option(true,  true,  "small-output", 's', "",  "Output basename for hyperedges of size <= threshold");
+    auto* large_opt  = op.add_option(true,  true,  "large-output", 'l', "",  "Output basename for hyperedges of size > threshold");
 
     if (!op.parse(argc, argv) || help_opt->is_found()) {
-        std::cout << "Usage: " << argv[0] << " [OPTIONS]" << op.help();
+        std::cout << "Usage: " << argv[0] << " [OPTIONS]\n" << op.help();
         return help_opt->is_found() ? EXIT_SUCCESS : EXIT_FAILURE;
     }
     if (!op.has_required_options()) {
-        std::cerr << "Missing required options";
+        std::cerr << "Missing required options\n";
         return EXIT_FAILURE;
     }
 
@@ -138,94 +172,102 @@ int main(int argc, const char** argv) {
     const vertex_t    threshold = static_cast<vertex_t>(std::stoul(thresh_opt->get_value()));
     const std::string out_small = small_opt->get_value();
     const std::string out_large = large_opt->get_value();
-    //const bool        doColor   = colorOpt->is_found();
-    //const std::string colorTbl  = doColor ? colorOpt->get_value() : "";
 
     try {
+        // 1) Load input hypergraph and split edges in memory
         Hypergraph H(in_base);
-        std::vector<std::vector<vertex_t>> small_he, large_he;
-        edge_t m = H.number_of_hyperedges();
-        // Raccogli le liste small_he e large_he
-        for (edge_t e = 0; e < m; ++e) {
-            size_t sz = H.hyperedge_size(e);
-            std::vector<vertex_t> he(sz);
-            for (vertex_t i = 0; i < sz; ++i) he[i] = H.hyperedge_vertex(e, i);
-            if (sz <= threshold) small_he.push_back(std::move(he));
-            else large_he.push_back(std::move(he));
+
+        vertex_t threshold = 0;
+        bool threshold_given = false;
+        if (thresh_opt->is_found()) {
+            const std::string val = thresh_opt->get_value();
+            if (!val.empty() && val != "auto" && val != "AUTO") {
+                const std::size_t t_raw = static_cast<std::size_t>(std::stoul(val));
+                const std::size_t TMAX  = std::numeric_limits<vertex_t>::max();
+                threshold = static_cast<vertex_t>(std::min<std::size_t>(t_raw, TMAX));
+                threshold_given = true;
+                std::cout << "Split alpha (manual): " << threshold << "\n";
+            }
+        }
+        if (!threshold_given) {
+            const std::size_t a = motivo::compute_best_alpha(H, 0.7);
+            const std::size_t TMAX = std::numeric_limits<vertex_t>::max();
+            threshold = static_cast<vertex_t>(std::min<std::size_t>(a, TMAX));
+            std::cout << "Split alpha (auto): " << threshold << "\n";
         }
 
-        // ————————————————
-        // Ordiniamo per mantenere gli invarianti:
-        /*
-        for (auto &he : small_he) std::sort(he.begin(), he.end());
-        for (auto &he : large_he) std::sort(he.begin(), he.end());
-        auto cmp = [](auto const &a, auto const &b) { return a.size() > b.size(); };
-        std::sort(small_he.begin(), small_he.end(), cmp);
-        std::sort(large_he.begin(), large_he.end(), cmp);
-        */
-        // ————————————————
-        
+        const edge_t m = H.number_of_hyperedges();
 
-        // 5) Write output hypers
+        std::vector<std::vector<vertex_t>> small_he;
+        std::vector<std::vector<vertex_t>> large_he;
+        small_he.reserve(m); // rough upper bound; vectors will reclaim space as needed
+        large_he.reserve(m);
+
+        for (edge_t e = 0; e < m; ++e) {
+            const std::uint32_t sz = H.hyperedge_size(e);
+            std::vector<vertex_t> he(sz);
+            for (std::uint32_t i = 0; i < sz; ++i) he[i] = H.hyperedge_vertex(e, i);
+            if (sz < threshold) small_he.push_back(std::move(he)); // TO FIX: if chosen treshold makes lower or higher empty it crashes
+            else                 large_he.push_back(std::move(he));
+        }
+
+        // 2) Write the two parts as standard binary hypergraphs
         write_hypergraph(out_small, small_he, H.number_of_vertices());
         write_hypergraph(out_large, large_he, H.number_of_vertices());
 
-        /*
-        if (doColor)
-        {
-            CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,TreeletTable::may_alias> reader;
-            reader.open(colorTbl + ".1.dtz");
-            TreeletTable origCT(&reader);
-            
-            writeColorTable(out_small, usedSmall, origCT);
-            PropertyStore properties;
-            properties.set_bool("Test", true);
-            properties.save(std::string(out_small) + ".1.info");
-            writeColorTable(out_large, usedHigh, origCT);
-            properties.save(std::string(out_large) + ".1.info");
-        }
-        */
-        
-        // Load and compute common pairs
-        Hypergraph H_large = Hypergraph(out_large);
-        Hypergraph H_small = Hypergraph(out_small);
+        // 3) Reload both parts through the canonical loader (ensures format sanity)
+        Hypergraph H_large(out_large);
+        Hypergraph H_small(out_small);
 
-        std::set<std::pair<vertex_t,vertex_t>> common_pairs;
+        // 4) Build per-vertex incident-edge lists for the "large" part (sorted)
+        auto high_inc = build_high_incidence(H_large);
 
-        for (Hypergraph::edge_t e = 0; e < H_small.number_of_hyperedges(); ++e) {
-            size_t sz = H_small.hyperedge_size(e);
-            for (size_t i = 0; i + 1 < sz; ++i) {
-                for (size_t j = i + 1; j < sz; ++j) {
-                    Hypergraph::vertex_t v = H_small.hyperedge_vertex(e, i);
-                    Hypergraph::vertex_t u = H_small.hyperedge_vertex(e, j);
-                    if(common_pairs.count(std::make_pair(v,u)) > 0) continue;
-                    for(size_t deg = 0; deg < H_large.vertex_degree(v); ++deg) {
-                        Hypergraph::edge_t incHe = H_large.incident_hyperedge(v, deg);
-                        if (std::binary_search(large_he[incHe].begin(), large_he[incHe].end(), u)){ //large_he contiene gli id originali, da capire se id iperarco sia lo stesso
-                            auto pair = std::make_pair(v,u);
-                            common_pairs.insert(pair);
-                            break;
-                        }
+        // 5) Extract pairs only from "small" hyperedges; keep those that also share
+        //    at least one "large" hyperedge (i.e., small∩large pairs).
+        std::vector<std::pair<vertex_t, vertex_t>> pairs;
+        pairs.reserve(1024); // optional heuristic
+
+        const edge_t m_low = H_small.number_of_hyperedges();
+        for (edge_t e = 0; e < m_low; ++e) {
+            const std::uint32_t sz = H_small.hyperedge_size(e);
+            if (sz < 2) continue;
+
+            std::vector<vertex_t> vs;
+            vs.reserve(sz);
+            for (std::uint32_t j = 0; j < sz; ++j)
+                vs.push_back(H_small.hyperedge_vertex(e, j));
+
+            // Generate all unordered pairs from this small hyperedge
+            for (std::uint32_t i = 0; i + 1 < vs.size(); ++i) {
+                for (std::uint32_t j = i + 1; j < vs.size(); ++j) {
+                    vertex_t u = vs[i], v = vs[j];
+                    if (u > v) std::swap(u, v); // normalize order
+
+                    if (share_any_high_edge(high_inc[u], high_inc[v])) {
+                        pairs.emplace_back(u, v);
                     }
                 }
             }
         }
 
-        // apri file in modalità binaria
-        std::ofstream out(out_small + ".pairs", std::ios::binary);
-        if(!out) throw std::runtime_error("Impossibile aprire file coppie");
+        // 6) Global dedup and write compact binary blob
+        std::sort(pairs.begin(), pairs.end());
+        pairs.erase(std::unique(pairs.begin(), pairs.end()), pairs.end());
 
-        // (salva prima il numero di coppie
-        uint64_t n = common_pairs.size();
-        out.write(reinterpret_cast<const char*>(&n), sizeof(n));
+        {
+            const std::string filename = out_small + ".pairs";
+            std::ofstream out(filename, std::ios::binary);
+            if (!out) throw std::runtime_error("Cannot open pairs output file: " + filename);
 
-        // per ogni coppia, scrivi i due vertex_t
-        for(auto const &p : common_pairs) {
-            out.write(reinterpret_cast<const char*>(&p.first),  sizeof(p.first));
-            out.write(reinterpret_cast<const char*>(&p.second), sizeof(p.second));
+            const std::uint64_t M = static_cast<std::uint64_t>(pairs.size());
+            out.write(reinterpret_cast<const char*>(&M), sizeof(M));
+            for (const auto& p : pairs) {
+                out.write(reinterpret_cast<const char*>(&p.first),  sizeof(p.first));
+                out.write(reinterpret_cast<const char*>(&p.second), sizeof(p.second));
+            }
         }
 
-    } catch (const std::exception &ex) {
+    } catch (const std::exception& ex) {
         std::cerr << "Error: " << ex.what() << "\n";
         return EXIT_FAILURE;
     }

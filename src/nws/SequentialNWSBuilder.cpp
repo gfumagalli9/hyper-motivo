@@ -1,69 +1,107 @@
-#include "SequentialNWSBuilder.h"
-#include <cstring>      // for memcpy
-#include <stdexcept>
-#include <algorithm>
-#include <chrono>       // for timing debug
-#include "../builder/InclusionExclusionBuilder.h"
+// MIT License
+//
+// See header for a high-level description.
 
-SequentialNWSBuilder::SequentialNWSBuilder( const Hypergraph* H, TreeletList* treelet_list, TreeletTable* treelet_table, std::ostream* output) noexcept
-    : H(H), treelet_list(treelet_list), treelet_table(treelet_table), output(output), builder(H, treelet_table){ 
-    nws_counts.reserve(treelet_list->size());
-    for(const auto &t : *treelet_list) nws_counts.emplace(t, std::vector<int>(H->number_of_vertices(), 0));    
+#include "SequentialNWSBuilder.h"
+
+#include <algorithm>
+#include <cassert>
+#include <stdexcept>
+
+SequentialNWSBuilder::SequentialNWSBuilder(const Hypergraph*   H,
+                                           const TreeletList*  treelet_list,
+                                           const TreeletTable* treelet_table,
+                                           std::ostream*       output) noexcept
+    : H(H)
+    , treelet_list(treelet_list)
+    , treelet_table(treelet_table)
+    , output(output)
+    , builder(H, treelet_table) // NWSBuilder needs H + the table to read C(T,v)
+{
+    // Pre-size the map of accumulators (one vector per treelet).
+    if (H && treelet_list) {
+        nws_counts.reserve(treelet_list->size());
+        const auto nv = H->number_of_vertices();
+        for (const auto& t : *treelet_list) {
+            nws_counts.emplace(t, std::vector<CountT>(nv, static_cast<CountT>(0)));
+        }
+    }
 }
 
-void SequentialNWSBuilder::build() {
-    if (!H || !treelet_list || !treelet_table || !output) 
-        throw std::runtime_error("SequentialNWSBuilder: puntatori invalidi");
+void SequentialNWSBuilder::build()
+{
+    if (!H || !treelet_list || !treelet_table || !output) {
+        throw std::runtime_error("SequentialNWSBuilder: invalid constructor arguments");
+    }
 
-    // 1) Header: numero di vertici
-    uint32_t nv = static_cast<uint32_t>(H->number_of_vertices());
+    // (1) File header: number of vertices (match other builders’ header type).
+    const Hypergraph::vertex_t nv = H->number_of_vertices();
     output->write(reinterpret_cast<const char*>(&nv), sizeof(nv));
 
-    // Singletons
-    for (Edge he = 0; he < H->number_of_hyperedges(); ++he) {
-        unsigned int size = H->hyperedge_size(he);
+    // (2) Seed the BFS with all singleton subtypes: one hyperedge at a time.
+    //
+    // Invariant for NWSBuilder::build(): st.edges and st.verts must be sorted.
+    for (Hypergraph::edge_t he = 0; he < H->number_of_hyperedges(); ++he) {
+        const std::uint32_t sz = H->hyperedge_size(he);
         std::vector<Hypergraph::vertex_t> he_verts;
-        for (size_t i = 0; i < size; i++) he_verts.push_back(H->hyperedge_vertex(he, i));
-        EdgeSubtype st = {{he}, he_verts, size};
-        for(const auto &t : *treelet_list) {
-            work_queue.push(std::make_pair(t, st));
-            visited[t].insert(st);
+        he_verts.reserve(sz);
+        for (std::uint32_t i = 0; i < sz; ++i) {
+            he_verts.push_back(H->hyperedge_vertex(he, i));
+        }
+        std::sort(he_verts.begin(), he_verts.end());
+        he_verts.erase(std::unique(he_verts.begin(), he_verts.end()), he_verts.end());
+
+        // weight in the subtype is not used by NWSBuilder::build() for the input “st”,
+        // it recomputes the sums it needs; set it to 0 for clarity.
+        EdgeSubtype st{/*edges=*/{he}, /*verts=*/std::move(he_verts), /*weight=*/0};
+
+        for (const auto& t : *treelet_list) {
+            work_queue.emplace(t, st);
+            visited[t].insert(st); // ensure we don’t enqueue the same (t,st) twice
         }
     }
 
-    // 2) Pre‐calcolo: per ogni treelet ti, calcola inclusion–exclusion NWS
-    while (!work_queue.empty()){
-        std::pair<Treelet,EdgeSubtype> work;
-        work = std::move(work_queue.front());
+    // (3) BFS over (treelet, subtype).
+    while (!work_queue.empty()) {
+        auto [cur_treelet, cur_st] = std::move(work_queue.front());
         work_queue.pop();
-        Treelet cur_treelet = work.first;
-        EdgeSubtype cur_st = work.second;
-        auto next = builder.build(cur_st, cur_treelet, nws_counts[cur_treelet]);
-        for (auto& st_next : next) {
-            const Treelet &new_t  = cur_treelet;
-            EdgeSubtype  &new_st  = st_next;
-            bool do_enqueue = false;
-            auto [it, inserted] = visited[new_t].insert(new_st);
-            do_enqueue = inserted;
-            if (do_enqueue) 
-                work_queue.push(std::move(std::make_pair(cur_treelet, st_next)));
-        }
-    }
 
-    // 3) Scrivi record per ciascun vertice
-    for (Vertex u = 0; u < H->number_of_vertices(); ++u) {
-        std::vector<std::pair<Treelet,uint64_t>> tbl;
-        tbl.reserve(nws_counts.size());
-        for (auto &kv : nws_counts) {
-            const Treelet &t = kv.first;
-            const std::vector<int> &vec = kv.second;
-            uint64_t c = static_cast<uint64_t>(vec[u]);
-            if (c != 0) {
-                tbl.emplace_back(t, c);
+        // NWS step: update per-vertex signed counts and enumerate one-step extensions.
+        auto next = builder.build(cur_st, cur_treelet, nws_counts[cur_treelet]);
+
+        // Enqueue only *new* subtypes for this treelet.
+        for (auto& st_next : next) {
+            auto& seen = visited[cur_treelet];
+            const auto [_, inserted] = seen.insert(st_next);
+            if (inserted) {
+                work_queue.emplace(cur_treelet, std::move(st_next));
             }
         }
-        auto [buf, bytes] = builder.to_normalized_sorted_byte_array(u, tbl);
+    }
+
+    // (4) For each vertex u, serialize the (treelet,count) pairs.
+    //
+    // We only emit non-zero counts; NWSBuilder::to_normalized_sorted_byte_array
+    // expects counts to already satisfy divisibility by normalization_factor().
+    for (Vertex u = 0; u < nv; ++u) {
+        std::vector<std::pair<Treelet, std::uint64_t>> out_pairs;
+        out_pairs.reserve(nws_counts.size());
+
+        for (auto& kv : nws_counts) {
+            const Treelet&              t   = kv.first;
+            const std::vector<CountT>&  vu  = kv.second;   // per-vertex signed counts
+            const CountT                sc  = vu[u];       // signed accumulation (should be >= 0 here)
+            assert(sc >= 0 && "NWS per-vertex count must be non-negative before serialization");
+
+            if (sc != 0) {
+                out_pairs.emplace_back(t, static_cast<std::uint64_t>(sc));
+            }
+        }
+
+        auto [buf, bytes] = builder.to_normalized_sorted_byte_array(u, out_pairs);
         output->write(buf, static_cast<std::streamsize>(bytes));
         delete[] buf;
     }
+
+    output->flush();
 }

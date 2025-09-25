@@ -209,10 +209,31 @@ void write_table(const std::string &output_basename, const UndirectedGraph::vert
         std::cout << uint128_to_string(num_occ_total) << " (" << uint128_bits_needed(num_occ_total) << " bits)" << std::endl;
 
         if(!ie){
-            //FIXME: .cnt and .dtz might have different file names
-            PropertyStore properties(std::string(output_basename) + ".info");
-            properties.set_uint128("TotTreelets", num_occ_total);
-            properties.save(output_basename + ".info");
+            // Scrivi/aggiorna le proprietà in modo robusto:
+            // - se il file .info esiste, caricalo e aggiorna;
+            // - se non esiste (prima iterazione / output fresco), crea un nuovo store.
+            const std::string info_path = std::string(output_basename) + ".info";
+            bool info_exists = false;
+            {
+                std::ifstream test(info_path, std::ios::binary);
+                info_exists = test.good();
+            }
+            try {
+                if (info_exists) {
+                    PropertyStore properties(info_path);      // carica esistente
+                    properties.set_uint128("TotTreelets", num_occ_total);
+                    properties.save(info_path);
+                } else {
+                    PropertyStore properties;                 // store vuoto
+                    properties.set_uint128("TotTreelets", num_occ_total);
+                    properties.save(info_path);
+                }
+            } catch (const std::exception& e) {
+                // Fallback: crea uno store ex-novo se il caricamento fallisce per qualunque motivo
+                PropertyStore properties;
+                properties.set_uint128("TotTreelets", num_occ_total);
+                properties.save(info_path);
+            }
         }
     }
     std::cout << "Maximum number of occurrences rooted in a single vertex: " << uint128_to_string(num_occ_max) << " ("<< uint128_bits_needed(num_occ_max) << " bits)" << std::endl;

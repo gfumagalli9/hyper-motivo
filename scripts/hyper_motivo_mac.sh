@@ -1,47 +1,59 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# --- CONFIGURAZIONE DI BASE ---
-BUILDPATH=../build/bin
+# ------------------------------------------------------------
+# motivo-hyper pipeline (motivo-hyper-build per HIGH; motivo-build per Gaifman)
+# ------------------------------------------------------------
 
-# Trova un comando 'time' GNU-compatibile
+BUILDPATH=${BUILDPATH:-../build/bin}
+
+# pick a GNU-like time
 if command -v gtime &>/dev/null; then
-    TIMECMD="gtime --verbose"
+  TIMECMD="gtime --verbose"
 elif time --version &>/dev/null; then
-    TIMECMD="time --verbose"
+  TIMECMD="time --verbose"
 else
-    TIMECMD="time"
+  TIMECMD="time"
 fi
 
-# --- helper: estrai solo i secondi da "h:mm:ss" o "m:ss" ---
-format_time(){
+format_time(){ # get seconds from h:mm:ss or m:ss (prints seconds' field)
   local raw=$1
-  local sec="${raw##*:}"
-  sec="${sec#0}"
-  [[ -z "$sec" ]] && sec="0"
-  echo "$sec"
+  local s="${raw##*:}"
+  s="${s#0}"
+  [[ -z "$s" ]] && s="0"
+  echo "$s"
+}
+
+run_timed(){ # logs + returns the "Elapsed (wall clock)" field
+  local log="$1"; shift
+  $TIMECMD "$@" 2>&1 | tee "$log" \
+    | grep "Elapsed (wall clock) time" | tail -1 | awk '{print $NF}'
 }
 
 usage(){
   cat <<EOF
-Usage: $0 -g GRAPH -k MAXSIZE -o OUTPUT [-t THREADS] [-c COMP_THR] [-T THRESHOLD] [--seed SEED]
+Usage: $0 -g GRAPH -k MAXSIZE -o OUTPUT [-t THREADS] [-c COMP_THR] [-T THRESHOLD] [--seed SEED] [--colors C] [-S SAMPLES]
 
-  -g|--graph            basename dell'iper-grafo (senza estensione)
-  -k|--maxsize          massima k (>=2)
-  -o|--output           prefisso per i file di output
-  -t|--threads THREADS  numero di thread (default 1)
-  -c|--comp-thr COMP    soglia compressione (default 0)
-  -T|--threshold THR    soglia per hgsplit (default 0)
-  --seed SEED           seme per RNG (opzionale)
+  -g|--graph            input hypergraph basename (without extension)
+  -k|--maxsize          max k (>=2)
+  -o|--output           GLOBAL tables basename (also used as -i for k>=2)
+  -t|--threads THREADS  threads for hyper-build/NWS (default 1)
+  -c|--comp-thr COMP    merge compression threshold (default 0)
+  -T|--threshold THR    hgsplit threshold (default 0; if omitted, auto-α)
+  --seed SEED           RNG seed for k=1 (optional)
+  --colors C            number of colors for k=1 (default: MAXSIZE)
+  -S|--samples N        if >0, run final sampling at k=MAXSIZE
 EOF
   exit 1
 }
 
-# --- PARSING ARGOMENTI ---
+# ------------------------- args ------------------------------
 THREADS=1
 COMP_THR=0
 THRESHOLD=0
 SEED=""
+SAMPLES=""
+COLORS=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -52,6 +64,8 @@ while [[ $# -gt 0 ]]; do
     -c|--comp-thr)  COMP_THR=$2;    shift 2 ;;
     -T|--threshold) THRESHOLD=$2;   shift 2 ;;
     --seed)         SEED=$2;        shift 2 ;;
+    --colors)       COLORS=$2;      shift 2 ;;
+    -S|--samples)   SAMPLES=$2;     shift 2 ;;
     -h|--help)      usage ;;
     *) echo "Unknown option: $1"; usage ;;
   esac
@@ -60,170 +74,167 @@ done
 : "${GRAPH:?Missing -g/--graph}"
 : "${MAXSIZE:?Missing -k/--maxsize}"
 : "${OUTPUT:?Missing -o/--output}"
+[[ -n "${COLORS}" ]] || COLORS="${MAXSIZE}"
 
+LOGDIR="$(dirname -- "$OUTPUT")"
+mkdir -p "$LOGDIR"
 LOGFILE="$OUTPUT.log"
-mkdir -p "$(dirname "$LOGFILE")"
-echo "[$(date)] Start combined workflow" | tee "$LOGFILE"
 
-# -------------------------------------------------------------------------
-# 1) k=1 build + merge (base coloration) e duplicazione .dtz
-# -------------------------------------------------------------------------
-# 1.1) build k=1
-printf "build1\t\t"
-BUILD_RAW=$(
-  $TIMECMD $BUILDPATH/motivo-build \
-    --hyper --graph "$GRAPH" --size 1 \
-    --colors "$MAXSIZE" --tables-basename "$OUTPUT" \
-    --output "$OUTPUT" --threads "$THREADS" \
-    ${SEED:+--seed "$SEED"} \
-  2>&1 | grep "Elapsed (wall clock) time" | tail -1 | awk '{print $NF}'
-)
-printf "%s\n" "$(format_time "$BUILD_RAW")"
+echo "[$(date)] motivo-hyper start" | tee "$LOGFILE"
 
-# 1.2) merge k=1
-printf "merge1\t\t"
-MERGE1_RAW=$(
-  $TIMECMD $BUILDPATH/motivo-merge \
-    --output "${OUTPUT}.1" --compress-threshold "$COMP_THR" \
-    "${OUTPUT}.1.cnt" \
-  2>&1 | grep "Elapsed (wall clock) time" | tail -1 | awk '{print $NF}'
-)
-printf "%s\n" "$(format_time "$MERGE1_RAW")"
+# --------------------- basenames -----------------------------
+HIGH_GRAPH="${OUTPUT}-High"     # ipergrafo HIGH (basename)
+LOW_GRAPH="${OUTPUT}-Low"       # ipergrafo LOW  (basename)
+LOW_G="${LOW_GRAPH}"            # gaifman(LOW): input=output
 
-# 1.3) duplichiamo le tabelle 1.dtz in Low e High
-cp "${OUTPUT}.1.dtz"     "${OUTPUT}-Low.1.dtz"
-cp "${OUTPUT}.1.dtz"     "${OUTPUT}-High.1.dtz"
-cp "${OUTPUT}.1.treelets.dtz" "${OUTPUT}-High.1.treelets.dtz"
+HIGH_TTC="${OUTPUT}-HighTTC"    # TTC per HIGH
+LOW_TTC="${OUTPUT}-LowTTC"      # TTC per LOW
+GLOBAL_TTC="${OUTPUT}"          # TTC GLOBAL (merge e input per k>=2)
 
-# -------------------------------------------------------------------------
-# 2) split ipergrafo in Low / High
-# -------------------------------------------------------------------------
+# ----------------- 1) split + gaifman(LOW) -------------------
 printf "hgsplit\t\t"
-SPLIT_RAW=$(
-  $TIMECMD $BUILDPATH/motivo-hgsplit \
-    -i "$GRAPH" \
-    -s "${OUTPUT}-Low" \
-    -l "${OUTPUT}-High" \
-    -t "$THRESHOLD" \
-  2>&1 | tee "$OUTPUT.split.log" | grep "Elapsed (wall clock) time" | tail -1 | awk '{print $NF}'
-)
+SPLIT_RAW=$(run_timed "$OUTPUT.split.log" \
+  "$BUILDPATH/motivo-hgsplit" \
+    -i "$GRAPH" -s "$LOW_GRAPH" -l "$HIGH_GRAPH" )
 printf "%s\n" "$(format_time "$SPLIT_RAW")"
 
-# -------------------------------------------------------------------------
-# 3) Gaifman sulla parte Low
-# -------------------------------------------------------------------------
-printf "gaifman\t\t"
-GAIF_RAW=$(
-  $TIMECMD $BUILDPATH/motivo-gaifman \
-    -i "${OUTPUT}-Low" \
-    -o "${OUTPUT}-Low-Gaifman" \
-  2>&1 | grep "Elapsed (wall clock) time" | tail -1 | awk '{print $NF}'
-)
+printf "gaifman(low)\t"
+GAIF_RAW=$(run_timed "$OUTPUT.gaifman.log" \
+  "$BUILDPATH/motivo-gaifman" \
+    --input "$LOW_G" --output "$LOW_G")
 printf "%s\n" "$(format_time "$GAIF_RAW")"
 
-# -------------------------------------------------------------------------
-# 4) nws + merge-ie per parte High k=1
-# -------------------------------------------------------------------------
-printf "high-nws\t"
-NWS1_RAW=$(
-  $TIMECMD $BUILDPATH/motivo-nws \
-    --graph "${OUTPUT}-High" --size 1 \
-    -i "${OUTPUT}-High" --output "${OUTPUT}-High" --threads "$THREADS"\
-  2>&1 | tee "$OUTPUT.nwsH1.log" | grep "Elapsed (wall clock) time" | tail -1 | awk '{print $NF}'
-)
-printf "%s\n" "$(format_time "$NWS1_RAW")"
+# ----------------- 2) k=1 (build su Gaifman LOW) -------------
+echo -e "step\tk\tbuild\tmerge\tnws\tmerge-ie"
 
-printf "high-merge2\t"
-MERGE2_1_RAW=$(
-  $TIMECMD $BUILDPATH/motivo-merge \
-    -e --output "${OUTPUT}-High.1.ie" --compress-threshold "$COMP_THR" \
-    "${OUTPUT}-High.1.ie.cnt" \
-  2>&1 | tee "$OUTPUT.nwsMerge.log" | grep "Elapsed (wall clock) time" | tail -1 | awk '{print $NF}'
-)
-printf "%s\n" "$(format_time "$MERGE2_1_RAW")"
+# 2.1 k=1 build (grafi: motivo-build sul Gaifman LOW)
+printf "high(k=1)\t1\t"
+H1_B_RAW=$(run_timed "$OUTPUT.buildH1.log" \
+  "$BUILDPATH/motivo-build" \
+    --graph "$LOW_G" --size 1 \
+    --colors "$COLORS" \
+    --output "$HIGH_TTC" \
+    ${SEED:+--seed "$SEED"})
+printf "%s\t" "$(format_time "$H1_B_RAW")"
 
-# rimuovo i file temporanei di k=1
-# rm -f "${OUTPUT}-High.1.cnt" "${OUTPUT}-High.1.ie.cnt" "${OUTPUT}.1.cnt"   "${OUTPUT}.1.dtz" "${OUTPUT}.1.treelets.dtz"
+# 2.2 merge HIGH_TTC.1
+H1_M_RAW=$(run_timed "$OUTPUT.mergeH1.log" \
+  "$BUILDPATH/motivo-merge" \
+    --output "$HIGH_TTC.1" --compress-threshold "$COMP_THR" \
+    "$HIGH_TTC.1.cnt")
+printf "%s\t" "$(format_time "$H1_M_RAW")"
 
-# -------------------------------------------------------------------------
-# 5) workflow classico su Low-Gaifman (k=2..MAXSIZE)
-# -------------------------------------------------------------------------
-echo -e "step\tk\tbuild\tmerge"  # intestazione per la sezione low
+# 2.3 NWS su HIGH (ipergrafo)
+H1_NWS_RAW=$(run_timed "$OUTPUT.nwsH1.log" \
+  "$BUILDPATH/motivo-nws" \
+    --graph "$HIGH_GRAPH" --size 1 \
+    -i "$HIGH_TTC" --output "$HIGH_TTC" --threads "$THREADS")
+printf "%s\t" "$(format_time "$H1_NWS_RAW")"
+
+# 2.4 IE merge -> GLOBAL_TTC.1.ie
+H1_IE_RAW=$(run_timed "$OUTPUT.nwsMerge1.log" \
+  "$BUILDPATH/motivo-merge" \
+    -e --output "$GLOBAL_TTC.1.ie" --compress-threshold "$COMP_THR" \
+    "$HIGH_TTC.1.ie.cnt")
+printf "%s\n" "$(format_time "$H1_IE_RAW")"
+
+# 2.5 GLOBAL k=1 = HIGH k=1 (evita doppia colorazione)
+printf "merge-global-1\t"
+MERGE1_RAW=$(run_timed "$OUTPUT.mergeGlobal1.log" \
+  "$BUILDPATH/motivo-merge" \
+    --output "$GLOBAL_TTC.1" --compress-threshold "$COMP_THR" \
+    "$HIGH_TTC.1.cnt")
+printf "%s\n" "$(format_time "$MERGE1_RAW")"
+
+# ----------------- 3) k=2..MAXSIZE ---------------------------
+echo -e "k\tH.build\tH.merge\tL.build\tL.merge\tLH.fuse\tLH.merge\tNWS\tIE.merge"
+
 for ((k=2; k<=MAXSIZE; k++)); do
-  # 5.1) build low
-  LOW_B_RAW=$(
-    $TIMECMD $BUILDPATH/motivo-build \
-      --graph "${OUTPUT}-Low-Gaifman" --size "$k" \
-      --tables-basename "${OUTPUT}-Low" \
-      --output "${OUTPUT}-Low" --threads "$THREADS" \
-      2>&1 | tee "$OUTPUT.buildL${k}.log" | grep "Elapsed (wall clock) time" | tail -1 | awk '{print $NF}'
-  )
-  LOW_B=$(format_time "$LOW_B_RAW")
+  # 3.1 HIGH (ipergrafo): motivo-hyper-build con TTC low&ie dalla GLOBAL
+  H_B_RAW=$(run_timed "$OUTPUT.buildH${k}.log" \
+    "$BUILDPATH/motivo-hyper-build" \
+      --graph "$HIGH_GRAPH" \
+      --size "$k" \
+      --output "$HIGH_TTC" \
+      --lower "$GLOBAL_TTC" \
+      --ie    "$GLOBAL_TTC" \
+      --normalize false \
+      --threads "$THREADS")
+  H_B=$(format_time "$H_B_RAW")
 
-  # 5.2) merge low
-  LOW_M_RAW=$(
-    $TIMECMD $BUILDPATH/motivo-merge \
-      --output "${OUTPUT}-Low.${k}" --compress-threshold "$COMP_THR" \
-      "${OUTPUT}-Low.${k}.cnt" \
-    2>&1 | tee "$OUTPUT.mergeL${k}.log" | grep "Elapsed (wall clock) time" | tail -1 | awk '{print $NF}'
-  )
-  LOW_M=$(format_time "$LOW_M_RAW")
+  H_M_RAW=$(run_timed "$OUTPUT.merge1H${k}.log" \
+    "$BUILDPATH/motivo-merge" \
+      --output "$HIGH_TTC.${k}" --compress-threshold "$COMP_THR" \
+      "$HIGH_TTC.${k}.cnt")
+  H_M=$(format_time "$H_M_RAW")
 
-  # stampa in un’unica riga
-  printf "low\t%d\t%s\t%s\n" "$k" "$LOW_B" "$LOW_M"
+  # 3.2 LOW (Gaifman): motivo-build (grafi), stessa colorazione globale
+  L_B_RAW=$(run_timed "$OUTPUT.buildL${k}.log" \
+    "$BUILDPATH/motivo-build" \
+      --graph "$LOW_G" --size "$k" \
+      --output "$LOW_TTC" \
+      -i "$GLOBAL_TTC" --normalize false --threads "$THREADS")
+  L_B=$(format_time "$L_B_RAW")
 
-  # pulizia
-  rm -f "${OUTPUT}-Low.${k}.info" "${OUTPUT}-Low.${k}.rts"
+  L_M_RAW=$(run_timed "$OUTPUT.mergeL${k}.log" \
+    "$BUILDPATH/motivo-merge" \
+      --output "$LOW_TTC.${k}" --compress-threshold "$COMP_THR" \
+      "$LOW_TTC.${k}.cnt")
+  L_M=$(format_time "$L_M_RAW")
+
+  # 3.3 fuse LOW+HIGH -> GLOBAL.${k}
+  LH_FUSE_RAW=$(run_timed "$OUTPUT.lowHighFuse${k}.log" \
+    "$BUILDPATH/motivo-low-high-merge" \
+      --low "$LOW_TTC.${k}.cnt" --high "$HIGH_TTC.${k}.cnt" \
+      -o "$GLOBAL_TTC.${k}" -c "$LOW_G")
+  LH_FUSE=$(format_time "$LH_FUSE_RAW")
+
+  LH_M_RAW=$(run_timed "$OUTPUT.lowHighMerge${k}.log" \
+    "$BUILDPATH/motivo-merge" \
+      --output "$GLOBAL_TTC.${k}" --compress-threshold "$COMP_THR" \
+      "$GLOBAL_TTC.${k}.cnt")
+  LH_M=$(format_time "$LH_M_RAW")
+
+  # 3.4 NWS su HIGH (ipergrafo) e IE-merge in GLOBAL
+  NWS_RAW=$(run_timed "$OUTPUT.nwsH${k}.log" \
+    "$BUILDPATH/motivo-nws" \
+      --graph "$HIGH_GRAPH" --size "$k" \
+      -i "$GLOBAL_TTC" --output "$HIGH_TTC" --threads "$THREADS")
+  NWS=$(format_time "$NWS_RAW")
+
+  IE_RAW=$(run_timed "$OUTPUT.merge2H${k}.log" \
+    "$BUILDPATH/motivo-merge" \
+      -e --output "$GLOBAL_TTC.${k}.ie" --compress-threshold "$COMP_THR" \
+      "$HIGH_TTC.${k}.ie.cnt")
+  IE=$(format_time "$IE_RAW")
+
+  printf "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+    "$k" "$H_B" "$H_M" "$L_B" "$L_M" "$LH_FUSE" "$LH_M" "$NWS" "$IE"
+
+  rm -f "$LOW_TTC.${k}.info"  "$LOW_TTC.${k}.rts" \
+        "$HIGH_TTC.${k}.info" "$HIGH_TTC.${k}.rts" || true
 done
 
-# -------------------------------------------------------------------------
-# 6) workflow ipergrafo su High (k=2..MAXSIZE)
-# -------------------------------------------------------------------------
-echo -e "step\tk\tbuild\tmerge1\tnws\tmerge2"  # intestazione per la sezione high
-for ((k=2; k<=MAXSIZE; k++)); do
-  # 6.1) build high
-  HIGH_B_RAW=$(
-    $TIMECMD $BUILDPATH/motivo-build \
-      --hyper --graph "${OUTPUT}-High" --size "$k" \
-      --tables-basename "${OUTPUT}-High" \
-      --output "${OUTPUT}-High" \
-      ${SEED:+--seed "$SEED"} \
-    2>&1 | tee "$OUTPUT.buildH${k}.log" | grep "Elapsed (wall clock) time" | tail -1 | awk '{print $NF}'
-  )
-  HIGH_B=$(format_time "$HIGH_B_RAW")
-
-  # 6.2) merge1 high
-  HIGH_M1_RAW=$(
-    $TIMECMD $BUILDPATH/motivo-merge \
-      --output "${OUTPUT}-High.${k}" --compress-threshold "$COMP_THR" \
-      "${OUTPUT}-High.${k}.cnt" \
-    2>&1 | tee "$OUTPUT.merge1H${k}.log" | grep "Elapsed (wall clock) time" | tail -1 | awk '{print $NF}'
-  )
-  HIGH_M1=$(format_time "$HIGH_M1_RAW")
-
-  # 6.3) nws high
-  HIGH_NWS_RAW=$(
-    $TIMECMD $BUILDPATH/motivo-nws \
-      --graph "${OUTPUT}-High" --size "$k" \
-      -i "${OUTPUT}-High" --output "${OUTPUT}-High" --threads "$THREADS"\
-    2>&1 | tee "$OUTPUT.nwsH${k}.log" | grep "Elapsed (wall clock) time" | tail -1 | awk '{print $NF}'
-  )
-  HIGH_NWS=$(format_time "$HIGH_NWS_RAW")
-
-  # 6.4) merge-ie high
-  HIGH_M2_RAW=$(
-    $TIMECMD $BUILDPATH/motivo-merge \
-      -e --output "${OUTPUT}-High.${k}.ie" --compress-threshold "$COMP_THR" \
-      "${OUTPUT}-High.${k}.ie.cnt" \
-    2>&1 | tee "$OUTPUT.merge2H${k}.log" | grep "Elapsed (wall clock) time" | tail -1 | awk '{print $NF}'
-  )
-  HIGH_M2=$(format_time "$HIGH_M2_RAW")
-
-  # stampa in un’unica riga
-  printf "high\t%d\t%s\t%s\t%s\t%s\n" "$k" "$HIGH_B" "$HIGH_M1" "$HIGH_NWS" "$HIGH_M2"
-
-  # pulizia
-  rm -f "${OUTPUT}-High.${k}".{ie.cnt,info,rts}
-done
+# ----------------- 4) optional sampling ----------------------
+if [[ -n "${SAMPLES}" && "${SAMPLES}" -gt 0 ]]; then
+  echo -e "step\tk\ttime"
+  printf "sample\t%d\t" "$MAXSIZE"
+  SMP_RAW=$(run_timed "$OUTPUT.sample${MAXSIZE}.log" \
+    "$BUILDPATH/motivo-hyper-sample" \
+      --gaifman "$LOW_G" \
+      --hypergraph "$HIGH_GRAPH" \
+      --hypergraph-full "$GRAPH" \
+      --tables "$GLOBAL_TTC" \
+      --ttc-low "$LOW_TTC" \
+      --ttc-high "$HIGH_TTC" \
+      --nws-high "$GLOBAL_TTC" \
+      --size "$MAXSIZE" \
+      --num-samples "$SAMPLES" \
+      --threads "$THREADS" \
+      --time-budget 1000000 \
+      --group --graphlets --estimate-occurrences \
+      ${SEED:+--seed "$SEED"} )
+  printf "%s\n" "$(format_time "$SMP_RAW")"
+fi
 
 echo "[$(date)] Done." | tee -a "$LOGFILE"

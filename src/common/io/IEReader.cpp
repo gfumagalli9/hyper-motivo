@@ -122,3 +122,52 @@ std::uint64_t IEReader::union_weight(unsigned size2,
   // V1: direct alias to the IE table count
   return table(size2).get_count(u, T2_colored);
 }
+
+
+std::uint64_t IEReader::get_count(unsigned size,
+                                  const Treelet& T_colored,
+                                  std::uint32_t u) const {
+  // Delegates to the underlying IE table
+  return table(size).get_count(u, T_colored);
+}
+
+bool IEReader::try_get_count(unsigned size,
+                             const Treelet& T_colored,
+                             std::uint32_t u,
+                             std::uint64_t& out) const {
+  auto& tbl = table(size);
+  // API già fornita da TreeletTable: ritorna 0 se assente
+  const std::uint64_t val = static_cast<std::uint64_t>(tbl.get_count(u, T_colored));
+  if (val == 0) return false;
+  out = val;
+  return true;
+}
+
+std::uint64_t IEReader::sum_all(unsigned size, std::uint32_t u) const {
+  auto& tbl = table(size);
+  std::uint64_t sum = 0;
+  for (auto it = tbl.begin(u); !it.is_over(); ++it) {
+    sum += static_cast<std::uint64_t>(it.count());
+  }
+  return sum;
+}
+
+void IEReader::for_each(unsigned size, std::uint32_t u,
+                        const std::function<void(const Treelet&, std::uint64_t)>& fn) const {
+  auto& tbl = table(size);
+  for (auto it = tbl.begin(u); !it.is_over(); ++it) {
+    fn(it.treelet(), static_cast<std::uint64_t>(it.count()));
+  }
+}
+
+void IEReader::gather_counts(unsigned size,
+                             const Treelet& T_colored,
+                             const std::vector<std::uint32_t>& vs,
+                             std::vector<std::uint64_t>& out_counts) const {
+  out_counts.clear();
+  out_counts.reserve(vs.size());
+  auto& tbl = table(size);
+  for (auto v : vs) {
+    out_counts.push_back(tbl.get_count(v, T_colored));
+  }
+}

@@ -21,3 +21,9 @@ struct PairEqual {
 
 using Pair  = std::pair<UndirectedGraph::vertex_t, UndirectedGraph::vertex_t>;
 using PairSet = std::unordered_set<Pair, PairHash, PairEqual>;
+
+inline std::pair<UndirectedGraph::vertex_t, UndirectedGraph::vertex_t>
+canon_pair(UndirectedGraph::vertex_t a, UndirectedGraph::vertex_t b) noexcept {
+    if (a > b) std::swap(a, b);
+    return {a, b};
+}

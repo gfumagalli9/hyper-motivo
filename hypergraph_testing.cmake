@@ -9,39 +9,32 @@ add_test(
   WORKING_DIRECTORY tests
 )
 
-
-#add_test(
-#  NAME dedup-hgraph
-#  COMMAND motivo-hgdedup test-hg test-hypergraph
-#  WORKING_DIRECTORY tests
-#)
-
-# 2) proiezione Gaifman
+# 2) proiezione Gaifman (full)
 add_test(
   NAME build-gaifman
-  COMMAND motivo-gaifman --input test-hypergraph --output test-gaif
+  COMMAND motivo-gaifman --input test-hypergraph --output test-gaif -j 8
   WORKING_DIRECTORY tests
 )
 
-# Split ipergrafo
+# Split ipergrafo (alpha scelto automaticamente se -t assente)
 add_test(
   NAME split-hgraph
-  COMMAND motivo-hgsplit -i test-hypergraph -s test-gaifman-low -l test-hypergraph-high -t 3 
+  COMMAND motivo-hgsplit -i test-hypergraph -s test-gaifman-low -l test-hypergraph-high
   WORKING_DIRECTORY tests
 )
 
-# Gaifman grafo low
+# Gaifman sul LOW (input=output per avere pairs coerenti col basename)
 add_test(
   NAME build-gaifman-low
-  COMMAND motivo-gaifman --input test-gaifman-low --output test-gaifman-low # nome input uguale a output per pairs
+  COMMAND motivo-gaifman --input test-gaifman-low --output test-gaifman-low
   WORKING_DIRECTORY tests
 )
 
-# 3) Size 1: coloro ipergrafo high e gaifman low
-# High
+# 3) Size 1: coloro ipergrafo HIGH e Gaifman LOW
+# High (ipergrafo)
 add_test(
   NAME motivo-hypergraph-high-build-1
-  COMMAND motivo-build --hyper -g test-hypergraph-high -s 1 -c 5 -o test-high --seed 42
+  COMMAND motivo-build -g test-gaifman-low -s 1 -c 5 -o test-high --seed 42
   WORKING_DIRECTORY tests
 )
 add_test(
@@ -60,7 +53,7 @@ add_test(
   WORKING_DIRECTORY tests
 )
 
-# Low
+# Low (Gaifman low: grafo classico)
 add_test(
   NAME motivo-hypergraph-low-build-1
   COMMAND motivo-build -g test-gaifman-low -s 1 -c 5 -o test-low --seed 42
@@ -72,22 +65,21 @@ add_test(
   WORKING_DIRECTORY tests
 )
 
-# "Fondo" le tabelle di dimensione 1 (in realtà qui non posso sovracontare, quindi semplicemente copio una delle tabelle già presenti)
+# Fonde le tabelle di dimensione 1 (copio quella high)
 add_test(
   NAME motivo-hypergraph-merge-1
   COMMAND motivo-merge -o test.1 test-high.1.cnt
   WORKING_DIRECTORY tests
 )
 
-
-# 4) size = 2..5, grafi ipergrafo single-threaded
+# 4) size = 2..5, ipergrafo (HIGH) single-threaded + Gaifman(LOW)
 foreach(size RANGE 2 5)
     math(EXPR prev "${size}-1")
 
-    # High
+    # High (ipergrafo)
     add_test(
       NAME motivo-hypergraph-build-${size}
-      COMMAND motivo-build --hyper -g test-hypergraph-high -i test -s ${size} -o test-high --normalize false
+      COMMAND motivo-hyper-build -g test-hypergraph-high --lower test --ie test -s ${size} -o test-high --normalize false --threads 8
       WORKING_DIRECTORY tests
     )
     add_test(
@@ -96,7 +88,7 @@ foreach(size RANGE 2 5)
       WORKING_DIRECTORY tests
     )
 
-    # Low
+    # Low (Gaifman low)
     add_test(
       NAME motivo-hypergraph-low-build-${size}
       COMMAND motivo-build -g test-gaifman-low -s ${size} -i test -o test-low --normalize false
@@ -108,7 +100,7 @@ foreach(size RANGE 2 5)
       WORKING_DIRECTORY tests
     )
 
-    # Fondo
+    # Fondo LOW+HIGH in GLOBAL
     add_test(
       NAME motivo-hypergraph-low-high-${size}
       COMMAND motivo-low-high-merge --low test-low.${size}.cnt --high test-high.${size}.cnt -o test.${size} -c test-gaifman-low
@@ -120,7 +112,7 @@ foreach(size RANGE 2 5)
       WORKING_DIRECTORY tests
     )
 
-    # NWS
+    # NWS sul solo HIGH
     add_test(
       NAME motivo-hypergraph-nws-${size}
       COMMAND motivo-nws -g test-hypergraph-high -s ${size} -i test -o test-high
@@ -133,7 +125,7 @@ foreach(size RANGE 2 5)
     )
 endforeach()
 
-# 5) size=1, multithread build on Gaifman-projected graph
+# 5) size=1, multithread build sul Gaifman full (grafo classico)
 add_test(
   NAME motivo-hypergraph-build-gaif-1
   COMMAND motivo-build -g test-gaif -s 1 -c 5 -o test-gaif --seed 42
@@ -150,7 +142,7 @@ foreach(size RANGE 2 5)
 
     add_test(
       NAME motivo-hypergraph-build-gaif-${size}
-      COMMAND motivo-build -g test-gaif -s ${size} -i test-gaif -o test-gaif --threads 1
+      COMMAND motivo-build -g test-gaif -s ${size} -i test-gaif -o test-gaif --threads 8
       WORKING_DIRECTORY tests
     )
     add_test(

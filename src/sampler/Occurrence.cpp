@@ -42,6 +42,11 @@ Occurrence::Occurrence(const unsigned int size, const uint8_t* edges) {
 	memcpy(this->edges, edges, binary_footprint_bytes);
 }
 
+Occurrence::Occurrence(const unsigned int size, const UndirectedGraph::vertex_t* occ, const uint8_t* edges) : size(size){
+    for (unsigned i=0;i<size;++i) verts[i]=occ[i];
+    memcpy(this->edges, edges, binary_footprint_bytes);
+}
+
 Occurrence::Occurrence(const Treelet& treelet, const UndirectedGraph::vertex_t *occ) : size(treelet.number_of_vertices())
 {
      for(unsigned int i = 0; i < size; i++)

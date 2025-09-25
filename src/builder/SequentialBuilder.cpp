@@ -37,7 +37,7 @@ void SequentialBuilder::build()
             const UndirectedGraph::vertex_t degree = G->degree(u);
             for(UndirectedGraph::vertex_t d = 0; d < degree; d++){
                 auto v = G->neighbor(u, d);
-                if(common_pairs.count(std::make_pair(u,v)) == 0 && common_pairs.count(std::make_pair(v,u)) == 0)      
+                if (common_pairs.count(canon_pair(u, v)) == 0)     
                     builder.combine(u, v, table);   
             }
             

@@ -150,6 +150,7 @@ else()
 endif()
 
 
+
 if(USE_TCMALLOC)
     message(STATUS "Building with tcmalloc allocator")
     find_library(TCMALLOC NAMES tcmalloc)
@@ -198,6 +199,8 @@ add_subdirectory(src/sampler/)
 add_subdirectory(src/tools/)
 add_subdirectory(src/tests/)
 add_subdirectory(src/nws)
+add_subdirectory(src/hyper_sampler)
+add_subdirectory(src/hyper_builder)
 
 include(testing.cmake)
 include(hypergraph_testing.cmake)

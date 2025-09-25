@@ -35,6 +35,8 @@ set(COMMON_SOURCE_FILES
         io/PropertyStore.h
         io/IEReader.h
         io/IEReader.cpp
+        io/PairIO.h
+        io/PairIO.cpp
         OptionsParser.cpp
         OptionsParser.h
         util.cpp
