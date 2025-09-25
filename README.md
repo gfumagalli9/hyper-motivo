@@ -215,7 +215,6 @@ python3 scripts/hyper_motivo_utils.py <counts.csv> --outdir hyperplots --fmt pdf
 - If drawings look too crowded, reduce node size or switch to PNG: `--fmt png`.
 
 ---
----
 
 ## License
 
