@@ -2,7 +2,7 @@ set(COMMON_SOURCE_FILES
         ../../config.h
         ../builder/Size1Builder.h
         ../builder/Size1Builder.cpp
-        ../builder/InclusionExclusionBuilder.h
+        ../hyper_builder/InclusionExclusionBuilder.h
         types/PairSet.h
         platform/platform.h
         platform/platform.cpp

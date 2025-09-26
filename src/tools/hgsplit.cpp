@@ -179,6 +179,7 @@ int main(int argc, const char** argv)
 
         vertex_t threshold = 0;
         bool threshold_given = false;
+        // TO FIX: crasha con threshold in input
         if (thresh_opt->is_found()) {
             const std::string val = thresh_opt->get_value();
             if (!val.empty() && val != "auto" && val != "AUTO") {
