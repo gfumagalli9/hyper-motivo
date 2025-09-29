@@ -6,6 +6,11 @@
 namespace {
     thread_local std::vector<uint32_t> tls_last_seen_edge;
     thread_local uint32_t              tls_visit_id = 1;
+
+    // TLS mark array for HIGH neighbors deduplication (per choose_high_ call).
+    // We reuse an epoch counter to avoid clearing.
+    thread_local std::vector<uint32_t> tls_seen_vertex_high;
+    thread_local uint32_t              tls_seen_vertex_epoch = 1;
 }
 
 // -------------------- Ctors ----------------------------------------------------
@@ -38,20 +43,52 @@ uint64_t HyperTreeletSampler::compute_low_mass_(vertex_t u,
 
     uint64_t W = 0;
     const uint32_t deg = G_low_->degree(u);
+    if (deg == 0) return 0;
+
+    // --- Micro-optimizations -------------------------------------------------
+    // 1) Read split structure & T colors once.
+    // 2) Use a tiny flat cache keyed by child color mask to avoid recomputing
+    //    CtabG(u, parent) across multiple neighbors v. For a fixed (u,T,split)
+    //    the parent Treelet depends only on the child's colors, not on 'v'.
+    //    A flat vector with linear probe is typically faster than unordered_map
+    //    for the small cardinalities we see here.
+    const auto split_structure = split.get_structure();
+    using color_t = decltype(t.get_colors());
+    const color_t T_colors = t.get_colors();
+
+    std::vector<std::pair<color_t, uint64_t>> cG_cache;
+    cG_cache.reserve(32);
 
     // Sum over LOW neighbors v of u:
     //   mass += CtabG(u, parent) * StabG(v, split_child)
     for (uint32_t i = 0; i < deg; ++i) {
         const auto v = G_low_->neighbor(u, i);
+
         for (auto it = tb.StabG->begin(v, split); !it.is_over(); ++it) {
             const Treelet& t2 = it.treelet();
-            if (t2.get_structure() != split.get_structure()) break;    // structure range exhausted
-            if (t2.get_colors() & ~t.get_colors()) continue;           // color mismatch
 
-            const Treelet parent = t.complement(t2);
-            const uint64_t cG    = (uint64_t) tb.CtabG->get_count(u, parent);
-            const uint64_t cnt   = (uint64_t) it.count();
-            if (cG && cnt) W += cG * cnt;
+            // Iterator is grouped by structure; once we leave 'split' structure we can stop.
+            if (t2.get_structure() != split_structure) break;
+
+            const color_t C2 = t2.get_colors();
+            // Skip if t2 colors are incompatible with T.
+            if (C2 & ~T_colors) continue;
+
+            // Lookup or compute cG = CtabG(u, parent(T \ t2))
+            uint64_t cG = 0;
+            bool found = false;
+            for (const auto& kv : cG_cache) {
+                if (kv.first == C2) { cG = kv.second; found = true; break; }
+            }
+            if (!found) {
+                const Treelet parent = t.complement(t2);               // depends on colors only
+                cG = static_cast<uint64_t>(tb.CtabG->get_count(u, parent));
+                cG_cache.emplace_back(C2, cG);
+            }
+            if (!cG) continue; // early skip if no parent mass at u
+
+            const uint64_t cnt = static_cast<uint64_t>(it.count());
+            if (cnt) W += cG * cnt;
         }
     }
     return W;
@@ -145,119 +182,65 @@ bool HyperTreeletSampler::choose_high_(vertex_t u, const Treelet& t, const Treel
         if (!out.child.is_valid()) return false;
     }
 
-    // Step 2: draw a vertex x connected to u in HIGH consistent with chosen t2.
-    // We sample an incident hyperedge of u, then a vertex x in it, with local
-    // weight ~ StabG(x, split_child), and accept with probability 1/m(u,x),
-    // where m is the number of common incident hyperedges of u and x.
+    // Step 2 (optimized): directly sample a HIGH neighbor x of u with weight ~ StabG(x, out.child).
+    // ------------------------------------------------------------------------------
+    // Rationale: the original acceptance-corrected scheme (pick edge e, then x in e,
+    // accept with prob 1/m(u,x)) yields a marginal over x proportional to cnt(x, out.child).
+    // Proof sketch:
+    //   P(select x before accept) ∝ Σ_{e∋u,x} [ cnt(x)/Σ_{y∈e\{u}} cnt(y) ].
+    // After acceptance with 1/m(u,x), the multiplicity cancels and we get P(x) ∝ cnt(x).
+    // Therefore we can sample *directly* over distinct HIGH neighbors x with weight cnt(x).
+    // We deduplicate x across all hyperedges incident to u and query cnt via get_count().
+    // ------------------------------------------------------------------------------
+
     const uint32_t degH = H_large_->vertex_degree(u);
     if (degH == 0) return false;
 
-    std::vector<uint64_t> edgeW(degH, 0);
-    uint64_t Wtot = 0;
+    // TLS mark array for dedup of candidate vertices x
+    const uint32_t NV = H_large_->number_of_vertices();
+    if (tls_seen_vertex_high.size() != NV) tls_seen_vertex_high.assign(NV, 0);
+    const uint32_t vmark = ++tls_seen_vertex_epoch;
+    if (tls_seen_vertex_epoch == 0) { // wrap-around protection
+        std::fill(tls_seen_vertex_high.begin(), tls_seen_vertex_high.end(), 0);
+        tls_seen_vertex_epoch = 1;
+    }
+
+    std::vector<std::pair<vertex_t, uint64_t>> cand;
+    cand.reserve(64);
+    uint64_t Wdir = 0;
 
     for (uint32_t i = 0; i < degH; ++i) {
         const uint32_t e  = H_large_->incident_hyperedge(u, i);
-        uint64_t w = 0;
         const uint32_t sz = H_large_->hyperedge_size(e);
         for (uint32_t j = 0; j < sz; ++j) {
             const auto x = H_large_->hyperedge_vertex(e, j);
             if (x == u) continue;
 
-            // Find counts of chosen split-child t2 rooted at x
-            for (auto jt = tb.StabG->begin(x, split); !jt.is_over(); ++jt) {
-                const Treelet& t2x = jt.treelet();
-                if (t2x.get_structure() != split.get_structure()) break;
-                if (t2x != out.child) continue;
-                w += (uint64_t) jt.count();
-                break;
-            }
-        }
-        edgeW[i] = w; Wtot += w;
-    }
-    if (Wtot == 0) return false;
+            // Deduplicate x across all incident hyperedges of u
+            if (tls_seen_vertex_high[x] == vmark) continue;
+            tls_seen_vertex_high[x] = vmark;
 
-    // Try acceptance-corrected selection a few times.
-    static constexpr int MAX_HIGH_TRIES = 64;
-    for (int tries = 0; tries < MAX_HIGH_TRIES; ++tries) {
-        uint64_t rE = rng->random_uint<uint64_t>(0, Wtot - 1);
-        uint32_t ie = 0;
-        for (; ie < degH; ++ie) {
-            if (!edgeW[ie]) continue;
-            if (rE >= edgeW[ie]) rE -= edgeW[ie]; else break;
-        }
-        if (ie == degH) continue;
-
-        const uint32_t e  = H_large_->incident_hyperedge(u, ie);
-        uint64_t rl       = rng->random_uint<uint64_t>(0, edgeW[ie] - 1);
-        vertex_t x_sel    = u;
-        const uint32_t sz = H_large_->hyperedge_size(e);
-
-        for (uint32_t j = 0; j < sz; ++j) {
-            const auto x = H_large_->hyperedge_vertex(e, j);
-            if (x == u) continue;
-
-            uint64_t wx = 0;
-            for (auto jt = tb.StabG->begin(x, split); !jt.is_over(); ++jt) {
-                const Treelet& t2x = jt.treelet();
-                if (t2x.get_structure() != split.get_structure()) break;
-                if (t2x != out.child) continue;
-                wx = (uint64_t) jt.count();
-                break;
-            }
+            // Direct lookup: how many split-child occurrences rooted at x?
+            const uint64_t wx = (uint64_t) tb.StabG->get_count(x, out.child);
             if (!wx) continue;
 
-            if (rl >= wx) rl -= wx;
-            else { x_sel = x; break; }
+            cand.emplace_back(x, wx);
+            Wdir += wx;
         }
-        if (x_sel == u) continue;
-
-        const uint32_t m = common_incident_count(u, x_sel);
-        if (!m) continue;
-
-        const bool accept = (rng->random_uint<uint32_t>(1, m) == 1);
-        if (accept) { out.child_v = x_sel; break; }
     }
 
-    if (out.child_v == (vertex_t)-1) {
-        // Fallback: proportional to sum_e cnt(x,t2)/m(u,x)
-        std::vector<std::pair<vertex_t,uint64_t>> cand;
-        uint64_t Wdir = 0;
+    if (Wdir == 0 || cand.empty()) return false;
 
-        for (uint32_t i = 0; i < degH; ++i) {
-            const uint32_t e  = H_large_->incident_hyperedge(u, i);
-            const uint32_t sz = H_large_->hyperedge_size(e);
-            for (uint32_t j = 0; j < sz; ++j) {
-                const auto x = H_large_->hyperedge_vertex(e, j);
-                if (x == u) continue;
-
-                uint64_t wx = 0;
-                for (auto jt = tb.StabG->begin(x, split); !jt.is_over(); ++jt) {
-                    const Treelet& t2x = jt.treelet();
-                    if (t2x.get_structure() != split.get_structure()) break;
-                    if (t2x != out.child) continue;
-                    wx = (uint64_t) jt.count(); break;
-                }
-                if (!wx) continue;
-
-                const uint32_t m = common_incident_count(u, x);
-                if (!m) continue;
-
-                const uint64_t w = wx / (uint64_t)m;
-                if (!w) continue;
-
-                cand.emplace_back(x, w);
-                Wdir += w;
-            }
+    // Draw x ∼ weight wx
+    uint64_t rdir = rng->random_uint<uint64_t>(0, Wdir - 1);
+    for (auto &p : cand) {
+        if (rdir >= p.second) rdir -= p.second;
+        else {
+            out.child_v = p.first;
+            break;
         }
-        if (Wdir == 0) return false;
-
-        uint64_t rdir = rng->random_uint<uint64_t>(0, Wdir - 1);
-        for (auto &p : cand) {
-            if (rdir >= p.second) rdir -= p.second;
-            else { out.child_v = p.first; break; }
-        }
-        if (out.child_v == (vertex_t)-1) return false;
     }
+    if (out.child_v == (vertex_t)-1) return false;
 
     return true;
 }

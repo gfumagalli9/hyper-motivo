@@ -5,6 +5,14 @@
 #include <cmath>
 #include <vector>
 #include <thread>
+#include <algorithm> // for sort/unique
+
+// per-sample hyperedge dedup without hash tables.
+// We mark edges seen in the current sample using a monotonically increasing epoch.
+namespace {
+    thread_local std::vector<uint32_t> tls_seen_edge_build;
+    thread_local uint32_t              tls_seen_epoch = 1;
+}
 
 // Worker thread: pull batches from the sequencer and append samples.
 // Terminates either when there is no work left (finite mode) or when the
@@ -83,6 +91,85 @@ void HyperOccurrenceSampler::build_weak_induced(const UndirectedGraph::vertex_t*
         for (unsigned a = 1; a < m; ++a)
             for (unsigned b = 0; b < a; ++b)
                 set_edge_bit(out_bits, local_idx[a], local_idx[b]);
+    }
+}
+
+// Single-pass builder for Gaifman + incidence (VxE) on U.
+// - Visits each hyperedge touching U **once** (TLS epoch-based dedup).
+// - Builds Gaifman bits by adding all pairs inside e∩U.
+// - Builds a set of distinct masks over k vertices, then converts to a dense matrix.
+void HyperOccurrenceSampler::build_weak_and_incidence(const UndirectedGraph::vertex_t* U,
+                                                      unsigned k,
+                                                      uint8_t* out_bits,
+                                                      std::vector<std::vector<uint8_t>>& M)
+{
+    assert(k <= 16);
+
+    // TLS mark-array to deduplicate visited hyperedges within the current sample.
+    const uint32_t Medges = H->number_of_hyperedges();
+    if (tls_seen_edge_build.size() != Medges)
+        tls_seen_edge_build.assign(Medges, 0);
+    const uint32_t mark = ++tls_seen_epoch;
+    if (tls_seen_epoch == 0) { // wrap-around safety
+        std::fill(tls_seen_edge_build.begin(), tls_seen_edge_build.end(), 0);
+        tls_seen_epoch = 1;
+    }
+
+    // We accumulate column masks (k-bit) and deduplicate later by sort+unique.
+    std::vector<uint32_t> masks;
+    masks.reserve(32);
+
+    // For each vertex in U, visit incident hyperedges once.
+    for (unsigned iu = 0; iu < k; ++iu) {
+        const auto v  = U[iu];
+        const uint32_t dv = H->vertex_degree(v);
+        for (uint32_t t = 0; t < dv; ++t) {
+            const uint32_t e = H->incident_hyperedge(v, t);
+            if (tls_seen_edge_build[e] == mark) continue; // already processed this edge
+            tls_seen_edge_build[e] = mark;
+
+            // Compute e ∩ U with a tiny O(k) membership check (k<=16).
+            // We also keep the local indices to emit Gaifman pairs immediately.
+            unsigned  local_idx[16];
+            unsigned  m = 0;
+            uint32_t  mask = 0;
+
+            const uint32_t sz = H->hyperedge_size(e);
+            for (uint32_t j = 0; j < sz; ++j) {
+                const auto w = H->hyperedge_vertex(e, j);
+                for (unsigned i = 0; i < k; ++i) {
+                    if (w == U[i]) {
+                        local_idx[m++] = i;
+                        mask |= (1u << i);
+                        break;
+                    }
+                }
+            }
+
+            if (m >= 2) {
+                // Gaifman: add all pairs among vertices in e∩U.
+                for (unsigned a = 1; a < m; ++a)
+                    for (unsigned b = 0; b < a; ++b)
+                        set_edge_bit(out_bits, local_idx[a], local_idx[b]);
+                // Incidence: record the column mask for e∩U.
+                masks.push_back(mask);
+            }
+        }
+    }
+
+    // Deduplicate and sort masks for deterministic columns.
+    if (!masks.empty()) {
+        std::sort(masks.begin(), masks.end());
+        masks.erase(std::unique(masks.begin(), masks.end()), masks.end());
+    }
+
+    // Convert masks to a dense 0/1 matrix M of shape k x b.
+    const uint16_t b = static_cast<uint16_t>(masks.size());
+    M.assign(k, std::vector<uint8_t>(b, 0));
+    for (uint16_t j = 0; j < b; ++j) {
+        uint32_t mask = masks[j];
+        for (uint16_t i = 0; i < k; ++i)
+            if (mask & (1u << i)) M[i][j] = 1;
     }
 }
 

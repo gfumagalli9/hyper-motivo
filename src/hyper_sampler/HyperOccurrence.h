@@ -72,12 +72,15 @@ public:
                     const GaifmanBits& gaifman_bits,
                     bool canonicalize_bipartite = true);
 
-    // Build from explicit incidence matrix (treelet-only mode)
+    // Build from explicit incidence matrix (treelet-only mode, or single-pass incidence):
+    // - 'incidence' is a dense 0/1 matrix with k rows and b columns.
+    // - Optionally canonicalize (V vs E color classes) using nauty.
     HyperOccurrence(unsigned int k,
-                    const vertex_t* U,
-                    const GaifmanBits& gaifman_bits,
-                    const std::vector<std::vector<uint8_t>>& incidence,
-                    bool canonicalize_bipartite = true);
+        const vertex_t* U,
+        const GaifmanBits& gaifman_bits,
+        const std::vector<std::vector<uint8_t>>& incidence,
+        bool canonicalize_bipartite = true);
+                    
 
     // Helper: incidence for a pure treelet (k rows, k-1 columns; each column is {child,parent})
     static void build_treelet_incidence_block(const Treelet& t,

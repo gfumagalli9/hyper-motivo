@@ -101,7 +101,7 @@ printf "%s\n" "$(format_time "$SPLIT_RAW")"
 printf "gaifman(low)\t"
 GAIF_RAW=$(run_timed "$OUTPUT.gaifman.log" \
   "$BUILDPATH/motivo-gaifman" \
-    --input "$LOW_G" --output "$LOW_G")
+    --input "$LOW_G" --output "$LOW_G" -j "$THREADS")
 printf "%s\n" "$(format_time "$GAIF_RAW")"
 
 # ----------------- 2) k=1 (build su Gaifman LOW) -------------
@@ -114,7 +114,7 @@ H1_B_RAW=$(run_timed "$OUTPUT.buildH1.log" \
     --graph "$LOW_G" --size 1 \
     --colors "$COLORS" \
     --output "$HIGH_TTC" \
-    ${SEED:+--seed "$SEED"})
+    ${SEED:+--seed "$SEED"} --threads "$THREADS") 
 printf "%s\t" "$(format_time "$H1_B_RAW")"
 
 # 2.2 merge HIGH_TTC.1

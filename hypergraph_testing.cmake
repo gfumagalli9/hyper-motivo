@@ -5,7 +5,7 @@ enable_testing()
 # 1) costruzione ipergrafo da testo
 add_test(
   NAME build-hgraph
-  COMMAND motivo-hypergraph --input ${CMAKE_SOURCE_DIR}/graphs/test-hypergraph2.txt --output test-hypergraph
+  COMMAND motivo-hypergraph --input ${CMAKE_SOURCE_DIR}/graphs/test-hypergraph.txt --output test-hypergraph
   WORKING_DIRECTORY tests
 )
 

@@ -140,6 +140,7 @@ void HyperOccurrence::build_treelet_incidence_block(const Treelet& treelet,
 
 // ---------------------- Constructors --------------------------
 
+// Build from explicit incidence (already computed) and optional canonicalization.
 HyperOccurrence::HyperOccurrence(unsigned int k,
                                  const vertex_t* U,
                                  const GaifmanBits& gbits,
@@ -150,12 +151,16 @@ HyperOccurrence::HyperOccurrence(unsigned int k,
     assert(k >= 1 && k <= 16);
     for (unsigned i = 0; i < k; ++i) verts[i] = U[i];
 
-    std::vector<std::vector<uint8_t>> M = incidence; // local copy
+    // Make a local copy we can re-order during canonicalization.
+    std::vector<std::vector<uint8_t>> M = incidence;
+
+    // Optional canonicalization within color classes (rows=V, cols=E).
     if (canonicalize_bipartite) {
         static thread_local HyperOccurrenceCanonicizer canon;
         canon.canonicalize_bipartite(M);
     }
 
+    // Pack [a,b] header + row-major bits into a compact byte array.
     pack_incidence(M, &bipartite_bytes);
     valid = true;
 }

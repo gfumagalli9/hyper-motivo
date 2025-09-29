@@ -59,6 +59,14 @@ private:
                             unsigned k,
                             uint8_t* out_bits);
 
+    // Build Gaifman bits and the VxE incidence in a **single pass** over
+    // incident hyperedges. This avoids scanning the hypergraph twice when
+    // graphlets=true. The incidence is returned as a dense 0/1 matrix M (k rows).
+    void build_weak_and_incidence(const UndirectedGraph::vertex_t* U,
+        unsigned k,
+        uint8_t* out_bits,
+        std::vector<std::vector<uint8_t>>& M);
+
     // Same layout as Occurrence::add_edge (upper-triangular, row-major)
     static inline void set_edge_bit(uint8_t* bits, unsigned i, unsigned j) {
         if (i == j) return;
@@ -87,10 +95,17 @@ public:
 
             // 1) Build Gaifman bits (15 bytes) on U
             uint8_t bits[GaifmanBits::binary_footprint_bytes] = {0};
+            GaifmanBits gbits;
 
             if (graphlets) {
-                // Weakly-induced hypergraphlet: add all pairs inside each restricted edge (e∩U)
-                build_weak_induced(U, size, bits);
+                // NEW: single-pass over hyperedges to build both Gaifman and incidence.
+                std::vector<std::vector<uint8_t>> M; // k x b (0/1)
+                build_weak_and_incidence(U, size, bits, M);
+                std::memcpy(gbits.bytes, bits, GaifmanBits::binary_footprint_bytes);
+
+                // Build HyperOccurrence from the pre-built incidence (no second scan).
+                new (occurrence) HyperOccurrence(size, U, gbits, M,
+                                                 /*canonicalize_bipartite=*/canonicize);
             } else {
                 // Treelet-only edges (child,parent) as in Occurrence(Treelet, occ)
                 unsigned int parents[16] = {0};
@@ -106,17 +121,9 @@ public:
                     }
                 }
                 assert(n == size - 1);
-            }
 
-            GaifmanBits gbits;
-            std::memcpy(gbits.bytes, bits, GaifmanBits::binary_footprint_bytes);
+                std::memcpy(gbits.bytes, bits, GaifmanBits::binary_footprint_bytes);
 
-            // 2) Build bipartite incidence (motif ID), optionally canonicalize
-            if (graphlets) {
-                // Build weak-induced incidence internally (H, U, k)
-                new (occurrence) HyperOccurrence(size, H, U, gbits,
-                                                 /*canonicalize_bipartite=*/canonicize);
-            } else {
                 // Degenerate incidence: one column per treelet edge
                 std::vector<std::vector<uint8_t>> M;
                 HyperOccurrence::build_treelet_incidence_block(t, size, M);
