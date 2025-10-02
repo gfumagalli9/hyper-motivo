@@ -19,7 +19,7 @@ add_test(
 # Split ipergrafo (alpha scelto automaticamente se -t assente)
 add_test(
   NAME split-hgraph
-  COMMAND motivo-hgsplit -i test-hypergraph -s test-gaifman-low -l test-hypergraph-high
+  COMMAND motivo-hgsplit -i test-hypergraph -s test-gaifman-low -l test-hypergraph-high -t 2
   WORKING_DIRECTORY tests
 )
 
@@ -82,21 +82,11 @@ foreach(size RANGE 2 5)
       COMMAND motivo-hyper-build -g test-hypergraph-high --lower test --ie test -s ${size} -o test-high --normalize false --threads 8
       WORKING_DIRECTORY tests
     )
-    add_test(
-      NAME motivo-hypergraph-merge-${size}
-      COMMAND motivo-merge -o test-high.${size} test-high.${size}.cnt
-      WORKING_DIRECTORY tests
-    )
 
     # Low (Gaifman low)
     add_test(
       NAME motivo-hypergraph-low-build-${size}
       COMMAND motivo-build -g test-gaifman-low -s ${size} -i test -o test-low --normalize false
-      WORKING_DIRECTORY tests
-    )
-    add_test(
-      NAME motivo-hypergraph-low-merge-${size}
-      COMMAND motivo-merge -o test-low.${size} test-low.${size}.cnt
       WORKING_DIRECTORY tests
     )
 

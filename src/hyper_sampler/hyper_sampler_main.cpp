@@ -51,12 +51,12 @@ struct hyper_opts {
     double       time_budget       = std::numeric_limits<double>::infinity();
 
     // flags
-    bool vertices       = true;
-    bool graphlets      = true;   // weakly-induced if true; treelet-only if false
+    bool vertices       = false;
+    bool graphlets      = false;   // weakly-induced if true; treelet-only if false
     bool canonicize     = false;  // canonicalize incidence (V/E)
     bool group          = false;  // group by footprint
     bool spanning_trees = false;  // count rooted spanning trees on Gaifman
-    bool estimate_occ   = true;   // estimate global occurrences (-> frequencies)
+    bool estimate_occ   = false;   // estimate global occurrences (-> frequencies)
     bool save_samples   = false;  // save raw samples to <basename>.samples.csv
 };
 

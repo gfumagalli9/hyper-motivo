@@ -153,7 +153,13 @@ echo -e "size\t\tbuild\t\tmerge\t\tsample"
 
 build() {
     for i in $(seq 1 "$SIZE"); do
-	
+
+	if [ $i -eq "$SIZE" ]; then
+		EXTRA_BUILD_OPTS+=(--store-on-0-colored-vertices-only)
+		if [ "$SMART" == "YES" ]; then
+			EXTRA_BUILD_OPTS+=(--selective "$SELECTIVE_FILE")
+		fi
+	fi
 	
 	echo -en "$i  \t\t"
 	echo "[$(date)] Building table of size $i" >> $LOGFILE

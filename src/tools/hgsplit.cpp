@@ -155,8 +155,7 @@ int main(int argc, const char** argv)
     OptionsParser op;
     auto* help_opt   = op.add_option(false, false, "help",         'h', "",  "Print help and exit");
     auto* input_opt  = op.add_option(true,  true,  "input",        'i', "",  "Input binary hypergraph basename");
-    auto* thresh_opt = op.add_option(false,  false,  "threshold",    't', "0", "Maximum hyperedge size for the small hypergraph");
-    auto* small_opt  = op.add_option(true,  true,  "small-output", 's', "",  "Output basename for hyperedges of size <= threshold");
+    auto* thresh_opt = op.add_option(false,  true,  "threshold",    't', "", "Maximum hyperedge size for the small hypergraph");    auto* small_opt  = op.add_option(true,  true,  "small-output", 's', "",  "Output basename for hyperedges of size <= threshold");
     auto* large_opt  = op.add_option(true,  true,  "large-output", 'l', "",  "Output basename for hyperedges of size > threshold");
 
     if (!op.parse(argc, argv) || help_opt->is_found()) {
@@ -169,7 +168,6 @@ int main(int argc, const char** argv)
     }
 
     const std::string in_base   = input_opt->get_value();
-    const vertex_t    threshold = static_cast<vertex_t>(std::stoul(thresh_opt->get_value()));
     const std::string out_small = small_opt->get_value();
     const std::string out_large = large_opt->get_value();
 
@@ -177,24 +175,35 @@ int main(int argc, const char** argv)
         // 1) Load input hypergraph and split edges in memory
         Hypergraph H(in_base);
 
+        // Compute the threshold value:
+        // - If --threshold is provided with "auto"/"AUTO" or empty: use auto-α
+        // - Else parse an unsigned integer; on invalid input, print a clear error and exit.
         vertex_t threshold = 0;
-        bool threshold_given = false;
-        // TO FIX: crasha con threshold in input
-        if (thresh_opt->is_found()) {
-            const std::string val = thresh_opt->get_value();
-            if (!val.empty() && val != "auto" && val != "AUTO") {
-                const std::size_t t_raw = static_cast<std::size_t>(std::stoul(val));
-                const std::size_t TMAX  = std::numeric_limits<vertex_t>::max();
-                threshold = static_cast<vertex_t>(std::min<std::size_t>(t_raw, TMAX));
-                threshold_given = true;
-                std::cout << "Split alpha (manual): " << threshold << "\n";
+        {
+            bool use_auto = true;
+            if (thresh_opt->is_found()) {
+                const std::string val = thresh_opt->get_value();
+                if (!val.empty() && val != "auto" && val != "AUTO") {
+                    try {
+                        // Parse as unsigned; clamp to vertex_t range.
+                        const unsigned long long t_raw = std::stoull(val);
+                        const unsigned long long TMAX  = std::numeric_limits<vertex_t>::max();
+                        threshold = static_cast<vertex_t>(std::min<unsigned long long>(t_raw, TMAX));
+                        use_auto = false;
+                        std::cout << "Split alpha (manual): " << threshold << "\n";
+                    } catch (const std::exception&) {
+                        std::cerr << "Invalid --threshold value: '" << val
+                                << "'. Use an integer, or 'auto'.\n";
+                        return EXIT_FAILURE;
+                    }
+                }
             }
-        }
-        if (!threshold_given) {
-            const std::size_t a = motivo::compute_best_alpha(H, 0.5);
-            const std::size_t TMAX = std::numeric_limits<vertex_t>::max();
-            threshold = static_cast<vertex_t>(std::min<std::size_t>(a, TMAX));
-            std::cout << "Split alpha (auto): " << threshold << "\n";
+            if (use_auto) {
+                const std::size_t a = motivo::compute_best_alpha(H, 0.8);
+                const std::size_t TMAX = std::numeric_limits<vertex_t>::max();
+                threshold = static_cast<vertex_t>(std::min<std::size_t>(a, TMAX));
+                std::cout << "Split alpha (auto): " << threshold << "\n";
+            }
         }
 
         const edge_t m = H.number_of_hyperedges();
@@ -208,7 +217,7 @@ int main(int argc, const char** argv)
             const std::uint32_t sz = H.hyperedge_size(e);
             std::vector<vertex_t> he(sz);
             for (std::uint32_t i = 0; i < sz; ++i) he[i] = H.hyperedge_vertex(e, i);
-            if (sz < threshold) small_he.push_back(std::move(he)); // TO FIX: if chosen treshold makes lower or higher empty it crashes
+            if (sz <= threshold) small_he.push_back(std::move(he)); // TO FIX: if chosen treshold makes lower or higher empty it crashes
             else                 large_he.push_back(std::move(he));
         }
 
@@ -219,6 +228,16 @@ int main(int argc, const char** argv)
         // 3) Reload both parts through the canonical loader (ensures format sanity)
         Hypergraph H_large(out_large);
         Hypergraph H_small(out_small);
+
+        // If one side is empty, the intersection pairs are necessarily empty.
+        if (H_small.number_of_hyperedges() == 0 || H_large.number_of_hyperedges() == 0) {
+            const std::string filename = out_small + ".pairs";
+            std::ofstream out(filename, std::ios::binary);
+            if (!out) throw std::runtime_error("Cannot open pairs output file: " + filename);
+            const std::uint64_t M = 0;
+            out.write(reinterpret_cast<const char*>(&M), sizeof(M));
+            return EXIT_SUCCESS;
+        }
 
         // 4) Build per-vertex incident-edge lists for the "large" part (sorted)
         auto high_inc = build_high_incidence(H_large);

@@ -216,6 +216,9 @@ python3 scripts/hyper_motivo_utils.py <counts.csv> --outdir hyperplots --fmt pdf
 
 ---
 
+## Basic usage
+Similarly to motivo, hyper-motivo can be launched from the `build/` via the wrapper `../scripts/hyper_motivo_mac.sh`. Below is reported an example which will compute 6-hyper-motifs counts using 100000 samples.
+
 ## License
 
 Motivo is released under the MIT License. See `LICENSE` for details.

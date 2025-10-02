@@ -18,6 +18,7 @@
 #include "../common/treelets/TreeletTableCollection.h"
 #include "../common/io/CompressedRecordFile.h"
 #include "../common/random/Random.h"
+#include "../common/io/PropertyStore.h"
 
 #include "HyperSequentialBuilder.h"
 #include "HyperMultithreadedBuilder.h"
@@ -33,7 +34,7 @@ static void usage() {
     "  --lower        <GLOBAL TTC basename>    # reads <lower>.<i>.dtz     (i=1..k-1)\n"
     "  --ie           <HIGH IE TTC basename>   # reads <ie>.<i>.ie.dtz     (i=1..k-1)\n"
     "  [--normalize true|false]  (default: true)\n"
-    "  [--store-on-0-only]       (default: off)\n"
+    "  [--store-on-0-colored-vertices-only]       (default: off)\n"
     "  [--selector FILE]         (ignored for now)\n"
     "  [--threads|-t N]          (default: 1; 0 => use hardware_concurrency)\n";
 }
@@ -101,7 +102,7 @@ int main(int argc, const char** argv) {
             std::string v = need(1); ++i;
             normalize = (v != "false" && v != "0" && v != "no");
         }
-        else if (!std::strcmp(a,"--store-on-0-only")) { store_on_0 = true; }
+        else if (!std::strcmp(a,"--store-on-0-colored-vertices-only")) { store_on_0 = true; }
         else if (!std::strcmp(a,"--selector"))        { selector_file = need(1); ++i; /* ignored for now */ }
         else if (!std::strcmp(a,"--threads") || !std::strcmp(a,"-t")) {
             threads = static_cast<unsigned>(std::stoul(need(1))); ++i;
@@ -166,6 +167,7 @@ int main(int argc, const char** argv) {
                                            normalize);
             builder.build();
         } else {
+            // TO FIX: Multithread still doesn't work well, bad performances
             HyperMultithreadedBuilder builder(&H, from, to,
                                               k,
                                               &ttc_lower.coll,
@@ -184,6 +186,12 @@ int main(int argc, const char** argv) {
         const double secs = std::chrono::duration<double>(t1 - t0).count();
         std::cerr << "Building time: " << secs << " s\n";
         std::cerr << "Wrote " << cnt_path << "\n";
+
+        // Info file 
+        PropertyStore properties;
+        properties.set_bool("StoreOnlyOn0", store_on_0);
+        properties.save(std::string(output) + "." + std::to_string(k) + ".info");
+
         return 0;
 
     } catch (const std::exception& e) {

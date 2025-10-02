@@ -50,7 +50,7 @@ EOF
 # ------------------------- args ------------------------------
 THREADS=1
 COMP_THR=0
-THRESHOLD=0
+THRESHOLD=""
 SEED=""
 SAMPLES=""
 COLORS=""
@@ -91,11 +91,22 @@ HIGH_TTC="${OUTPUT}-HighTTC"    # TTC per HIGH
 LOW_TTC="${OUTPUT}-LowTTC"      # TTC per LOW
 GLOBAL_TTC="${OUTPUT}"          # TTC GLOBAL (merge e input per k>=2)
 
+# Helper: verifica se un binario supporta --store-on-0-colored-vertices-only
+supports_store_on_0() {
+  local bin="$1"
+  "$bin" --help 2>&1 | grep -q -- '--store-on-0-colored-vertices-only'
+}
+
+HAS_STORE_LOW="no"
+HAS_STORE_HIGH="no"
+if supports_store_on_0 "$BUILDPATH/motivo-build"; then HAS_STORE_LOW="yes"; fi
+if supports_store_on_0 "$BUILDPATH/motivo-hyper-build"; then HAS_STORE_HIGH="yes"; fi
+
 # ----------------- 1) split + gaifman(LOW) -------------------
 printf "hgsplit\t\t"
 SPLIT_RAW=$(run_timed "$OUTPUT.split.log" \
   "$BUILDPATH/motivo-hgsplit" \
-    -i "$GRAPH" -s "$LOW_GRAPH" -l "$HIGH_GRAPH" )
+    -i "$GRAPH" -s "$LOW_GRAPH" -l "$HIGH_GRAPH" -t "$THRESHOLD" )
 printf "%s\n" "$(format_time "$SPLIT_RAW")"
 
 printf "gaifman(low)\t"
@@ -114,7 +125,7 @@ H1_B_RAW=$(run_timed "$OUTPUT.buildH1.log" \
     --graph "$LOW_G" --size 1 \
     --colors "$COLORS" \
     --output "$HIGH_TTC" \
-    ${SEED:+--seed "$SEED"} --threads "$THREADS") 
+    ${SEED:+--seed "$SEED"} --threads "$THREADS")
 printf "%s\t" "$(format_time "$H1_B_RAW")"
 
 # 2.2 merge HIGH_TTC.1
@@ -147,9 +158,27 @@ MERGE1_RAW=$(run_timed "$OUTPUT.mergeGlobal1.log" \
 printf "%s\n" "$(format_time "$MERGE1_RAW")"
 
 # ----------------- 3) k=2..MAXSIZE ---------------------------
-echo -e "k\tH.build\tH.merge\tL.build\tL.merge\tLH.fuse\tLH.merge\tNWS\tIE.merge"
+echo -e "k\tH.build\tL.build\tLH.fuse\tLH.merge\tNWS\tIE.merge"
 
 for ((k=2; k<=MAXSIZE; k++)); do
+  # Flag “store on 0” solo per l’ultima iterazione, se supportata
+  H_STORE_FLAG=""
+  L_STORE_FLAG=""
+  if (( k == MAXSIZE )); then
+    if [[ "$HAS_STORE_HIGH" == "yes" ]]; then
+      H_STORE_FLAG="--store-on-0-colored-vertices-only"
+      echo "[info] Enabling store-on-0 for HIGH at k=$k" | tee -a "$LOGFILE"
+    else
+      echo "[warn] motivo-hyper-build non supporta --store-on-0-colored-vertices-only (HIGH k=$k non filtrato)" | tee -a "$LOGFILE"
+    fi
+    if [[ "$HAS_STORE_LOW" == "yes" ]]; then
+      L_STORE_FLAG="--store-on-0-colored-vertices-only"
+      echo "[info] Enabling store-on-0 for LOW at k=$k" | tee -a "$LOGFILE"
+    else
+      echo "[warn] motivo-build non supporta --store-on-0-colored-vertices-only (LOW k=$k non filtrato)" | tee -a "$LOGFILE"
+    fi
+  fi
+
   # 3.1 HIGH (ipergrafo): motivo-hyper-build con TTC low&ie dalla GLOBAL
   H_B_RAW=$(run_timed "$OUTPUT.buildH${k}.log" \
     "$BUILDPATH/motivo-hyper-build" \
@@ -159,28 +188,18 @@ for ((k=2; k<=MAXSIZE; k++)); do
       --lower "$GLOBAL_TTC" \
       --ie    "$GLOBAL_TTC" \
       --normalize false \
-      --threads "$THREADS")
+      --threads "$THREADS" \
+      ${H_STORE_FLAG:+$H_STORE_FLAG})
   H_B=$(format_time "$H_B_RAW")
-
-  H_M_RAW=$(run_timed "$OUTPUT.merge1H${k}.log" \
-    "$BUILDPATH/motivo-merge" \
-      --output "$HIGH_TTC.${k}" --compress-threshold "$COMP_THR" \
-      "$HIGH_TTC.${k}.cnt")
-  H_M=$(format_time "$H_M_RAW")
 
   # 3.2 LOW (Gaifman): motivo-build (grafi), stessa colorazione globale
   L_B_RAW=$(run_timed "$OUTPUT.buildL${k}.log" \
     "$BUILDPATH/motivo-build" \
       --graph "$LOW_G" --size "$k" \
       --output "$LOW_TTC" \
-      -i "$GLOBAL_TTC" --normalize false --threads "$THREADS")
+      -i "$GLOBAL_TTC" --normalize false --threads "$THREADS" \
+      ${L_STORE_FLAG:+$L_STORE_FLAG})
   L_B=$(format_time "$L_B_RAW")
-
-  L_M_RAW=$(run_timed "$OUTPUT.mergeL${k}.log" \
-    "$BUILDPATH/motivo-merge" \
-      --output "$LOW_TTC.${k}" --compress-threshold "$COMP_THR" \
-      "$LOW_TTC.${k}.cnt")
-  L_M=$(format_time "$L_M_RAW")
 
   # 3.3 fuse LOW+HIGH -> GLOBAL.${k}
   LH_FUSE_RAW=$(run_timed "$OUTPUT.lowHighFuse${k}.log" \
@@ -208,8 +227,8 @@ for ((k=2; k<=MAXSIZE; k++)); do
       "$HIGH_TTC.${k}.ie.cnt")
   IE=$(format_time "$IE_RAW")
 
-  printf "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
-    "$k" "$H_B" "$H_M" "$L_B" "$L_M" "$LH_FUSE" "$LH_M" "$NWS" "$IE"
+  printf "%d\t%s\t%s\t%s\t%s\t\t%s\t%s\n" \
+    "$k" "$H_B" "$L_B"  "$LH_FUSE" "$LH_M" "$NWS" "$IE"
 
   rm -f "$LOW_TTC.${k}.info"  "$LOW_TTC.${k}.rts" \
         "$HIGH_TTC.${k}.info" "$HIGH_TTC.${k}.rts" || true
@@ -219,22 +238,27 @@ done
 if [[ -n "${SAMPLES}" && "${SAMPLES}" -gt 0 ]]; then
   echo -e "step\tk\ttime"
   printf "sample\t%d\t" "$MAXSIZE"
+
+  # dove scrivere i campioni
+  SAMPLE_BASE="${OUTPUT}.sample${MAXSIZE}"
+
   SMP_RAW=$(run_timed "$OUTPUT.sample${MAXSIZE}.log" \
     "$BUILDPATH/motivo-hyper-sample" \
       --gaifman "$LOW_G" \
       --hypergraph "$HIGH_GRAPH" \
       --hypergraph-full "$GRAPH" \
       --tables "$GLOBAL_TTC" \
-      --ttc-low "$LOW_TTC" \
-      --ttc-high "$HIGH_TTC" \
       --nws-high "$GLOBAL_TTC" \
       --size "$MAXSIZE" \
       --num-samples "$SAMPLES" \
       --threads "$THREADS" \
-      --time-budget 1000000 \
-      --group --graphlets --estimate-occurrences \
-      ${SEED:+--seed "$SEED"} )
+      --group --graphlets --estimate-occurrences --canonicize --spanning-trees --vertices \
+      ${SEED:+--seed "$SEED"} \
+      --output "$SAMPLE_BASE" )
   printf "%s\n" "$(format_time "$SMP_RAW")"
+
+  echo "Samples are in ${SAMPLE_BASE}.csv:"
+  head -6 "${SAMPLE_BASE}.csv" || true
 fi
 
 echo "[$(date)] Done." | tee -a "$LOGFILE"

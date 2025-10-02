@@ -15,9 +15,7 @@ void HyperSequentialBuilder::build()
     {
         // If requested, only store rows whose root u has color 0.
         // (color 0 is encoded as bitmask 1, i.e., get_colors() == 1)
-        if (!store_only_0 ||
-            ttc->get_table(1)->begin(u).treelet().get_colors() == 1)
-        {
+        if (!store_only_0 || ttc->get_table(1)->begin(u).treelet().get_colors() == 1){
             builder.combine(u, table);
         }
 

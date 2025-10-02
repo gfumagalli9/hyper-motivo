@@ -74,6 +74,10 @@ uint64_t HyperTreeletSampler::compute_low_mass_(vertex_t u,
             // Skip if t2 colors are incompatible with T.
             if (C2 & ~T_colors) continue;
 
+            // NEW: read count first; if zero, skip expensive parent/cG work.
+            const uint64_t cnt = static_cast<uint64_t>(it.count());
+            if (!cnt) continue;
+
             // Lookup or compute cG = CtabG(u, parent(T \ t2))
             uint64_t cG = 0;
             bool found = false;
@@ -87,8 +91,7 @@ uint64_t HyperTreeletSampler::compute_low_mass_(vertex_t u,
             }
             if (!cG) continue; // early skip if no parent mass at u
 
-            const uint64_t cnt = static_cast<uint64_t>(it.count());
-            if (cnt) W += cG * cnt;
+            W += cG * cnt;
         }
     }
     return W;
@@ -103,17 +106,42 @@ uint64_t HyperTreeletSampler::compute_high_mass_(vertex_t u,
 
     uint64_t W = 0;
 
+    // NEW: mirror LOW micro-opts (cache cG by child color mask; read cnt first).
+    const auto split_structure = split.get_structure();
+    using color_t = decltype(t.get_colors());
+    const color_t T_colors = t.get_colors();
+
+    // Small per-call cache: (child color mask) -> cG(u, parent)
+    std::vector<std::pair<color_t, uint64_t>> cG_cache;
+    cG_cache.reserve(32);
+
     // Sum over HIGH "NWS" entries t2 at root u:
     //   mass += CtabG(u, parent) * NWSh(u, split_child)
     for (auto it = tb.NWSh->begin(u, split); !it.is_over(); ++it) {
         const Treelet& t2 = it.treelet();
         if (t2.get_structure() != split.get_structure()) break; // structure range exhausted
-        if (t2.get_colors() & ~t.get_colors()) continue;        // color mismatch
 
-        const Treelet parent = t.complement(t2);
-        const uint64_t cG    = (uint64_t) tb.CtabG->get_count(u, parent);
-        const uint64_t cnt   = (uint64_t) it.count();
-        if (cG && cnt) W += cG * cnt;
+        const color_t C2 = t2.get_colors();
+        if (C2 & ~T_colors) continue;                           // color mismatch
+
+        // NEW: read count first; skip if zero.
+        const uint64_t cnt = static_cast<uint64_t>(it.count());
+        if (!cnt) continue;
+
+        // Lookup/compute cG once per color mask.
+        uint64_t cG = 0;
+        bool found = false;
+        for (const auto& kv : cG_cache) {
+            if (kv.first == C2) { cG = kv.second; found = true; break; }
+        }
+        if (!found) {
+            const Treelet parent = t.complement(t2);
+            cG = static_cast<uint64_t>(tb.CtabG->get_count(u, parent));
+            cG_cache.emplace_back(C2, cG);
+        }
+        if (!cG) continue;
+
+        W += cG * cnt;
     }
     return W;
 }
