@@ -25,6 +25,10 @@ set(SAMPLER_SOURCE_FILES
         SpanningTreeCounter.cpp
         SpanningTreeCounter.h
         TimeoutThreadSync.h
+        ../hyper_sampler/HyperOccurrence.h
+        ../hyper_sampler/HyperOccurrence.cpp
+        ../hyper_sampler/HyperSampleTable.h
+        ../hyper_sampler/HyperSampleTable.cpp
         )
 
 add_executable(motivo-sample ${SAMPLER_SOURCE_FILES})

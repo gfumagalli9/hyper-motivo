@@ -149,33 +149,43 @@ int main(const int argc, const char** argv)
         uint64_t nonstar_nsamples = opts.number_of_samples - number_of_star_samples;
 
         SampleTable *samples = nullptr;
+        HyperSampleTable *samples_hyper = nullptr;
         if(!opts.adaptive)
         {
             // NAIVE SAMPLER
-            std::cout << "Using naive sampler" << std::endl;
             std::chrono::time_point<std::chrono::steady_clock> start_time = std::chrono::steady_clock::now();
             OccurrenceSampler sampler(&G, &ttc, opts.size, opts.vertices, opts.graphlets, opts.canonicize, opts.treelet_buffer_size, opts.treelet_buffer_degree);
+            Hypergraph H = Hypergraph(opts.hypergraph);
+            sampler.set_hypergraph(&H);
 
             sampler.set_selector(selector, opts.threads);
 
-            samples = sampler.sample(nonstar_nsamples, opts.threads, &rng, time_budget);
+            //samples = sampler.sample(nonstar_nsamples, opts.threads, &rng, time_budget);
+            samples_hyper = sampler.sample_hyper(nonstar_nsamples, opts.threads, &rng, time_budget);
+
 
             std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - start_time;
-            std::cout << "Naive sampler: took " << samples->get_num_samples() << " samples in " << elapsed.count() << " s\n";
+            std::cout << "Naive sampler: took " << samples_hyper->get_num_samples() << " samples in " << elapsed.count() << " s\n";
 
             if(opts.group || opts.spanning_trees)
-                samples->sort_by_footprint();
+                //samples->sort_by_footprint();
+                samples_hyper->sort_by_footprint();
 
             if(opts.group)
-                samples->group_by_footprint();
+                //samples->group_by_footprint();
+                samples_hyper->group_by_footprint();
 
             if(opts.spanning_trees)
-                samples->count_rooted_spanning_trees(build_selector, opts.threads);
+                //samples->count_rooted_spanning_trees(build_selector, opts.threads);
+                samples_hyper->count_rooted_spanning_trees(build_selector, opts.threads);
+
 
 
             if(opts.estimate_occurrences)
             {
-                samples->estimate_occurrences(static_cast<double>(tot_colorful_treelets) / p);
+                //samples->estimate_occurrences(static_cast<double>(tot_colorful_treelets) / p);
+                samples_hyper->estimate_occurrences(static_cast<double>(tot_colorful_treelets) / p);
+
 
                 if(star_samples)
                 {
@@ -191,20 +201,27 @@ int main(const int argc, const char** argv)
                     star_samples = nullptr;
                 }
                 else
-                    samples->estimate_frequencies();
+                    //samples->estimate_frequencies();
+                    samples_hyper->estimate_frequencies();
 
 
-                samples->sort_by_estimate_occurrences();
-                *output << SampleTable::header << "\n" << *samples;
+
+                //samples->sort_by_estimate_occurrences();
+                samples_hyper->sort_by_estimate_occurrences();
+                //*output << SampleTable::header << "\n" << *samples;
+                *output << HyperSampleTable::header << "\n" << *samples_hyper;
+
             }
             else
             {
-                *output << SampleTable::header << "\n";
+                //*output << SampleTable::header << "\n";
+                *output << HyperSampleTable::header << "\n";
+
 
                 if(star_samples)
                     *output << *star_samples;
 
-                *output << *samples;
+                *output << *samples_hyper;
             }
         }
         else

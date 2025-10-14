@@ -29,12 +29,14 @@
 #include "../common/random/Random.h"
 #include "../common/graph/UndirectedGraph.h"
 #include "../common/treelets/TreeletTableCollection.h"
+#include "../common/graph/Hypergraph.h"
 
 struct sampler_opts
 {
     char graph[MOTIVO_ARG_MAX];
     unsigned int size;
     uint64_t number_of_samples;
+    char hypergraph[MOTIVO_ARG_MAX];
     char tables_basename[MOTIVO_ARG_MAX];
     char output_basename[MOTIVO_ARG_MAX];
     bool canonicize;

@@ -20,6 +20,7 @@ SEED="" # <-- variabile per il seed
 THREADS=0
 BUILD=NO
 SAMPLE=NO
+HYPERGRAPH=""   # basename dell'ipergrafo (senza estensione)
 while [[ $# -gt 0 ]]
 do
     key="$1"
@@ -51,6 +52,10 @@ do
 	    SMART=YES
 	    shift # past argument
 	    ;;
+    -H|--hypergraph)
+        HYPERGRAPH="$2"
+        shift; shift
+        ;;
 	-o|--output)
 	    OUTPUT=$2
 	    shift # past argument
@@ -202,10 +207,15 @@ else
     EXTRA_SAMPLE_OPTS+=(--estimate-occurrences)
 fi
 
+# Se è stato passato un ipergrafo, aggiungilo alle opzioni del sampler
+if [ -n "$HYPERGRAPH" ]; then
+    EXTRA_SAMPLE_OPTS+=(--hypergraph "$HYPERGRAPH")
+fi
+
 sample() {
     echo -en "\t\t"
     echo "[$(date)] Sampling..." >> $LOGFILE
-    ($TIME $BUILDPATH/motivo-sample --graph "$GRAPH" --size "$SIZE" -n "$NSAMPLES" -i "$OUTPUT" -c --graphlets -o "$OUTPUT" --threads "$THREADS" ${EXTRA_SAMPLE_OPTS[@]} > "$OUTPUT.s$SIZE.log" 2>&1) || exit 1
+	($TIME $BUILDPATH/motivo-sample --graph "$GRAPH" --size "$SIZE" -n "$NSAMPLES" -i "$OUTPUT" -c --graphlets -o "$OUTPUT" --threads "$THREADS" "${EXTRA_SAMPLE_OPTS[@]}" > "$OUTPUT.s$SIZE.log" 2>&1) || exit 1
     if [[ "$BUILD" == "NO" ]]; then 	echo -en "\t\t\t\t"; fi
     echo $(get_walltime "$OUTPUT.s${SIZE}.log")
     ACTUALNSAMPLES=`awk -F',' '{N+=$4} END{print N}' $OUTPUT.csv`

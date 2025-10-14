@@ -59,6 +59,8 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     OptionsParser::Option *adaptive_opt = op.add_option(false, false, "estimate-occurrences-adaptive", '\0', "", "Estimate the number of occurrences of graphlets in the graph using adaptive sampling (implies: --estimate-occurrences,  and --canonicize)");
     OptionsParser::Option *time_budget_opt = op.add_option(false, true, "time-budget", '\0', "", "Time budget in seconds");
 
+    // [HYPER] opzionale: basename ipergrafo per induzione (abilita percorso hyper se presente)
+    OptionsParser::Option *hypergraph_opt = op.add_option(false, true, "hypergraph", 'H', "../graphs/bin/math", "Input hypergraph basename for induced subhypergraph (optional)");
 
     bool parse_ok = op.parse(argc, argv);
     if(!parse_ok || help_opt->is_found())
@@ -104,6 +106,16 @@ bool parse_sampler_args(const int argc, const char **argv, const std::string &na
     if(graph_opt->get_value().size() >= MOTIVO_ARG_MAX)
         throw std::runtime_error("'graph' option is too long");
     strcpy(opts->graph, graph_opt->get_value().c_str());
+
+    // [HYPER] copia sicura del basename dell’ipergrafo (se presente), altrimenti stringa vuota
+    if(hypergraph_opt->is_found())
+    {
+        if(hypergraph_opt->get_value().size() >= MOTIVO_ARG_MAX)
+            throw std::runtime_error("'hypergraph' option is too long");
+        strcpy(opts->hypergraph, hypergraph_opt->get_value().c_str());
+    }
+    else
+        *(opts->hypergraph) = '\0';
 
     if(output_opt->get_value().size() >= MOTIVO_ARG_MAX)
         throw std::runtime_error("'output' option is too long");
