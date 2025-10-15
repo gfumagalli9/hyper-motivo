@@ -27,6 +27,8 @@
 #include <string>
 #include <cassert>
 #include <cstring>
+#include <cstdint>  
+#include <limits>    
 
 ///Represents an immutable undirected unweighted graph
 ///Vertices are numbered with consecutive integers, starting from 0
