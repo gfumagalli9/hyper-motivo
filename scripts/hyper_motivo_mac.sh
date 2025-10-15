@@ -3,7 +3,9 @@ set -euo pipefail
 
 # ------------------------------------------------------------
 # motivo-hyper modular pipeline (LOW/HIGH) + CSV timings
-# -g punta a un .txt ipergrafo; si usa motivo-hypergraph per generare .hmeta/.hbin/.hidx
+# -g punta al basename di un ipergrafo già costruito (.hmeta/.hbin/.hidx)
+# In aggiunta a $OUTPUT.timings.csv, produce $OUTPUT.perf con:
+# output,graph,size,colors,compress_threshold,step,ntreelets,nsamples,nthreads,walltime,usertime,systemtime,actualtime
 # ------------------------------------------------------------
 
 BUILDPATH=${BUILDPATH:-../build/bin}
@@ -19,16 +21,16 @@ else
   TIMECMD=()  # fallback: manual timing
 fi
 
-# parse "h:mm:ss" or "m:ss" or "s.ss" -> seconds with decimals
+# parse "h:mm:ss" or "m:ss" or "s.ss" -> seconds with 2 decimals
 to_seconds() {
   awk -F: '
-    NF==3 { printf("%.3f", ($1*3600)+($2*60)+$3); next }
-    NF==2 { printf("%.3f", ($1*60)+$2); next }
-    NF==1 { printf("%.3f", $1); next }
+    NF==3 { printf("%.2f", ($1*3600)+($2*60)+$3); next }
+    NF==2 { printf("%.2f", ($1*60)+$2); next }
+    NF==1 { printf("%.2f", $1); next }
   '
 }
 
-# ---------------- CSV helpers ----------------
+# ---------------- CSV helpers (timings modulare) ----------------
 TIMINGS_CSV=""  # inizializzato dopo il parse
 csv_header() {
   echo "date,graph,output,threads,max_k,comp_thr,threshold,stage,k,label,seconds,log" >"$TIMINGS_CSV"
@@ -39,6 +41,37 @@ csv_row() { # stage, k, label, seconds, log
   printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
     "$ts" "$GRAPH" "$OUTPUT" "$THREADS" "$MAXSIZE" "$COMP_THR" "${THRESHOLD:-}" \
     "$stage" "$k" "$label" "$secs" "$log" >>"$TIMINGS_CSV"
+}
+
+# ---------------- CSV stile "grafi" per ogni step ----------------
+PERF_CSV=""
+perf_header(){
+  echo "output,graph,size,colors,compress_threshold,step,ntreelets,nsamples,nthreads,walltime,usertime,systemtime,actualtime" > "$PERF_CSV"
+}
+perf_row(){ # args: out graph size colors comp_thr step ntree nsamples nth wall u s act
+  printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+    "$1" "$2" "$3" "$4" "$5" "$6" "${7:-0}" "${8:-0}" "${9:-0}" "${10:-0.00}" "${11:-0.00}" "${12:-0.00}" "${13:-0.00}" \
+    >> "$PERF_CSV"
+}
+
+# Parsers da log di GNU time -v / tool output
+grep_user_time(){ grep -Eo "User time \(seconds\):[[:space:]]*[0-9.]+$" "$1" | awk '{print $4}' | head -1 | awk '{printf "%.2f\n",$1+0}' || echo "0.00"; }
+grep_sys_time(){  grep -Eo "System time \(seconds\):[[:space:]]*[0-9.]+$" "$1" | awk '{print $4}' | head -1 | awk '{printf "%.2f\n",$1+0}' || echo "0.00"; }
+grep_elapsed(){   grep -F "Elapsed (wall clock) time" "$1" | tail -1 | awk '{print $NF}' | to_seconds || echo "0.00"; }
+grep_actual(){    grep -Eo "^(Building|Merge|Sampling) time: [0-9.]+ s$" "$1" | tail -1 | awk '{print $3}' | awk '{printf "%.2f\n",$1+0}' || true; }
+grep_ntree(){     grep -Eo "^Total number of treelet occurrences: [0-9]+" "$1" | awk '{print $NF}' | head -1 || echo "0"; }
+grep_threads(){   grep -Eo "using [0-9]+ thread\(s\)$" "$1" | awk '{print $2}' | head -1 || echo ""; }
+grep_nsamples(){  grep -Eo 'took[[:space:]]+[0-9]+' "$1" | awk '{print $2}' | tail -1 || true; }
+
+emit_step_perf(){ # label k log wall default_threads is_merge is_sample
+  local label="$1" k="$2" log="$3" wall="$4" dflt_th="$5" is_merge="$6" is_sample="$7"
+  local u s a nth nt ns
+  u="$(grep_user_time "$log")"; s="$(grep_sys_time "$log")"
+  a="$(grep_actual "$log")"; a="${a:-$wall}"
+  nth="$(grep_threads "$log")"; nth="${nth:-$dflt_th}"
+  if [[ "$is_merge" == "1" ]]; then nt="$(grep_ntree "$log")"; else nt="0"; fi
+  if [[ "$is_sample" == "1" ]]; then ns="$(grep_nsamples "$log")"; ns="${ns:-$SAMPLES}"; else ns="0"; fi
+  perf_row "$OUTPUT" "$LOW_G" "$k" "$COLORS" "$COMP_THR" "$label" "$nt" "$ns" "$nth" "$wall" "$u" "$s" "$a"
 }
 
 # run command; if GNU time -v available parse wall time; else manual timing
@@ -52,14 +85,14 @@ run_timed() {
     t0=$(date +%s.%N)
     "$@" >"$log" 2>&1
     t1=$(date +%s.%N)
-    awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.3f\n", (b-a)}'
+    awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.2f\n", (b-a)}'
   fi
 }
 
 usage() {
   cat <<EOF
 Usage: $0 [--build] [--sample]
-          -g|--graph PATH.txt      (file testo ipergrafo)
+          -g|--graph BASENAME      (basename ipergrafo già costruito: BASENAME.hmeta/.hbin/.hidx)
           -k|--maxsize K           (>=2)
           -o|--output BASENAME     (basename output per tutti gli artifact)
           [-t|--threads N]         (default 1)
@@ -68,11 +101,10 @@ Usage: $0 [--build] [--sample]
           [--seed S] [--colors C]  (k=1 build, default colors=K)
           [-S|--samples N]         (se >0, esegue hyper-sample a k=K)
 
-Environment:
-  BUILDPATH   path ai binari motivo (default ../build/bin)
 Outputs:
   - Logs:          \$OUTPUT.*.log
   - Timings (CSV): \$OUTPUT.timings.csv
+  - Steps CSV:     \$OUTPUT.perf
 EOF
   exit 1
 }
@@ -105,23 +137,24 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-: "${GRAPH:?Missing -g/--graph (path al .txt ipergrafo)}"
+: "${GRAPH:?Missing -g/--graph (basename ipergrafo)}"
 : "${MAXSIZE:?Missing -k/--maxsize}"
 : "${OUTPUT:?Missing -o/--output}"
 [[ -n "${COLORS}" ]] || COLORS="${MAXSIZE}"
 if [[ "$BUILD" == "NO" && "$SAMPLE" == "NO" ]]; then BUILD=YES; SAMPLE=YES; fi
-[[ -f "$GRAPH" ]] || { echo "[fatal] Input .txt non trovato: $GRAPH" >&2; exit 2; }
+[[ -f "${GRAPH}.hmeta" ]] || { echo "[fatal] Non trovo ${GRAPH}.hmeta (ipergrafo non presente)" >&2; exit 2; }
 
 LOGDIR="$(dirname -- "$OUTPUT")"
 mkdir -p "$LOGDIR"
 LOGFILE="$OUTPUT.log"
 TIMINGS_CSV="${OUTPUT}.timings.csv"
+PERF_CSV="${OUTPUT}.perf"
 csv_header
+perf_header
 
 echo "[$(date)] motivo-hyper start" | tee "$LOGFILE"
 
 # --------------------- basenames -----------------------------
-INPUT_GRAPH="${OUTPUT}-Input"   # basename binario creato da motivo-hypergraph
 HIGH_GRAPH="${OUTPUT}-High"     # ipergrafo HIGH (basename da hgsplit)
 LOW_GRAPH="${OUTPUT}-Low"       # ipergrafo LOW  (basename da hgsplit)
 LOW_G="${LOW_GRAPH}"            # gaifman(LOW): input=output
@@ -141,49 +174,19 @@ HAS_STORE_HIGH="no"
 if supports_store_on_0 "$BUILDPATH/motivo-build"; then HAS_STORE_LOW="yes"; fi
 if supports_store_on_0 "$BUILDPATH/motivo-hyper-build"; then HAS_STORE_HIGH="yes"; fi
 
-# --------- rilevo i flag supportati da motivo-hypergraph ----------
-detect_hypergraph_flags() {
-  local help
-  help="$("$BUILDPATH/motivo-hypergraph" --help 2>&1 || true)"
-  if grep -q -- "--input" <<<"$help"; then
-    HG_IN="--input"
-  elif grep -q -E '\s-i[ ,]' <<<"$help"; then
-    HG_IN="-i"
-  else
-    echo "[fatal] Non riesco a trovare il flag input per motivo-hypergraph (né --input né -i)" >&2
-    exit 3
-  fi
-  if grep -q -- "--output" <<<"$help"; then
-    HG_OUT="--output"
-  elif grep -q -E '\s-o[ ,]' <<<"$help"; then
-    HG_OUT="-o"
-  else
-    echo "[fatal] Non riesco a trovare il flag output per motivo-hypergraph (né --output né -o)" >&2
-    exit 3
-  fi
-}
-detect_hypergraph_flags
-
 # ------------------------- BUILD -----------------------------
 build() {
   echo -e "step\t\tsecs"
 
-  # 0) txt -> bin (.hmeta/.hbin/.hidx)
-  local LOG HGSEC
-  LOG="$OUTPUT.hypergraph.log"
-  printf "hypergraph\t"
-  HGSEC=$(run_timed "$LOG" "$BUILDPATH/motivo-hypergraph" "$HG_IN" "$GRAPH" "$HG_OUT" "$INPUT_GRAPH")
-  csv_row "prep" "" "hypergraph_build" "$HGSEC" "$LOG"
-  printf "%s\n" "$HGSEC"
-
   # 1) split HIGH/LOW
-  local SPLIT
+  local SPLIT LOG
   LOG="$OUTPUT.split.log"
   printf "hgsplit\t\t"
   SPLIT=$(run_timed "$LOG" \
-    "$BUILDPATH/motivo-hgsplit" -i "$INPUT_GRAPH" -s "$LOW_GRAPH" -l "$HIGH_GRAPH" ${THRESHOLD:+-t "$THRESHOLD"})
+    "$BUILDPATH/motivo-hgsplit" -i "$GRAPH" -s "$LOW_GRAPH" -l "$HIGH_GRAPH" ${THRESHOLD:+-t "$THRESHOLD"})
   csv_row "split" "" "hgsplit" "$SPLIT" "$LOG"
   printf "%s\n" "$SPLIT"
+  emit_step_perf "hgsplit" "0" "$LOG" "$SPLIT" "0" "0" "0"
 
   # 2) gaifman(LOW)
   LOG="$OUTPUT.gaifman.log"
@@ -191,45 +194,50 @@ build() {
   GF=$(run_timed "$LOG" "$BUILDPATH/motivo-gaifman" --input "$LOW_G" --output "$LOW_G" -j "$THREADS")
   csv_row "split" "" "gaifman_low" "$GF" "$LOG"
   printf "%s\n" "$GF"
+  emit_step_perf "gaifman_low" "0" "$LOG" "$GF" "$THREADS" "0" "0"
 
-  # -------- k=1 (tabella unificata) --------
+  # -------- k=1 --------
   LOG="$OUTPUT.buildH1.log"
   B1=$(run_timed "$LOG" "$BUILDPATH/motivo-build" \
         --graph "$LOW_G" --size 1 \
         --colors "$COLORS" \
         --output "$HIGH_TTC" \
         ${SEED:+--seed "$SEED"} --threads "$THREADS")
-  csv_row "k1" "1" "build_high_k1" "$B1" "$LOG"
+  csv_row "k1" "1" "build_high" "$B1" "$LOG"
+  emit_step_perf "build_high" "1" "$LOG" "$B1" "$THREADS" "0" "0"
 
   LOG="$OUTPUT.mergeH1.log"
   M1=$(run_timed "$LOG" "$BUILDPATH/motivo-merge" \
         --output "$HIGH_TTC.1" --compress-threshold "$COMP_THR" \
         "$HIGH_TTC.1.cnt")
-  csv_row "k1" "1" "merge_high_k1" "$M1" "$LOG"
+  csv_row "k1" "1" "merge_LH" "$M1" "$LOG"
+  emit_step_perf "merge_LH" "1" "$LOG" "$M1" "0" "1" "0"
 
+  # ---- NWS(k=1) + IE-merge(k=1): NECESSARI per k>=2 ----
   LOG="$OUTPUT.nwsH1.log"
   N1=$(run_timed "$LOG" "$BUILDPATH/motivo-nws" \
         --graph "$HIGH_GRAPH" --size 1 \
         -i "$HIGH_TTC" --output "$HIGH_TTC" --threads "$THREADS")
-  csv_row "k1" "1" "nws_high_k1" "$N1" "$LOG"
+  csv_row "k1" "1" "nws_high" "$N1" "$LOG"
+  emit_step_perf "nws_high" "1" "$LOG" "$N1" "$THREADS" "0" "0"
 
   LOG="$OUTPUT.nwsMerge1.log"
   I1=$(run_timed "$LOG" "$BUILDPATH/motivo-merge" \
         -e --output "$GLOBAL_TTC.1.ie" --compress-threshold "$COMP_THR" \
         "$HIGH_TTC.1.ie.cnt")
-  csv_row "k1" "1" "merge_ie_global_k1" "$I1" "$LOG"
+  csv_row "k1" "1" "merge_ie" "$I1" "$LOG"
+  emit_step_perf "merge_ie" "1" "$LOG" "$I1" "0" "1" "0"
 
-  # Per semplicità di naming per k>=2 (LOWER/IE): copia HIGH_TTC.1.* in GLOBAL_TTC.1.*
+  # Prepara GLOBAL_TTC.1.* (non-IE) per coerenza con k>=2
   cp -f "$HIGH_TTC.1.dtz"  "$GLOBAL_TTC.1.dtz"
   cp -f "$HIGH_TTC.1.info" "$GLOBAL_TTC.1.info"
   cp -f "$HIGH_TTC.1.rts"  "$GLOBAL_TTC.1.rts"
 
-  # -------- tabella unificata: k=1 + loop --------
+  # -------- tabella unificata (stampa umana) --------
   echo -e "k\tH.build\tL.build\tLH.fuse\tLH.merge\tNWS\tIE.merge"
-  # k=1: L.build/LH.fuse non applicano ('/'); LH.merge = M1
   printf "1\t%s\t%s\t%s\t%s\t\t%s\t%s\n" \
-    "$(printf '%.3f' "$B1")" "/" "/" \
-    "$(printf '%.3f' "$M1")" "$(printf '%.3f' "$N1")" "$(printf '%.3f' "$I1")"
+    "$(printf '%.2f' "$B1")" "/" "/" \
+    "$(printf '%.2f' "$M1")" "$(printf '%.2f' "$N1")" "$(printf '%.2f' "$I1")"
 
   # -------- k = 2..MAXSIZE --------
   for ((k=2; k<=MAXSIZE; k++)); do
@@ -243,6 +251,7 @@ build() {
         || echo "[warn] motivo-build lacks --store-on-0-colored-vertices-only" | tee -a "$LOGFILE"
     fi
 
+    # HIGH build
     LOG="$OUTPUT.buildH${k}.log"
     HB=$(run_timed "$LOG" "$BUILDPATH/motivo-hyper-build" \
           --graph "$HIGH_GRAPH" \
@@ -254,7 +263,9 @@ build() {
           --threads "$THREADS" \
           ${H_STORE_FLAG:+$H_STORE_FLAG})
     csv_row "kloop" "$k" "build_high" "$HB" "$LOG"
+    emit_step_perf "build_high" "$k" "$LOG" "$HB" "$THREADS" "0" "0"
 
+    # LOW build
     LOG="$OUTPUT.buildL${k}.log"
     LB=$(run_timed "$LOG" "$BUILDPATH/motivo-build" \
           --graph "$LOW_G" --size "$k" \
@@ -262,35 +273,44 @@ build() {
           -i "$GLOBAL_TTC" --normalize false --threads "$THREADS" \
           ${L_STORE_FLAG:+$L_STORE_FLAG})
     csv_row "kloop" "$k" "build_low" "$LB" "$LOG"
+    emit_step_perf "build_low" "$k" "$LOG" "$LB" "$THREADS" "0" "0"
 
+    # Fuse (cnt)
     LOG="$OUTPUT.lowHighFuse${k}.log"
     FH=$(run_timed "$LOG" "$BUILDPATH/motivo-low-high-merge" \
           --low "$LOW_TTC.${k}.cnt" --high "$HIGH_TTC.${k}.cnt" \
           -o "$GLOBAL_TTC.${k}" -c "$LOW_G")
     csv_row "kloop" "$k" "fuse_LH" "$FH" "$LOG"
+    emit_step_perf "fuse_LH" "$k" "$LOG" "$FH" "0" "0" "0"
 
+    # Merge (dtz)
     LOG="$OUTPUT.lowHighMerge${k}.log"
     MH=$(run_timed "$LOG" "$BUILDPATH/motivo-merge" \
           --output "$GLOBAL_TTC.${k}" --compress-threshold "$COMP_THR" \
           "$GLOBAL_TTC.${k}.cnt")
     csv_row "kloop" "$k" "merge_LH" "$MH" "$LOG"
+    emit_step_perf "merge_LH" "$k" "$LOG" "$MH" "0" "1" "0"
 
+    # NWS su HIGH
     LOG="$OUTPUT.nwsH${k}.log"
     NW=$(run_timed "$LOG" "$BUILDPATH/motivo-nws" \
           --graph "$HIGH_GRAPH" --size "$k" \
           -i "$GLOBAL_TTC" --output "$HIGH_TTC" --threads "$THREADS")
     csv_row "kloop" "$k" "nws_high" "$NW" "$LOG"
+    emit_step_perf "nws_high" "$k" "$LOG" "$NW" "$THREADS" "0" "0"
 
+    # IE merge
     LOG="$OUTPUT.merge2H${k}.log"
     IE=$(run_timed "$LOG" "$BUILDPATH/motivo-merge" \
           -e --output "$GLOBAL_TTC.${k}.ie" --compress-threshold "$COMP_THR" \
           "$HIGH_TTC.${k}.ie.cnt")
     csv_row "kloop" "$k" "merge_ie" "$IE" "$LOG"
+    emit_step_perf "merge_ie" "$k" "$LOG" "$IE" "0" "1" "0"
 
     printf "%d\t%s\t%s\t%s\t%s\t\t%s\t%s\n" \
-      "$k" "$(printf '%.3f' "$HB")" "$(printf '%.3f' "$LB")" \
-      "$(printf '%.3f' "$FH")" "$(printf '%.3f' "$MH")" \
-      "$(printf '%.3f' "$NW")" "$(printf '%.3f' "$IE")"
+      "$k" "$(printf '%.2f' "$HB")" "$(printf '%.2f' "$LB")" \
+      "$(printf '%.2f' "$FH")" "$(printf '%.2f' "$MH")" \
+      "$(printf '%.2f' "$NW")" "$(printf '%.2f' "$IE")"
 
     rm -f "$LOW_TTC.${k}.info"  "$LOW_TTC.${k}.rts" \
           "$HIGH_TTC.${k}.info" "$HIGH_TTC.${k}.rts" || true
@@ -308,7 +328,7 @@ sample() {
   SMP=$(run_timed "$LOG" "$BUILDPATH/motivo-hyper-sample" \
       --gaifman "$LOW_G" \
       --hypergraph "$HIGH_GRAPH" \
-      --hypergraph-full "$INPUT_GRAPH" \
+      --hypergraph-full "$GRAPH" \
       --tables "$GLOBAL_TTC" \
       --nws-high "$GLOBAL_TTC" \
       --size "$MAXSIZE" \
@@ -317,15 +337,32 @@ sample() {
       --group --graphlets --estimate-occurrences --canonicize --spanning-trees --vertices \
       ${SEED:+--seed "$SEED"} \
       --output "$SAMPLE_BASE")
-  csv_row "sample" "$MAXSIZE" "hyper_sample" "$SMP" "$LOG"
   printf "%s\n" "$SMP"
+
+  # riga step=sample nel PERF
+  emit_step_perf "sample" "$MAXSIZE" "$LOG" "$SMP" "$THREADS" "0" "1"
 
   echo "Samples are in ${SAMPLE_BASE}.csv:"
   head -6 "${SAMPLE_BASE}.csv" || true
 }
 
 # ------------------------- run -------------------------------
+: "${GRAPH:?Missing -g/--graph (basename ipergrafo)}"
+: "${MAXSIZE:?Missing -k/--maxsize}"
+: "${OUTPUT:?Missing -o/--output}"
+[[ -n "${COLORS}" ]] || COLORS="${MAXSIZE}"
+if [[ "$BUILD" == "NO" && "$SAMPLE" == "NO" ]]; then BUILD=YES; SAMPLE=YES; fi
+[[ -f "${GRAPH}.hmeta" ]] || { echo "[fatal] Non trovo ${GRAPH}.hmeta (ipergrafo non presente)" >&2; exit 2; }
+
+mkdir -p "$(dirname -- "$OUTPUT")"
+TIMINGS_CSV="${OUTPUT}.timings.csv"
+PERF_CSV="${OUTPUT}.perf"
+csv_header
+perf_header
+
+echo "[$(date)] motivo-hyper start"
+
 if [[ "$BUILD" == "YES" ]]; then build; fi
 if [[ "$SAMPLE" == "YES" ]]; then sample; fi
 
-echo "[$(date)] Done." | tee -a "$LOGFILE"
+echo "[$(date)] Done."
