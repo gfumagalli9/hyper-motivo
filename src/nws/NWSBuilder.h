@@ -32,42 +32,58 @@
 #include <new>        // placement new
 #include <vector>
 
-// ----- [ADDED] Portable 128-bit accumulator shim ---------------------------------
-// This block keeps the original code untouched while providing a safe fallback
-// when native __int128 is not available (e.g., MSVC). When __int128 exists
-// (GCC/Clang on x86_64/aarch64), nothing changes. Otherwise we (a) optionally
-// use Boost.Multiprecision if MOTIVO_USE_BOOST_INT128 is defined, or (b) use
-// a minimal saturating 64-bit wrapper that mimics the operators used below.
-// The code below requires: default construction, +=, unary -, subtraction,
-// comparison with values cast to the same type, and cast back to int64_t.
-#include <type_traits>
+// ----- [ADDED] Portable 128-bit accumulator shim (pedantic-safe) -----------------
+// This shim provides a portable 128-bit-like type and remaps any use of the
+// __int128 token in the rest of this header to a safe alias, so -Wpedantic
+// won't complain even when native __int128 exists.
+//
+// Policy:
+//  - If native __int128 is available, define an alias to it, but wrap the single
+//    'using' in a diagnostic region that disables -Wpedantic for that line only.
+//  - Else, use Boost.Multiprecision if MOTIVO_USE_BOOST_INT128 is defined,
+//    otherwise provide a minimal saturating 64-bit wrapper that implements the
+//    operators used below (+=, unary -, -, comparisons, cast to int64_t).
+//
+// You can force the portable path by defining MOTIVO_PORTABLE_INT128_ALWAYS=1.
 
-#if defined(__SIZEOF_INT128__)
-// Native path: use built-in __int128 directly (no changes required).
+#include <type_traits>
+#include <limits>
+
+#if !defined(MOTIVO_PORTABLE_INT128_ALWAYS)
+  #define MOTIVO_PORTABLE_INT128_ALWAYS 0
+#endif
+
+// Select backend type name: MOTIVO_INT128_T
+#if defined(__SIZEOF_INT128__) && !MOTIVO_PORTABLE_INT128_ALWAYS
+  // Native path: create an alias to __int128 but silence -Wpedantic on this line.
+  #if defined(__GNUC__) || defined(__clang__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpedantic"
+  #endif
+  using MOTIVO_INT128_T = __int128;
+  #if defined(__GNUC__) || defined(__clang__)
+    #pragma GCC diagnostic pop
+  #endif
   #define MOTIVO_HAVE_INT128 1
 #else
   #define MOTIVO_HAVE_INT128 0
-  // Optional “true” 128-bit via Boost if available; define MOTIVO_USE_BOOST_INT128
-  // in your build system if you want this path.
   #if defined(MOTIVO_USE_BOOST_INT128)
     #include <boost/multiprecision/cpp_int.hpp>
-    using motivo_int128 = boost::multiprecision::int128_t;
+    using MOTIVO_INT128_T = boost::multiprecision::int128_t;
   #else
-    // Minimal saturating 64-bit wrapper to emulate the required __int128 API.
-    struct motivo_int128 {
+    // Minimal saturating 64-bit wrapper emulating the required API.
+    struct MOTIVO_INT128_T {
       int64_t v;
-      // Constructors from integral types
-      constexpr motivo_int128() : v(0) {}
-      constexpr motivo_int128(int64_t x) : v(x) {}
+      constexpr MOTIVO_INT128_T() : v(0) {}
+      constexpr MOTIVO_INT128_T(int64_t x) : v(x) {}
       template <typename T, typename = typename std::enable_if<std::is_integral<T>::value>::type>
-      constexpr explicit motivo_int128(T x)
+      constexpr explicit MOTIVO_INT128_T(T x)
       : v(x > static_cast<T>(std::numeric_limits<int64_t>::max())
               ? std::numeric_limits<int64_t>::max()
               : (x < static_cast<T>(std::numeric_limits<int64_t>::min())
                     ? std::numeric_limits<int64_t>::min()
                     : static_cast<int64_t>(x))) {}
 
-      // Saturating add/sub helpers (no UB, well-defined on all compilers)
       static inline int64_t add_sat(int64_t a, int64_t b) {
       #if defined(__has_builtin)
         #if __has_builtin(__builtin_add_overflow)
@@ -95,31 +111,32 @@
         return a - b;
       }
 
-      // Operators used by the original code
-      friend motivo_int128 operator+(motivo_int128 a, motivo_int128 b) { return motivo_int128(add_sat(a.v, b.v)); }
-      motivo_int128& operator+=(motivo_int128 b) { v = add_sat(v, b.v); return *this; }
-      friend motivo_int128 operator-(motivo_int128 a, motivo_int128 b) { return motivo_int128(sub_sat(a.v, b.v)); }
-      motivo_int128 operator-() const { return motivo_int128(v == std::numeric_limits<int64_t>::min()
-                                                              ? std::numeric_limits<int64_t>::max()
-                                                              : -v); }
+      friend MOTIVO_INT128_T operator+(MOTIVO_INT128_T a, MOTIVO_INT128_T b) { return MOTIVO_INT128_T(add_sat(a.v, b.v)); }
+      MOTIVO_INT128_T& operator+=(MOTIVO_INT128_T b) { v = add_sat(v, b.v); return *this; }
+      friend MOTIVO_INT128_T operator-(MOTIVO_INT128_T a, MOTIVO_INT128_T b) { return MOTIVO_INT128_T(sub_sat(a.v, b.v)); }
+      MOTIVO_INT128_T operator-() const {
+        return MOTIVO_INT128_T(v == std::numeric_limits<int64_t>::min()
+                                 ? std::numeric_limits<int64_t>::max()
+                                 : -v);
+      }
 
-      friend bool operator<(motivo_int128 a, motivo_int128 b) { return a.v < b.v; }
-      friend bool operator>(motivo_int128 a, motivo_int128 b) { return a.v > b.v; }
-      friend bool operator<=(motivo_int128 a, motivo_int128 b) { return a.v <= b.v; }
-      friend bool operator>=(motivo_int128 a, motivo_int128 b) { return a.v >= b.v; }
-      friend bool operator==(motivo_int128 a, motivo_int128 b) { return a.v == b.v; }
-      friend bool operator!=(motivo_int128 a, motivo_int128 b) { return a.v != b.v; }
+      friend bool operator<(MOTIVO_INT128_T a, MOTIVO_INT128_T b) { return a.v < b.v; }
+      friend bool operator>(MOTIVO_INT128_T a, MOTIVO_INT128_T b) { return a.v > b.v; }
+      friend bool operator<=(MOTIVO_INT128_T a, MOTIVO_INT128_T b) { return a.v <= b.v; }
+      friend bool operator>=(MOTIVO_INT128_T a, MOTIVO_INT128_T b) { return a.v >= b.v; }
+      friend bool operator==(MOTIVO_INT128_T a, MOTIVO_INT128_T b) { return a.v == b.v; }
+      friend bool operator!=(MOTIVO_INT128_T a, MOTIVO_INT128_T b) { return a.v != b.v; }
 
-      // Cast back to int64_t (the original code narrows after range checks)
       explicit operator int64_t() const { return v; }
     };
   #endif
+#endif
 
-  // Map __int128 tokens used below to our replacement type when native support is missing.
-  // This preserves the original code verbatim.
-  #if !defined(MOTIVO_HAVE_INT128) || (MOTIVO_HAVE_INT128 == 0)
-    #define __int128 motivo_int128
-  #endif
+// Remap every __int128 token appearing later in this header to MOTIVO_INT128_T.
+// This keeps the original code untouched (static_cast<__int128>(...)) but
+// avoids pedantic errors even on compilers that support native __int128.
+#ifndef MOTIVO_DISABLE_INT128_REMAP
+  #define __int128 MOTIVO_INT128_T
 #endif
 // ---------------------------------------------------------------------------------
 
