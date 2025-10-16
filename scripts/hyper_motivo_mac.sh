@@ -31,7 +31,7 @@ to_seconds() {
 }
 
 # ---------------- CSV helpers (timings modulare) ----------------
-TIMINGS_CSV=""  # inizializzato dopo il parse
+TIMINGS_CSV=""
 csv_header() {
   echo "date,graph,output,threads,max_k,comp_thr,threshold,stage,k,label,seconds,log" >"$TIMINGS_CSV"
 }
@@ -39,7 +39,7 @@ csv_row() { # stage, k, label, seconds, log
   local stage="$1" k="$2" label="$3" secs="$4" log="$5"
   local ts; ts="$(date -Iseconds)"
   printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
-    "$ts" "$GRAPH" "$OUTPUT" "$THREADS" "$MAXSIZE" "$COMP_THR" "${THRESHOLD:-}" \
+    "$ts" "${GRAPH:-}" "$OUTPUT" "$THREADS" "$MAXSIZE" "$COMP_THR" "${THRESHOLD:-}" \
     "$stage" "$k" "$label" "$secs" "$log" >>"$TIMINGS_CSV"
 }
 
@@ -100,6 +100,12 @@ Usage: $0 [--build] [--sample]
           [-T|--threshold THR]     (hgsplit threshold; vuoto=auto)
           [--seed S] [--colors C]  (k=1 build, default colors=K)
           [-S|--samples N]         (se >0, esegue hyper-sample a k=K)
+          [-L|--low-base BASENAME] (optional: precomputed LOW Gaifman basename)
+          [-H|--high-base BASENAME](optional: pre-split HIGH hypergraph basename)
+
+Notes:
+  - If both --low-base (Gaifman) and --high-base are provided, the script skips
+    hgsplit and gaifman(low) and uses those basenames directly.
 
 Outputs:
   - Logs:          \$OUTPUT.*.log
@@ -118,6 +124,9 @@ THRESHOLD=""
 SEED=""
 SAMPLES=""
 COLORS=""
+GRAPH=""        # optional if pre-split is used
+PRE_LOW_GAIF="" # NEW: Gaifman(LOW) basename (precomputed)
+PRE_HIGH=""     # NEW: HIGH hypergraph basename (pre-split)
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -132,17 +141,27 @@ while [[ $# -gt 0 ]]; do
     --seed)         SEED=$2; shift 2 ;;
     --colors)       COLORS=$2; shift 2 ;;
     -S|--samples)   SAMPLES=$2; shift 2 ;;
+    -L|--low-base)  PRE_LOW_GAIF=$2; shift 2 ;;  # expects Gaifman(LOW) basename
+    -H|--high-base) PRE_HIGH=$2; shift 2 ;;      # expects HIGH hypergraph basename
     -h|--help) usage ;;
     *) echo "Unknown option: $1"; usage ;;
   esac
 done
 
-: "${GRAPH:?Missing -g/--graph (basename ipergrafo)}"
 : "${MAXSIZE:?Missing -k/--maxsize}"
 : "${OUTPUT:?Missing -o/--output}"
 [[ -n "${COLORS}" ]] || COLORS="${MAXSIZE}"
 if [[ "$BUILD" == "NO" && "$SAMPLE" == "NO" ]]; then BUILD=YES; SAMPLE=YES; fi
-[[ -f "${GRAPH}.hmeta" ]] || { echo "[fatal] Non trovo ${GRAPH}.hmeta (ipergrafo non presente)" >&2; exit 2; }
+
+# Validate inputs: either (both pre-split) or (-g present)
+USE_PRESPLIT="no"
+if [[ -n "$PRE_LOW_GAIF" || -n "$PRE_HIGH" ]]; then
+  [[ -n "$PRE_LOW_GAIF" && -n "$PRE_HIGH" ]] || { echo "[fatal] Provide BOTH --low-base (Gaifman) and --high-base (hypergraph) or none"; exit 2; }
+  USE_PRESPLIT="yes"
+else
+  [[ -n "$GRAPH" ]] || { echo "[fatal] Missing -g/--graph (or provide --low-base AND --high-base)"; exit 2; }
+  [[ -f "${GRAPH}.hmeta" ]] || { echo "[fatal] Non trovo ${GRAPH}.hmeta (ipergrafo non presente)" >&2; exit 2; }
+fi
 
 LOGDIR="$(dirname -- "$OUTPUT")"
 mkdir -p "$LOGDIR"
@@ -155,13 +174,21 @@ perf_header
 echo "[$(date)] motivo-hyper start" | tee "$LOGFILE"
 
 # --------------------- basenames -----------------------------
-HIGH_GRAPH="${OUTPUT}-High"     # ipergrafo HIGH (basename da hgsplit)
-LOW_GRAPH="${OUTPUT}-Low"       # ipergrafo LOW  (basename da hgsplit)
-LOW_G="${LOW_GRAPH}"            # gaifman(LOW): input=output
+HIGH_GRAPH="${OUTPUT}-High"     # ipergrafo HIGH (by default from hgsplit)
+LOW_GRAPH="${OUTPUT}-Low"       # ipergrafo LOW  (by default from hgsplit)
+LOW_G="${LOW_GRAPH}"            # this will be the Gaifman of LOW after gaifman step
 
 HIGH_TTC="${OUTPUT}-HighTTC"    # TTC per HIGH
 LOW_TTC="${OUTPUT}-LowTTC"      # TTC per LOW
 GLOBAL_TTC="${OUTPUT}"          # TTC GLOBAL (merge e input per k>=2)
+
+# If pre-split was supplied, override basenames:
+# - HIGH_GRAPH = provided HIGH hypergraph
+# - LOW_G     = provided LOW Gaifman (already a graph)
+if [[ "$USE_PRESPLIT" == "yes" ]]; then
+  HIGH_GRAPH="$PRE_HIGH"
+  LOW_G="$PRE_LOW_GAIF"
+fi
 
 # Helper: verifica se un binario supporta --store-on-0-colored-vertices-only
 supports_store_on_0() {
@@ -178,23 +205,31 @@ if supports_store_on_0 "$BUILDPATH/motivo-hyper-build"; then HAS_STORE_HIGH="yes
 build() {
   echo -e "step\t\tsecs"
 
-  # 1) split HIGH/LOW
+  # 1) split HIGH/LOW (only if not pre-split)
   local SPLIT LOG
   LOG="$OUTPUT.split.log"
-  printf "hgsplit\t\t"
-  SPLIT=$(run_timed "$LOG" \
-    "$BUILDPATH/motivo-hgsplit" -i "$GRAPH" -s "$LOW_GRAPH" -l "$HIGH_GRAPH" ${THRESHOLD:+-t "$THRESHOLD"})
-  csv_row "split" "" "hgsplit" "$SPLIT" "$LOG"
-  printf "%s\n" "$SPLIT"
-  emit_step_perf "hgsplit" "0" "$LOG" "$SPLIT" "0" "0" "0"
+  if [[ "$USE_PRESPLIT" != "yes" ]]; then
+    printf "hgsplit\t\t"
+    SPLIT=$(run_timed "$LOG" \
+      "$BUILDPATH/motivo-hgsplit" -i "$GRAPH" -s "$LOW_GRAPH" -l "$HIGH_GRAPH" ${THRESHOLD:+-t "$THRESHOLD"})
+    csv_row "split" "" "hgsplit" "$SPLIT" "$LOG"
+    printf "%s\n" "$SPLIT"
+    emit_step_perf "hgsplit" "0" "$LOG" "$SPLIT" "0" "0" "0"
+  else
+    echo "[info] Using pre-split basenames: LOW(Gaifman)=$LOW_G  HIGH(HG)=$HIGH_GRAPH" | tee -a "$LOGFILE"
+  fi
 
-  # 2) gaifman(LOW)
+  # 2) gaifman(LOW) (only if not pre-split; LOW_G must end up being the Gaifman)
   LOG="$OUTPUT.gaifman.log"
-  printf "gaifman(low)\t"
-  GF=$(run_timed "$LOG" "$BUILDPATH/motivo-gaifman" --input "$LOW_G" --output "$LOW_G" -j "$THREADS")
-  csv_row "split" "" "gaifman_low" "$GF" "$LOG"
-  printf "%s\n" "$GF"
-  emit_step_perf "gaifman_low" "0" "$LOG" "$GF" "$THREADS" "0" "0"
+  if [[ "$USE_PRESPLIT" != "yes" ]]; then
+    printf "gaifman(low)\t"
+    # We take LOW_GRAPH hypergraph as input, write Gaifman to the same basename LOW_G
+    local GF
+    GF=$(run_timed "$LOG" "$BUILDPATH/motivo-gaifman" --input "$LOW_G" --output "$LOW_G" -j "$THREADS")
+    csv_row "split" "" "gaifman_low" "$GF" "$LOG"
+    printf "%s\n" "$GF"
+    emit_step_perf "gaifman_low" "0" "$LOG" "$GF" "$THREADS" "0" "0"
+  fi
 
   # -------- k=1 --------
   LOG="$OUTPUT.buildH1.log"
@@ -285,9 +320,7 @@ build() {
 
     # Merge (dtz)
     LOG="$OUTPUT.lowHighMerge${k}.log"
-    MH=$(run_timed "$LOG" "$BUILDPATH/motivo-merge" \
-          --output "$GLOBAL_TTC.${k}" --compress-threshold "$COMP_THR" \
-          "$GLOBAL_TTC.${k}.cnt")
+MH=$(run_timed "$LOG" "$BUILDPATH/motivo-merge" --output "$GLOBAL_TTC.${k}" --compress-threshold "$COMP_THR" "$GLOBAL_TTC.${k}.cnt")
     csv_row "kloop" "$k" "merge_LH" "$MH" "$LOG"
     emit_step_perf "merge_LH" "$k" "$LOG" "$MH" "0" "1" "0"
 
@@ -325,10 +358,15 @@ sample() {
 
   local SAMPLE_BASE="${OUTPUT}.sample${MAXSIZE}"
   local LOG="$OUTPUT.sample${MAXSIZE}.log"
+
+  # Pass --hypergraph-full only if -g was provided
+  local HFULL=()
+  if [[ -n "${GRAPH}" ]]; then HFULL=(--hypergraph-full "$GRAPH"); fi
+
   SMP=$(run_timed "$LOG" "$BUILDPATH/motivo-hyper-sample" \
       --gaifman "$LOW_G" \
       --hypergraph "$HIGH_GRAPH" \
-      --hypergraph-full "$GRAPH" \
+      "${HFULL[@]}" \
       --tables "$GLOBAL_TTC" \
       --nws-high "$GLOBAL_TTC" \
       --size "$MAXSIZE" \
@@ -339,7 +377,6 @@ sample() {
       --output "$SAMPLE_BASE")
   printf "%s\n" "$SMP"
 
-  # riga step=sample nel PERF
   emit_step_perf "sample" "$MAXSIZE" "$LOG" "$SMP" "$THREADS" "0" "1"
 
   echo "Samples are in ${SAMPLE_BASE}.csv:"
@@ -347,13 +384,6 @@ sample() {
 }
 
 # ------------------------- run -------------------------------
-: "${GRAPH:?Missing -g/--graph (basename ipergrafo)}"
-: "${MAXSIZE:?Missing -k/--maxsize}"
-: "${OUTPUT:?Missing -o/--output}"
-[[ -n "${COLORS}" ]] || COLORS="${MAXSIZE}"
-if [[ "$BUILD" == "NO" && "$SAMPLE" == "NO" ]]; then BUILD=YES; SAMPLE=YES; fi
-[[ -f "${GRAPH}.hmeta" ]] || { echo "[fatal] Non trovo ${GRAPH}.hmeta (ipergrafo non presente)" >&2; exit 2; }
-
 mkdir -p "$(dirname -- "$OUTPUT")"
 TIMINGS_CSV="${OUTPUT}.timings.csv"
 PERF_CSV="${OUTPUT}.perf"
