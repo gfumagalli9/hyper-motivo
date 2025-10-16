@@ -3,12 +3,20 @@
 #TODO Single graph
 BUILDPATH=../build/bin
 
-TIME="$(which gtime)"
-if [ "$TIME" == "" ]; then
-    echo "Could not find 'time'"
-    exit 1
+# --- Portable detection of GNU time with --verbose (prefer gtime, then /usr/bin/time, then time) ---
+if command -v gtime >/dev/null 2>&1; then
+    # macOS/Homebrew: gnu-time installed as gtime
+    TIME="gtime --verbose"
+elif command -v /usr/bin/time >/dev/null 2>&1 && /usr/bin/time --verbose true >/dev/null 2>&1; then
+    # Linux: GNU time usually at /usr/bin/time and supports --verbose
+    TIME="/usr/bin/time --verbose"
+elif command -v time >/dev/null 2>&1 && time --version >/dev/null 2>&1; then
+    # Fallback: plain 'time' but only if it's GNU (supports --version and --verbose)
+    TIME="time --verbose"
 else
-TIME="$TIME --verbose"
+    # No suitable GNU time found; the rest of the script relies on --verbose output for parsing
+    echo "Could not find a GNU 'time' with --verbose. Please install 'time' (GNU) or 'gnu-time'." >&2
+    exit 1
 fi
 
 ADAPTIVE=NO
