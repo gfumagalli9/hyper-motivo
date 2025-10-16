@@ -115,18 +115,18 @@ copy_stepcsv_if_exists(){
 DELETE_MODE="no"
 
 # Archive artifacts for a given OUT_* prefix into RUN_DIR subfolders.
-# If DELETE_MODE=yes -> move ONLY logs/perf/csv and delete everything else for that prefix.
+# If DELETE_MODE=yes -> move ONLY logs/perf/csv/info and delete everything else for that prefix.
 archive_run_artifacts() {
   local run_dir="$1" kind="$2" variant="$3" prefix="$4"
   local dest="$run_dir/$kind/$variant"
   mkdir -p "$dest"
   shopt -s nullglob
   if [[ "$DELETE_MODE" == "yes" ]]; then
-    # 1) move only the "final" small files
-    for f in "${prefix}.perf" "${prefix}.timings.csv" "${prefix}"*.log; do
+    # 1) sposta solo i file "leggeri" finali che vogliamo conservare
+    for f in "${prefix}.perf" "${prefix}.timings.csv" "${prefix}"*.log "${prefix}"*.info; do
       [[ -e "$f" ]] && mv -f "$f" "$dest/"
     done
-    # 2) delete every other artifact related to this prefix
+    # 2) elimina tutto il resto relativo a questo prefix
     for p in \
       "${prefix}"* \
       "${prefix}-High"* \
@@ -137,7 +137,7 @@ archive_run_artifacts() {
       [[ -e "$p" ]] && rm -rf "$p"
     done
   else
-    # behavior pre-esistente: sposta tutto
+    # comportamento precedente: sposta tutto
     for p in \
       "${prefix}"* \
       "${prefix}-High"* \
@@ -266,15 +266,15 @@ echo "[step] gaifman(full,orig)     ${HG_BIN_BASE}  ->  ${GAIF_FULL_ORIG_BASE}.*
 run_gaifman "$HG_BIN_BASE" "$GAIF_FULL_ORIG_BASE" "$MAXT"
 
 # 4) Gaifman LOW(original)   -> per hyper pipeline
-GAIF_LOW_ORIG_BASE="${OUTPUT_BASE}.gaifman_low"
+GAIF_LOW_ORIG_BASE="${SPLIT_LOW_ORIG_BASE}"   # stesso basename del LOW split
 echo "[step] gaifman(low,orig)      ${SPLIT_LOW_ORIG_BASE}  ->  ${GAIF_LOW_ORIG_BASE}.*"
-run_gaifman "$SPLIT_LOW_ORIG_BASE" "$GAIF_LOW_ORIG_BASE" "$MAXT"
+run_gaifman "$SPLIT_LOW_ORIG_BASE" "$SPLIT_LOW_ORIG_BASE" "$MAXT"
 
 # ----- Optional dedup variant -----
 HG_DEDUP_BIN_BASE="${OUTPUT_BASE}.hg_dedup"
 SPLIT_LOW_DEDUP_BASE="${OUTPUT_BASE}.low_dedup"
 SPLIT_HIGH_DEDUP_BASE="${OUTPUT_BASE}.high_dedup"
-GAIF_LOW_DEDUP_BASE="${OUTPUT_BASE}.gaifman_low_dedup"
+GAIF_LOW_DEDUP_BASE="${SPLIT_LOW_DEDUP_BASE}"
 GAIF_FULL_DEDUP_BASE="${OUTPUT_BASE}.gaifman_full_dedup"
 
 if [[ "$DO_DEDUP" == "yes" ]]; then
@@ -288,7 +288,7 @@ if [[ "$DO_DEDUP" == "yes" ]]; then
   run_gaifman "$HG_DEDUP_BIN_BASE" "$GAIF_FULL_DEDUP_BASE" "$MAXT"
 
   echo "[step] gaifman(low,dedup)     ${SPLIT_LOW_DEDUP_BASE}  ->  ${GAIF_LOW_DEDUP_BASE}.*"
-  run_gaifman "$SPLIT_LOW_DEDUP_BASE" "$GAIF_LOW_DEDUP_BASE" "$MAXT"
+  run_gaifman "$SPLIT_LOW_DEDUP_BASE" "$SPLIT_LOW_DEDUP_BASE" "$MAXT"
 fi
 
 # ----------------------- sweeps T x K x S --------------------
@@ -310,7 +310,7 @@ for T in $THREADS_LIST; do
         -k "$K" \
         -S "$S" \
         -t "$T" \
-        -o "$OUT_HYP_ORIG" \
+        -o "${OUT_HYP_ORIG}" \
         --seed 42 \
         > "${OUT_HYP_ORIG}.driver.log" 2>&1 || true
 
@@ -329,7 +329,7 @@ for T in $THREADS_LIST; do
           -k "$K" \
           -S "$S" \
           -t "$T" \
-          -o "$OUT_HYP_DEDUP" \
+          -o "${OUT_HYP_DEDUP}" \
           --seed 42 \
           > "${OUT_HYP_DEDUP}.driver.log" 2>&1 || true
 
@@ -347,7 +347,7 @@ for T in $THREADS_LIST; do
         -o "$OUT_G_ORIG" \
         -s "$S" \
         -t "$T" \
-        -H "$HG_BIN_BASE" \
+        -H "${HG_BIN_BASE}" \
         --seed 42 \
         > "${OUT_G_ORIG}.driver.log" 2>&1 || true
 
@@ -367,7 +367,7 @@ for T in $THREADS_LIST; do
           -o "$OUT_G_DEDUP" \
           -s "$S" \
           -t "$T" \
-          -H "$HG_DEDUP_BIN_BASE" \
+          -H "${HG_DEDUP_BIN_BASE}" \
           --seed 42 \
           > "${OUT_G_DEDUP}.driver.log" 2>&1 || true
 
