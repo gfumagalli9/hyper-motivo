@@ -8,7 +8,8 @@ set -euo pipefail
 # - Builds Gaifman on LOW (for hyper pipeline) and FULL (for graph pipeline)
 # - Runs hyper and graph pipelines for all T x K x S
 # - Collects per-run CSVs and archives all artifacts per (K,T,S)
-#   If --delete is given, keep only .log/.perf/.timings.csv and delete the rest.
+#   If --delete is given, keep only .log/.perf/.timings.csv/.info and delete the rest.
+#   NEW: also records preprocessing timings into $OUTPUT_BASE.preproc.csv
 # ------------------------------------------------------------
 
 # ----------------------- configuration -----------------------
@@ -39,6 +40,70 @@ need_bin(){
   echo "$path"
 }
 
+# ---------- time(1) detection (GNU) with fallback ----------
+TIMECMD=()
+if command -v gtime >/dev/null 2>&1; then
+  TIMECMD=(gtime --verbose)
+elif command -v /usr/bin/time >/dev/null 2>&1 && /usr/bin/time --verbose true >/dev/null 2>&1; then
+  TIMECMD=(/usr/bin/time --verbose)
+elif command -v time >/dev/null 2>&1 && time --version >/dev/null 2>&1; then
+  TIMECMD=(time --verbose)
+else
+  TIMECMD=()  # fallback: manual timing
+fi
+
+# parse "h:mm:ss" or "m:ss" or "s.ss" -> seconds with 2 decimals
+to_seconds() {
+  awk -F: '
+    NF==3 { printf("%.2f", ($1*3600)+($2*60)+$3); next }
+    NF==2 { printf("%.2f", ($1*60)+$2); next }
+    NF==1 { printf("%.2f", $1); next }
+  '
+}
+grep_user_time(){ grep -Eo "User time \(seconds\):[[:space:]]*[0-9.]+$" "$1" | awk '{print $4}' | head -1 | awk '{printf "%.2f\n",$1+0}' || echo "0.00"; }
+grep_sys_time(){  grep -Eo "System time \(seconds\):[[:space:]]*[0-9.]+$" "$1" | awk '{print $4}' | head -1 | awk '{printf "%.2f\n",$1+0}' || echo "0.00"; }
+grep_elapsed(){   grep -F "Elapsed (wall clock) time" "$1" | tail -1 | awk '{print $NF}' | to_seconds || echo "0.00"; }
+
+# run command; if GNU time -v available parse wall time; else manual timing
+run_timed() {
+  local log="$1"; shift
+  if ((${#TIMECMD[@]})); then
+    "${TIMECMD[@]}" "$@" >"$log" 2>&1
+    grep_elapsed "$log"
+  else
+    local t0 t1
+    t0=$(date +%s.%N)
+    "$@" >"$log" 2>&1
+    t1=$(date +%s.%N)
+    awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.2f\n", (b-a)}'
+  fi
+}
+
+# ---------------- CSV helpers for preprocessing ----------------
+PREPROC_CSV=""
+preproc_header() {
+  echo "date,stage,variant,input,output,threads,walltime,usertime,systemtime,log" >"$PREPROC_CSV"
+}
+preproc_row() { # stage variant input output threads log
+  local stage="$1" variant="$2" inp="$3" out="$4" th="$5" log="$6"
+  local ts u s w
+  ts="$(date -Iseconds)"
+  if ((${#TIMECMD[@]})); then
+    u="$(grep_user_time "$log")"
+    s="$(grep_sys_time  "$log")"
+    w="$(grep_elapsed    "$log")"
+  else
+    u=""; s=""; w="$(awk -F',' 'END{print $NF}' <<<"")" # ignored; caller passes walltime already
+    # fallback: if run_timed was manual, we don't have u/s; we still compute w below
+    w="$(awk 'END{print w}' /dev/null 2>/dev/null || true)"
+  fi
+  # If we came from run_timed, we already know walltime; recompute anyway from log when available.
+  w="$(grep_elapsed "$log" || echo "")"
+  printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+    "$ts" "$stage" "$variant" "$inp" "$out" "$th" "${w:-}" "${u:-}" "${s:-}" "$log" >>"$PREPROC_CSV"
+}
+
+# ---------------- Existing helpers kept as-is -----------------
 run_hypergraph_build(){
   local in="$1" outbase="$2" bin
   bin="$(need_bin motivo-hypergraph)"
@@ -58,7 +123,7 @@ run_hgsplit(){
 run_gaifman(){
   local hg_base="$1" out_base="$2" threads="$3" bin
   bin="$(need_bin motivo-gaifman)"
-  "$bin" --input "$hg_base" --output "$out_base" -j "$threads" > "${out_base}.gaif.log" 2>&1
+  "$bin" --input "$hg_base" --output "$out_base" --stream > "${out_base}.gaif.log" 2>&1
 }
 
 run_dedup(){
@@ -122,11 +187,9 @@ archive_run_artifacts() {
   mkdir -p "$dest"
   shopt -s nullglob
   if [[ "$DELETE_MODE" == "yes" ]]; then
-    # 1) sposta solo i file "leggeri" finali che vogliamo conservare
     for f in "${prefix}.perf" "${prefix}.timings.csv" "${prefix}"*.log "${prefix}"*.info; do
       [[ -e "$f" ]] && mv -f "$f" "$dest/"
     done
-    # 2) elimina tutto il resto relativo a questo prefix
     for p in \
       "${prefix}"* \
       "${prefix}-High"* \
@@ -137,7 +200,6 @@ archive_run_artifacts() {
       [[ -e "$p" ]] && rm -rf "$p"
     done
   else
-    # comportamento precedente: sposta tutto
     for p in \
       "${prefix}"* \
       "${prefix}-High"* \
@@ -161,9 +223,10 @@ copy_preproc_logs() {
       "${GAIF_LOW_ORIG_BASE}.gaif.log" \
       "${GAIF_LOW_DEDUP_BASE:-}.gaif.log" \
       "${OUTPUT_BASE}.convert.log" \
-      "${OUTPUT_BASE}.dedup.log" \
       "${OUTPUT_BASE}.split_orig.log" \
       "${OUTPUT_BASE}.split_dedup.log" \
+      "${OUTPUT_BASE}.dedup.log" \
+      "${PREPROC_CSV}" \
   ; do
     [[ -f "$f" ]] && cp -f "$f" "$run_dir/preproc/"
   done
@@ -173,7 +236,6 @@ copy_preproc_logs() {
 final_cleanup_preproc() {
   [[ "$DELETE_MODE" == "yes" ]] || return 0
   shopt -s nullglob
-  # remove heavy artifacts (keep only what we already copied into run_dir/preproc)
   rm -f "${HG_BIN_BASE}".hmeta "${HG_BIN_BASE}".hbin "${HG_BIN_BASE}".hidx || true
   rm -f "${SPLIT_LOW_ORIG_BASE}".* "${SPLIT_HIGH_ORIG_BASE}".* || true
   rm -f "${GAIF_FULL_ORIG_BASE}".* "${GAIF_LOW_ORIG_BASE}".* || true
@@ -182,7 +244,7 @@ final_cleanup_preproc() {
     rm -f "${SPLIT_LOW_DEDUP_BASE}".* "${SPLIT_HIGH_DEDUP_BASE}".* || true
     rm -f "${GAIF_FULL_DEDUP_BASE}".* "${GAIF_LOW_DEDUP_BASE}".* || true
   fi
-  # opzionale: rimuovi anche i log di preproc in root (restano nelle cartelle finali)
+  # keep logs + ${PREPROC_CSV} (already copied to run_dir/preproc); remove root copies to declutter
   rm -f \
     "${OUTPUT_BASE}.convert.log" \
     "${OUTPUT_BASE}.dedup.log" \
@@ -215,7 +277,7 @@ while [[ $# -gt 0 ]]; do
     --samples)         SAMPLES_LIST="$(split_list "$(trim "${2:-}")")"; shift 2 ;;
     --hg)              HG_TXT="$(trim "${2:-}")"; shift 2 ;;
     --deduplicate)     DO_DEDUP="yes"; shift ;;
-    --delete)          DELETE_MODE="yes"; shift ;;   # <-- NEW
+    --delete)          DELETE_MODE="yes"; shift ;;
     -o|--output)       OUTPUT_BASE="$(trim "${2:-}")"; shift 2 ;;
     -R|--results)      RESULTS_DIR="$(trim "${2:-}")"; shift 2 ;;
     -h|--help)
@@ -249,26 +311,54 @@ mkdir -p "$(dirname -- "$OUTPUT_BASE")"
 HG_NAME_NOEXT="$(base_noext "$HG_TXT")"
 MAXT="$(echo "$THREADS_LIST" | max_of_list)"
 
-# 1) TXT -> BIN
+PREPROC_CSV="${OUTPUT_BASE}.preproc.csv"
+preproc_header
+
+# 1) TXT -> BIN  (timed)
 HG_BIN_BASE="${OUTPUT_BASE}.hg"
 echo "[step] hypergraph(txt->bin)   $HG_TXT  ->  ${HG_BIN_BASE}.*"
-run_hypergraph_build "$HG_TXT" "$HG_BIN_BASE" > "${OUTPUT_BASE}.convert.log" 2>&1 || true
+{
+  bin="$(need_bin motivo-hypergraph)"
+  LOG="${OUTPUT_BASE}.convert.log"
+  secs=""
+  if ! secs="$(run_timed "$LOG" "$bin" --input "$HG_TXT" --output "$HG_BIN_BASE")"; then
+    # fallback to short flags
+    : > "$LOG"
+    secs="$(run_timed "$LOG" "$bin" -i "$HG_TXT" -o "$HG_BIN_BASE")"
+  fi
+  preproc_row "build_hypergraph" "orig" "$HG_TXT" "$HG_BIN_BASE" "1" "$LOG"
+} || true
 
-# 2) Split original -> LOW/HIGH (saved once)
+# 2) Split original -> LOW/HIGH (timed)
 SPLIT_LOW_ORIG_BASE="${OUTPUT_BASE}.low"
 SPLIT_HIGH_ORIG_BASE="${OUTPUT_BASE}.high"
 echo "[step] split(original)        ${HG_BIN_BASE}  ->  ${SPLIT_LOW_ORIG_BASE}.*, ${SPLIT_HIGH_ORIG_BASE}.*"
-run_hgsplit "$HG_BIN_BASE" "$SPLIT_LOW_ORIG_BASE" "$SPLIT_HIGH_ORIG_BASE" "${OUTPUT_BASE}.split_orig.log"
+{
+  bin="$(need_bin motivo-hgsplit)"
+  LOG="${OUTPUT_BASE}.split_orig.log"
+  secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE")"
+  preproc_row "split" "orig" "$HG_BIN_BASE" "${SPLIT_LOW_ORIG_BASE}|${SPLIT_HIGH_ORIG_BASE}" "1" "$LOG"
+} || true
 
-# 3) Gaifman FULL(original)  -> per graph pipeline
+# 3) Gaifman FULL(original)  -> per graph pipeline (timed)
 GAIF_FULL_ORIG_BASE="${OUTPUT_BASE}.gaifman_full"
 echo "[step] gaifman(full,orig)     ${HG_BIN_BASE}  ->  ${GAIF_FULL_ORIG_BASE}.*"
-run_gaifman "$HG_BIN_BASE" "$GAIF_FULL_ORIG_BASE" "$MAXT"
+{
+  bin="$(need_bin motivo-gaifman)"
+  LOG="${GAIF_FULL_ORIG_BASE}.gaif.log"
+  secs="$(run_timed "$LOG" "$bin" --input "$HG_BIN_BASE" --output "$GAIF_FULL_ORIG_BASE" -j "$MAXT")"
+  preproc_row "gaifman_full" "orig" "$HG_BIN_BASE" "$GAIF_FULL_ORIG_BASE" "$MAXT" "$LOG"
+} || true
 
-# 4) Gaifman LOW(original)   -> per hyper pipeline
-GAIF_LOW_ORIG_BASE="${SPLIT_LOW_ORIG_BASE}"   # stesso basename del LOW split
+# 4) Gaifman LOW(original)   -> per hyper pipeline (timed, in-place basename of LOW split)
+GAIF_LOW_ORIG_BASE="${SPLIT_LOW_ORIG_BASE}"
 echo "[step] gaifman(low,orig)      ${SPLIT_LOW_ORIG_BASE}  ->  ${GAIF_LOW_ORIG_BASE}.*"
-run_gaifman "$SPLIT_LOW_ORIG_BASE" "$SPLIT_LOW_ORIG_BASE" "$MAXT"
+{
+  bin="$(need_bin motivo-gaifman)"
+  LOG="${GAIF_LOW_ORIG_BASE}.gaif.log"
+  secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_ORIG_BASE" --output "$SPLIT_LOW_ORIG_BASE" -j "$MAXT")"
+  preproc_row "gaifman_low" "orig" "$SPLIT_LOW_ORIG_BASE" "$GAIF_LOW_ORIG_BASE" "$MAXT" "$LOG"
+} || true
 
 # ----- Optional dedup variant -----
 HG_DEDUP_BIN_BASE="${OUTPUT_BASE}.hg_dedup"
@@ -279,17 +369,56 @@ GAIF_FULL_DEDUP_BASE="${OUTPUT_BASE}.gaifman_full_dedup"
 
 if [[ "$DO_DEDUP" == "yes" ]]; then
   echo "[step] deduplicate            ${HG_BIN_BASE}  ->  ${HG_DEDUP_BIN_BASE}.*"
-  run_dedup > "${OUTPUT_BASE}.dedup.log" 2>&1 || true
+  {
+    LOG="${OUTPUT_BASE}.dedup.log"
+    if [[ -x "${BUILDPATH}/motivo-hgdedup" ]]; then
+      secs="$(run_timed "$LOG" "${BUILDPATH}/motivo-hgdedup" -i "$HG_BIN_BASE" -o "$HG_DEDUP_BIN_BASE")"
+      preproc_row "dedup" "dedup" "$HG_BIN_BASE" "$HG_DEDUP_BIN_BASE" "1" "$LOG"
+    elif [[ -x "${BUILDPATH}/motivo-dedup" ]]; then
+      # dedup on TXT then rebuild BIN (two rows)
+      HG_DEDUP_TXT="${HG_DEDUP_BIN_BASE}.txt"
+      secs="$(run_timed "$LOG" "${BUILDPATH}/motivo-dedup" -i "$HG_TXT" -o "$HG_DEDUP_TXT")"
+      preproc_row "dedup_txt" "dedup" "$HG_TXT" "$HG_DEDUP_TXT" "1" "$LOG"
+      # rebuild BIN (timed)
+      LOG="${OUTPUT_BASE}.convert_dedup.log"
+      bin="$(need_bin motivo-hypergraph)"
+      if ! secs="$(run_timed "$LOG" "$bin" --input "$HG_DEDUP_TXT" --output "$HG_DEDUP_BIN_BASE")"; then
+        : > "$LOG"
+        secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_TXT" -o "$HG_DEDUP_BIN_BASE")"
+      fi
+      preproc_row "build_hypergraph" "dedup" "$HG_DEDUP_TXT" "$HG_DEDUP_BIN_BASE" "1" "$LOG"
+    else
+      die "No dedup binary found (motivo-hgdedup or motivo-dedup)"
+    fi
+  } || true
 
   echo "[step] split(dedup)           ${HG_DEDUP_BIN_BASE}  ->  ${SPLIT_LOW_DEDUP_BASE}.*, ${SPLIT_HIGH_DEDUP_BASE}.*"
-  run_hgsplit "$HG_DEDUP_BIN_BASE" "$SPLIT_LOW_DEDUP_BASE" "$SPLIT_HIGH_DEDUP_BASE" "${OUTPUT_BASE}.split_dedup.log"
+  {
+    bin="$(need_bin motivo-hgsplit)"
+    LOG="${OUTPUT_BASE}.split_dedup.log"
+    secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_BIN_BASE" -s "$SPLIT_LOW_DEDUP_BASE" -l "$SPLIT_HIGH_DEDUP_BASE")"
+    preproc_row "split" "dedup" "$HG_DEDUP_BIN_BASE" "${SPLIT_LOW_DEDUP_BASE}|${SPLIT_HIGH_DEDUP_BASE}" "1" "$LOG"
+  } || true
 
   echo "[step] gaifman(full,dedup)    ${HG_DEDUP_BIN_BASE}  ->  ${GAIF_FULL_DEDUP_BASE}.*"
-  run_gaifman "$HG_DEDUP_BIN_BASE" "$GAIF_FULL_DEDUP_BASE" "$MAXT"
+  {
+    bin="$(need_bin motivo-gaifman)"
+    LOG="${GAIF_FULL_DEDUP_BASE}.gaif.log"
+    secs="$(run_timed "$LOG" "$bin" --input "$HG_DEDUP_BIN_BASE" --output "$GAIF_FULL_DEDUP_BASE" -j "$MAXT")"
+    preproc_row "gaifman_full" "dedup" "$HG_DEDUP_BIN_BASE" "$GAIF_FULL_DEDUP_BASE" "$MAXT" "$LOG"
+  } || true
 
   echo "[step] gaifman(low,dedup)     ${SPLIT_LOW_DEDUP_BASE}  ->  ${GAIF_LOW_DEDUP_BASE}.*"
-  run_gaifman "$SPLIT_LOW_DEDUP_BASE" "$SPLIT_LOW_DEDUP_BASE" "$MAXT"
+  {
+    bin="$(need_bin motivo-gaifman)"
+    LOG="${GAIF_LOW_DEDUP_BASE}.gaif.log"
+    secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_DEDUP_BASE" --output "$SPLIT_LOW_DEDUP_BASE" -j "$MAXT")"
+    preproc_row "gaifman_low" "dedup" "$SPLIT_LOW_DEDUP_BASE" "$GAIF_LOW_DEDUP_BASE" "$MAXT" "$LOG"
+  } || true
 fi
+
+# Salva anche una copia "globale" dei tempi preproc nella cartella risultati
+cp -f "$PREPROC_CSV" "${RESULTS_DIR}/${HG_NAME_NOEXT}_preproc.csv"
 
 # ----------------------- sweeps T x K x S --------------------
 for T in $THREADS_LIST; do
@@ -378,7 +507,7 @@ for T in $THREADS_LIST; do
         archive_run_artifacts "$RUN_DIR" "graph" "dedup" "$OUT_G_DEDUP"
       fi
 
-      # ---------- add preproc logs snapshot ----------
+      # ---------- add preproc logs snapshot + CSV ----------
       copy_preproc_logs "$RUN_DIR"
 
       echo "[archived] ${RUN_DIR}"
