@@ -346,7 +346,7 @@ echo "[step] gaifman(full,orig)     ${HG_BIN_BASE}  ->  ${GAIF_FULL_ORIG_BASE}.*
 {
   bin="$(need_bin motivo-gaifman)"
   LOG="${GAIF_FULL_ORIG_BASE}.gaif.log"
-  secs="$(run_timed "$LOG" "$bin" --input "$HG_BIN_BASE" --output "$GAIF_FULL_ORIG_BASE" -j "$MAXT")"
+  secs="$(run_timed "$LOG" "$bin" --input "$HG_BIN_BASE" --output "$GAIF_FULL_ORIG_BASE" --stream)"
   preproc_row "gaifman_full" "orig" "$HG_BIN_BASE" "$GAIF_FULL_ORIG_BASE" "$MAXT" "$LOG"
 } || true
 
