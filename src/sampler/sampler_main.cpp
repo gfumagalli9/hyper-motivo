@@ -57,7 +57,7 @@ int main(const int argc, const char** argv)
         //Load graph
         UndirectedGraph G(opts.graph);
         G.prefault();
-        std::cerr << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges() << " edges" << std::endl;
+        std::cerr << "Loaded graph with " << G.number_of_vertices() << " vertices and " << G.number_of_edges64() << " edges" << std::endl;
 
         //Load tables
         std::cerr << "Loading tables and root sampler" << std::endl;

@@ -180,7 +180,7 @@ int main(const int argc, const char** argv)
         UndirectedGraph G(opts.graph);
         G.prefault();
         std::cout << "Loaded graph with " << G.number_of_vertices()
-                  << " vertices and " << G.number_of_edges() << " edges\n";
+                  << " vertices and " << G.number_of_edges64() << " edges\n";
 
         // Coloring distribution 
         double* color_distribution = nullptr;

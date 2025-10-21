@@ -372,12 +372,12 @@ if [[ "$DO_DEDUP" == "yes" ]]; then
   {
     LOG="${OUTPUT_BASE}.dedup.log"
     if [[ -x "${BUILDPATH}/motivo-hgdedup" ]]; then
-      secs="$(run_timed "$LOG" "${BUILDPATH}/motivo-hgdedup" -i "$HG_BIN_BASE" -o "$HG_DEDUP_BIN_BASE")"
+      secs="$(run_timed "$LOG" "${BUILDPATH}/motivo-hgdedup" "$HG_BIN_BASE" "$HG_DEDUP_BIN_BASE")"
       preproc_row "dedup" "dedup" "$HG_BIN_BASE" "$HG_DEDUP_BIN_BASE" "1" "$LOG"
     elif [[ -x "${BUILDPATH}/motivo-dedup" ]]; then
       # dedup on TXT then rebuild BIN (two rows)
       HG_DEDUP_TXT="${HG_DEDUP_BIN_BASE}.txt"
-      secs="$(run_timed "$LOG" "${BUILDPATH}/motivo-dedup" -i "$HG_TXT" -o "$HG_DEDUP_TXT")"
+      secs="$(run_timed "$LOG" "${BUILDPATH}/motivo-dedup" "$HG_TXT" "$HG_DEDUP_TXT")"
       preproc_row "dedup_txt" "dedup" "$HG_TXT" "$HG_DEDUP_TXT" "1" "$LOG"
       # rebuild BIN (timed)
       LOG="${OUTPUT_BASE}.convert_dedup.log"
