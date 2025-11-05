@@ -199,7 +199,7 @@ int main(int argc, const char** argv)
                 }
             }
             if (use_auto) {
-                const std::size_t a = motivo::compute_best_alpha(H, 0.8);
+                const std::size_t a = motivo::compute_best_alpha(H, 0.5);
                 const std::size_t TMAX = std::numeric_limits<vertex_t>::max();
                 threshold = static_cast<vertex_t>(std::min<std::size_t>(a, TMAX));
                 std::cout << "Split alpha (auto): " << threshold << "\n";
