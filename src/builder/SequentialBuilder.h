@@ -39,14 +39,13 @@ private:
     const bool store_only_0;
     std::ostream* const output;
     ColorCodingBuilder builder;
-    PairSet common_pairs;
     const bool normalize;
 
 public:
     SequentialBuilder(const UndirectedGraph* G, UndirectedGraph::vertex_t from_vertex, UndirectedGraph::vertex_t to_vertex,
                           unsigned int size, const TreeletTableCollection* ttc, bool store_only_0,
                           TreeletStructureSelector* selector, std::ostream* output, 
-                          PairSet common_pairs, const bool normalize);
+                          const bool normalize);
 
     void build [[gnu::hot]] ();
 };

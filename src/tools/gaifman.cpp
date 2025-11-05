@@ -22,6 +22,7 @@
 //   --stream,  -s            : enable streaming serial build (low memory; ignores --threads)
 //   --estimate-only,  -E     : exact degree-sum estimation (dedup-aware serial scan), no files written
 //   --estimate-upper, -U     : upper-bound estimation via clique expansion, no files written
+//   --exclude-pairs, -p F    : exclude edges listed in binary F ([uint64_t M][(u,v)*M], u<v) from the output
 //
 // Examples:
 //   # Original behavior (in-memory; parallel allowed):
@@ -78,6 +79,62 @@ static std::uint64_t sum_directed_entries(const std::vector<std::vector<V>>& adj
     std::uint64_t s = 0;
     for (const auto& nb : adj) s += static_cast<std::uint64_t>(nb.size());
     return s;
+}
+
+// NEW: Load pairs file ([uint64_t M][(u,v)*M], u<v), build symmetric per-vertex lists.
+//      Lists are sorted+unique to allow linear-time merge-diff during masking.
+static std::vector<std::vector<V>>
+load_pairs_indexed(const std::string& path, V n_expected)
+{
+    std::ifstream in(path, std::ios::binary);
+    if (!in) throw std::runtime_error("Cannot open pairs file: " + path);
+
+    std::uint64_t M = 0;
+    in.read(reinterpret_cast<char*>(&M), sizeof(std::uint64_t));
+    if (!in) throw std::runtime_error("Failed reading pairs count from: " + path);
+
+    std::vector<std::vector<V>> pairs_adj(static_cast<std::size_t>(n_expected));
+
+    // Single pass: push both (u->v) and (v->u). We'll sort per-vertex afterwards.
+    for (std::uint64_t i = 0; i < M; ++i) {
+        V u = 0, v = 0;
+        in.read(reinterpret_cast<char*>(&u), sizeof(V));
+        in.read(reinterpret_cast<char*>(&v), sizeof(V));
+        if (!in) throw std::runtime_error("Failed reading pair entry " + std::to_string(i) + " from: " + path);
+
+        if (u == v) continue; // ignore self-pairs defensively
+        if (u >= n_expected || v >= n_expected)
+            throw std::runtime_error("Pairs entry out of range: (" + std::to_string(u) + "," + std::to_string(v) + ")");
+
+        pairs_adj[u].push_back(v);
+        pairs_adj[v].push_back(u);
+    }
+
+    // Sort+unique each adjacency to enable linear-time set difference later.
+    for (auto& vec : pairs_adj) {
+        if (!vec.empty()) {
+            std::sort(vec.begin(), vec.end());
+            vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
+        }
+    }
+    return pairs_adj;
+}
+
+// NEW: In-place set difference nb := nb \ forbidden (both sorted). Linear-time.
+static void mask_forbidden_neighbors(std::vector<V>& nb, const std::vector<V>& forbidden)
+{
+    if (nb.empty() || forbidden.empty()) return;
+    std::vector<V> out;
+    out.reserve(nb.size());
+    std::size_t i = 0, j = 0;
+    while (i < nb.size() && j < forbidden.size()) {
+        if (nb[i] < forbidden[j])        { out.push_back(nb[i]); ++i; }
+        else if (forbidden[j] < nb[i])   { ++j; }
+        else /* equal */                 { ++i; ++j; /* drop */ }
+    }
+    // Append tail
+    while (i < nb.size()) { out.push_back(nb[i]); ++i; }
+    nb.swap(out);
 }
 
 //------------------------------------------------------------------------------
@@ -161,7 +218,8 @@ static void write_graph_bin64(const std::string& out_base,
 // Adjacency lists are sorted for determinism.
 //------------------------------------------------------------------------------
 static std::vector<std::vector<V>>
-build_gaifman_serial(const Hypergraph& H, std::uint32_t max_m /* 0 = disabled */)
+build_gaifman_serial(const Hypergraph& H, std::uint32_t max_m /* 0 = disabled */,
+                     const std::vector<std::vector<V>>* pairs_exclude /* nullable */)
 {
     const V n = H.number_of_vertices();
     std::vector<std::vector<V>> adj(n);
@@ -201,6 +259,11 @@ build_gaifman_serial(const Hypergraph& H, std::uint32_t max_m /* 0 = disabled */
         }
 
         std::sort(nb.begin(), nb.end()); // determinism
+        // NEW: mask out forbidden neighbors (pairs) in one linear pass after sorting.
+        if (pairs_exclude) {
+            const auto& forb = (*pairs_exclude)[u];
+            if (!forb.empty()) mask_forbidden_neighbors(nb, forb);
+        }
     }
     return adj;
 }
@@ -209,7 +272,8 @@ build_gaifman_serial(const Hypergraph& H, std::uint32_t max_m /* 0 = disabled */
 // Parallel Gaifman construction (std::thread).
 //------------------------------------------------------------------------------
 static std::vector<std::vector<V>>
-build_gaifman_threads(const Hypergraph& H, std::uint32_t max_m, int threads)
+build_gaifman_threads(const Hypergraph& H, std::uint32_t max_m, int threads,
+                      const std::vector<std::vector<V>>* pairs_exclude /* nullable */)
 {
     const V n = H.number_of_vertices();
     if (n == 0) return {};
@@ -257,6 +321,11 @@ build_gaifman_threads(const Hypergraph& H, std::uint32_t max_m, int threads)
             }
 
             std::sort(nb.begin(), nb.end());
+            // NEW: apply pairs mask after sorting (linear-time).
+            if (pairs_exclude) {
+                const auto& forb = (*pairs_exclude)[u];
+                if (!forb.empty()) mask_forbidden_neighbors(nb, forb);
+            }
             adj[u] = std::move(nb);
         }
     };
@@ -279,7 +348,8 @@ build_gaifman_threads(const Hypergraph& H, std::uint32_t max_m, int threads)
 //------------------------------------------------------------------------------
 static void build_gaifman_streaming_serial32(const Hypergraph& H,
                                              const std::string& out_base,
-                                             std::uint32_t max_m)
+                                             std::uint32_t max_m,
+                                             const std::vector<std::vector<V>>* pairs_exclude /* nullable */)
 {
     const V n = H.number_of_vertices();
 
@@ -332,6 +402,11 @@ static void build_gaifman_streaming_serial32(const Hypergraph& H,
         }
 
         std::sort(nb.begin(), nb.end()); // determinism
+        // NEW: mask forbidden pairs before writing.
+        if (pairs_exclude) {
+            const auto& forb = (*pairs_exclude)[u];
+            if (!forb.empty()) mask_forbidden_neighbors(nb, forb);
+        }
 
         // offsets[u] (uint32)
         gof.write(reinterpret_cast<const char*>(&written), sizeof(std::uint32_t));
@@ -361,7 +436,8 @@ static void build_gaifman_streaming_serial32(const Hypergraph& H,
 //------------------------------------------------------------------------------
 static void build_gaifman_streaming_serial64(const Hypergraph& H,
                                              const std::string& out_base,
-                                             std::uint32_t max_m)
+                                             std::uint32_t max_m,
+                                             const std::vector<std::vector<V>>* pairs_exclude /* nullable */)
 {
     const V n = H.number_of_vertices();
 
@@ -414,6 +490,11 @@ static void build_gaifman_streaming_serial64(const Hypergraph& H,
         }
 
         std::sort(nb.begin(), nb.end()); // determinism
+        // NEW: mask forbidden pairs before writing.
+        if (pairs_exclude) {
+            const auto& forb = (*pairs_exclude)[u];
+            if (!forb.empty()) mask_forbidden_neighbors(nb, forb);
+        }
 
         // offsets[u] (uint64)
         gof.write(reinterpret_cast<const char*>(&written), sizeof(std::uint64_t));
@@ -517,6 +598,7 @@ int main(int argc, const char** argv)
     auto* stream_opt = op.add_option(false, false, "stream",          's', "",   "Enable streaming serial build (low memory)");
     auto* est_only   = op.add_option(false, false, "estimate-only",   'E', "",   "Exact degree-sum estimation (no output files)");
     auto* est_upper  = op.add_option(false, false, "estimate-upper",  'U', "",   "Upper-bound estimation via clique expansion (no output files)");
+    auto* excl_pairs = op.add_option(false, true,  "exclude-pairs",   'p', "",   "Exclude edges in binary file F ([uint64_t M][(u,v)*M], u<v)");
 
     if (!op.parse(argc, argv) || help_opt->is_found()) {
         std::cout << "Usage: " << argv[0] << " [OPTIONS]\n" << op.help();
@@ -541,9 +623,21 @@ int main(int argc, const char** argv)
     int threads                = std::stoi(thr_opt->get_value());
     const bool use_max         = maxe_opt->is_found();
     const std::uint32_t max_m  = use_max ? static_cast<std::uint32_t>(std::stoul(maxe_opt->get_value())) : 0u;
+    const bool do_exclude      = excl_pairs->is_found();
+    const std::string pairs_path = do_exclude ? excl_pairs->get_value() : std::string();
 
     try {
         Hypergraph H(in_base);
+
+        // NEW: If exclude-pairs is requested, load pairs and precompute per-vertex forbidden neighbors.
+        // Note: estimation modes below DO NOT apply pair masking (they are upper/exact estimates on the raw Gaifman).
+        std::vector<std::vector<V>> pairs_adj;
+        const std::vector<std::vector<V>>* pairs_ptr = nullptr;
+        if (do_exclude) {
+            pairs_adj = load_pairs_indexed(pairs_path, H.number_of_vertices());
+            pairs_ptr = &pairs_adj;
+            std::cout << "[exclude-pairs] loaded from " << pairs_path << "\n";
+        }
 
         // Estimation modes (no files written).
         if (do_est_up) {
@@ -590,17 +684,17 @@ int main(int argc, const char** argv)
             // Decide format with an exact pre-pass (low memory).
             auto [n, undirected, directed] = estimate_upper_bound(H, max_m);
             const bool need_wide = (directed > std::numeric_limits<std::uint32_t>::max());
-            std::cout << "[stream] directed entries = " << directed
+            std::cout << "[stream] directed entries (upper bound) = " << directed
                       << " -> writing " << (need_wide ? ".gof64" : ".gof") << "\n";
 
-            if (need_wide) build_gaifman_streaming_serial64(H, out_base, max_m);
-            else           build_gaifman_streaming_serial32(H, out_base, max_m);
+            if (need_wide) build_gaifman_streaming_serial64(H, out_base, max_m, pairs_ptr);
+            else           build_gaifman_streaming_serial32(H, out_base, max_m, pairs_ptr);
 
         } else {
             // Original behavior: in-memory adjacency + (optional) threads.
             std::vector<std::vector<V>> adj =
-                (threads <= 1) ? build_gaifman_serial(H, max_m)
-                               : build_gaifman_threads(H, max_m, threads);
+                (threads <= 1) ? build_gaifman_serial(H, max_m, pairs_ptr)
+                               : build_gaifman_threads(H, max_m, threads, pairs_ptr);
 
             const std::uint64_t directed = sum_directed_entries(adj);
             const bool need_wide = (directed > std::numeric_limits<std::uint32_t>::max());

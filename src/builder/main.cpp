@@ -21,9 +21,6 @@
 #include "MultithreadedBuilder.h"
 #include "../common/io/PropertyStore.h"
 
-// NEW: pairs support (LOW∩HIGH)
-#include "../common/types/PairSet.h"
-
 struct builder_opts {
     char graph[MOTIVO_ARG_MAX];
     unsigned int size;
@@ -234,19 +231,6 @@ int main(const int argc, const char** argv)
                       << selector->size() << " treelet(s) of the given size\n";
         }
 
-        // --- NEW: carica set di coppie LOW∩HIGH se presente (grafi) ---
-        PairSet common_pairs;
-        if (opts.size > 1) {
-            try {
-                common_pairs = load_pairs_if_any(opts.graph);
-                if (!common_pairs.empty())
-                    std::cout << "Loaded " << common_pairs.size() << " common pairs from "
-                              << (std::string(opts.graph) + ".pairs") << "\n";
-            } catch (const std::exception& e) {
-                std::cout << "Warning: cannot load pairs: " << e.what() << " (ignoring)\n";
-            }
-        }
-
         // Build
         auto tstart = std::chrono::steady_clock::now();
         if (opts.size == 1) {
@@ -258,15 +242,13 @@ int main(const int argc, const char** argv)
             // Sequenziale (passo pairs + normalize)
             SequentialBuilder builder(&G, opts.from_vertex, opts.to_vertex, opts.size,
                                       &ttc, opts.store0, selector, &out,
-                                      common_pairs,           // NEW
                                       opts.normalize);        // NEW
             builder.build();
         } else {
-            const PairSet* common_pairs_ptr = common_pairs.empty() ? nullptr : &common_pairs;
             // Multithread (qui mantieni la tua firma con normalize)
             MultithreadedBuilder builder(&G, opts.from_vertex, opts.to_vertex, opts.size,
                                          &ttc, opts.store0, selector, &out,
-                                         opts.threads, opts.normalize, common_pairs_ptr); // NEW
+                                         opts.threads, opts.normalize);
             builder.build();
         }
         std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;

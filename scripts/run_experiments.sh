@@ -268,6 +268,8 @@ HG_TXT=""
 DO_DEDUP="no"
 OUTPUT_BASE=""
 RESULTS_DIR=""
+SPLIT_ALPHA_ORIG=""
+SPLIT_ALPHA_DEDUP=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -280,6 +282,8 @@ while [[ $# -gt 0 ]]; do
     --delete)          DELETE_MODE="yes"; shift ;;
     -o|--output)       OUTPUT_BASE="$(trim "${2:-}")"; shift 2 ;;
     -R|--results)      RESULTS_DIR="$(trim "${2:-}")"; shift 2 ;;
+    --alpha_orig)      SPLIT_ALPHA_ORIG="$(trim "${2:-}")"; shift 2 ;;
+    --alpha_dedup)     SPLIT_ALPHA_DEDUP="$(trim "${2:-}")"; shift 2 ;;
     -h|--help)
       cat <<EOF
 Usage:
@@ -336,7 +340,11 @@ echo "[step] split(original)        ${HG_BIN_BASE}  ->  ${SPLIT_LOW_ORIG_BASE}.*
 {
   bin="$(need_bin motivo-hgsplit)"
   LOG="${OUTPUT_BASE}.split_orig.log"
-  secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE")"
+  if [[ -n "$SPLIT_ALPHA_ORIG" ]]; then
+    secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE" -t "$SPLIT_ALPHA_ORIG")"
+  else
+    secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE")"
+  fi
   preproc_row "split" "orig" "$HG_BIN_BASE" "${SPLIT_LOW_ORIG_BASE}|${SPLIT_HIGH_ORIG_BASE}" "1" "$LOG"
 } || true
 
@@ -356,7 +364,11 @@ echo "[step] gaifman(low,orig)      ${SPLIT_LOW_ORIG_BASE}  ->  ${GAIF_LOW_ORIG_
 {
   bin="$(need_bin motivo-gaifman)"
   LOG="${GAIF_LOW_ORIG_BASE}.gaif.log"
-  secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_ORIG_BASE" --output "$SPLIT_LOW_ORIG_BASE" -j "$MAXT")"
+  if [[ -f "${SPLIT_LOW_ORIG_BASE}.pairs" ]]; then
+    secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_ORIG_BASE" --output "$SPLIT_LOW_ORIG_BASE" --stream --exclude-pairs "${SPLIT_LOW_ORIG_BASE}.pairs")"
+  else
+    secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_ORIG_BASE" --output "$SPLIT_LOW_ORIG_BASE" --stream)"
+  fi
   preproc_row "gaifman_low" "orig" "$SPLIT_LOW_ORIG_BASE" "$GAIF_LOW_ORIG_BASE" "$MAXT" "$LOG"
 } || true
 
@@ -396,7 +408,11 @@ if [[ "$DO_DEDUP" == "yes" ]]; then
   {
     bin="$(need_bin motivo-hgsplit)"
     LOG="${OUTPUT_BASE}.split_dedup.log"
-    secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_BIN_BASE" -s "$SPLIT_LOW_DEDUP_BASE" -l "$SPLIT_HIGH_DEDUP_BASE")"
+    if [[ -n "$SPLIT_ALPHA_DEDUP" ]]; then
+      secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_BIN_BASE" -s "$SPLIT_LOW_DEDUP_BASE" -l "$SPLIT_HIGH_DEDUP_BASE" -t "$SPLIT_ALPHA_DEDUP")"
+    else
+      secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_BIN_BASE" -s "$SPLIT_LOW_DEDUP_BASE" -l "$SPLIT_HIGH_DEDUP_BASE")"
+    fi
     preproc_row "split" "dedup" "$HG_DEDUP_BIN_BASE" "${SPLIT_LOW_DEDUP_BASE}|${SPLIT_HIGH_DEDUP_BASE}" "1" "$LOG"
   } || true
 
@@ -404,7 +420,7 @@ if [[ "$DO_DEDUP" == "yes" ]]; then
   {
     bin="$(need_bin motivo-gaifman)"
     LOG="${GAIF_FULL_DEDUP_BASE}.gaif.log"
-    secs="$(run_timed "$LOG" "$bin" --input "$HG_DEDUP_BIN_BASE" --output "$GAIF_FULL_DEDUP_BASE" -j "$MAXT")"
+    secs="$(run_timed "$LOG" "$bin" --input "$HG_DEDUP_BIN_BASE" --output "$GAIF_FULL_DEDUP_BASE" --stream)"
     preproc_row "gaifman_full" "dedup" "$HG_DEDUP_BIN_BASE" "$GAIF_FULL_DEDUP_BASE" "$MAXT" "$LOG"
   } || true
 
@@ -412,7 +428,11 @@ if [[ "$DO_DEDUP" == "yes" ]]; then
   {
     bin="$(need_bin motivo-gaifman)"
     LOG="${GAIF_LOW_DEDUP_BASE}.gaif.log"
-    secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_DEDUP_BASE" --output "$SPLIT_LOW_DEDUP_BASE" -j "$MAXT")"
+    if [[ -f "${SPLIT_LOW_DEDUP_BASE}.pairs" ]]; then
+      secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_DEDUP_BASE" --output "$SPLIT_LOW_DEDUP_BASE" --stream --exclude-pairs "${SPLIT_LOW_DEDUP_BASE}.pairs")"
+    else
+      secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_DEDUP_BASE" --output "$SPLIT_LOW_DEDUP_BASE" --stream)"
+    fi
     preproc_row "gaifman_low" "dedup" "$SPLIT_LOW_DEDUP_BASE" "$GAIF_LOW_DEDUP_BASE" "$MAXT" "$LOG"
   } || true
 fi

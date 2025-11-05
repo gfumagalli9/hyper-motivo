@@ -155,7 +155,8 @@ int main(int argc, const char** argv)
     OptionsParser op;
     auto* help_opt   = op.add_option(false, false, "help",         'h', "",  "Print help and exit");
     auto* input_opt  = op.add_option(true,  true,  "input",        'i', "",  "Input binary hypergraph basename");
-    auto* thresh_opt = op.add_option(false,  true,  "threshold",    't', "", "Maximum hyperedge size for the small hypergraph");    auto* small_opt  = op.add_option(true,  true,  "small-output", 's', "",  "Output basename for hyperedges of size <= threshold");
+    auto* thresh_opt = op.add_option(false,  true,  "threshold",    't', "", "Maximum hyperedge size for the small hypergraph");    
+    auto* small_opt  = op.add_option(true,  true,  "small-output", 's', "",  "Output basename for hyperedges of size <= threshold");
     auto* large_opt  = op.add_option(true,  true,  "large-output", 'l', "",  "Output basename for hyperedges of size > threshold");
 
     if (!op.parse(argc, argv) || help_opt->is_found()) {
