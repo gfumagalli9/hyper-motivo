@@ -155,8 +155,7 @@ int main(int argc, const char** argv)
     OptionsParser op;
     auto* help_opt   = op.add_option(false, false, "help",         'h', "",  "Print help and exit");
     auto* input_opt  = op.add_option(true,  true,  "input",        'i', "",  "Input binary hypergraph basename");
-    auto* thresh_opt = op.add_option(false,  true,  "threshold",    't', "", "Maximum hyperedge size for the small hypergraph");    
-    auto* small_opt  = op.add_option(true,  true,  "small-output", 's', "",  "Output basename for hyperedges of size <= threshold");
+    auto* thresh_opt = op.add_option(false,  true,  "threshold",    't', "", "Maximum hyperedge size for the small hypergraph");    auto* small_opt  = op.add_option(true,  true,  "small-output", 's', "",  "Output basename for hyperedges of size <= threshold");
     auto* large_opt  = op.add_option(true,  true,  "large-output", 'l', "",  "Output basename for hyperedges of size > threshold");
 
     if (!op.parse(argc, argv) || help_opt->is_found()) {
@@ -200,7 +199,7 @@ int main(int argc, const char** argv)
                 }
             }
             if (use_auto) {
-                const std::size_t a = motivo::compute_best_alpha(H, 0.5);
+                const std::size_t a = motivo::compute_best_alpha(H, 0.8);
                 const std::size_t TMAX = std::numeric_limits<vertex_t>::max();
                 threshold = static_cast<vertex_t>(std::min<std::size_t>(a, TMAX));
                 std::cout << "Split alpha (auto): " << threshold << "\n";

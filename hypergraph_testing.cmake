@@ -26,7 +26,7 @@ add_test(
 # Gaifman sul LOW (input=output per avere pairs coerenti col basename)
 add_test(
   NAME build-gaifman-low
-  COMMAND motivo-gaifman --input test-gaifman-low --output test-gaifman-low --exclude-pairs test-gaifman-low.pairs
+  COMMAND motivo-gaifman --input test-gaifman-low --output test-gaifman-low
   WORKING_DIRECTORY tests
 )
 

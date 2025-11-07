@@ -131,7 +131,10 @@ void MultithreadedBuilder::phase1_thread_loop(const unsigned int thread_no, phas
             const auto u = state.current_vertex;
             const auto v = G->neighbor(u, state.next_edge);
     
-            builder.combine(u, v, state.table);
+            // <-- NEW: skip se (u,v) sta in common_pairs
+            if (!common_pairs || common_pairs->count(canon_pair(u, v)) == 0) {
+                builder.combine(u, v, state.table);
+            }
 
             state.next_edge++;
         }
@@ -198,8 +201,10 @@ void MultithreadedBuilder::phase2_thread_loop(const unsigned int thread_no, phas
             const auto u = state.vertex;
             const auto v = G->neighbor(u, d);
 
-            builder.combine(u, v, *state.tables[worker_no]);
-            
+            // <-- NEW: skip se (u,v) sta in common_pairs
+            if (!common_pairs || common_pairs->count(canon_pair(u, v)) == 0) {
+                builder.combine(u, v, *state.tables[worker_no]);
+            }
             processed_edges++;
             d = state.next_edge.fetch_add(1);
         }
@@ -223,7 +228,7 @@ MultithreadedBuilder::MultithreadedBuilder(const UndirectedGraph *G, UndirectedG
                                                        UndirectedGraph::vertex_t to_vertex, const unsigned int size,
                                                        const TreeletTableCollection *ttc, const bool store_only_0,
                                                        TreeletStructureSelector *selector, std::ostream *output,
-                                                       unsigned int nthreads, const bool normalize)
+                                                       unsigned int nthreads, const bool normalize, const PairSet* common_pairs)
         : G(G), from_vertex(from_vertex), to_vertex(to_vertex), ttc(ttc), store_only_0(store_only_0),
-          output(output), builder(size, ttc, selector), nthreads(nthreads), normalize(normalize)
+          output(output), builder(size, ttc, selector), nthreads(nthreads), normalize(normalize), common_pairs(common_pairs)
 {}

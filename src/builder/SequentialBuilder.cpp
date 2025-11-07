@@ -33,9 +33,19 @@ void SequentialBuilder::build()
     {
         if (!store_only_0 || ttc->get_table(1)->begin(u).treelet().get_colors() == 1) //color 0 is represented as 1<<0 = 1
         {
+            
+            const UndirectedGraph::vertex_t degree = G->degree(u);
+            for(UndirectedGraph::vertex_t d = 0; d < degree; d++){
+                auto v = G->neighbor(u, d);
+                if (common_pairs.count(canon_pair(u, v)) == 0)     
+                    builder.combine(u, v, table);   
+            }
+            
+           /*
            const UndirectedGraph::vertex_t degree = G->degree(u);
            for(UndirectedGraph::vertex_t d = 0; d < degree; d++)
                builder.combine(u, G->neighbor(u, d), table);
+            */
         }
 
         std::pair<char*, std::size_t> to_write = builder.to_normalized_sorted_byte_array(u, table, normalize);
@@ -49,7 +59,7 @@ void SequentialBuilder::build()
 SequentialBuilder::SequentialBuilder(const UndirectedGraph *G, UndirectedGraph::vertex_t from_vertex,
                                              UndirectedGraph::vertex_t to_vertex, const unsigned int size,
                                              const TreeletTableCollection *ttc, const bool store_only_0,
-                                             TreeletStructureSelector *selector, std::ostream *output, const bool normalize)
-        : G(G), from_vertex(from_vertex), to_vertex(to_vertex), size(size), ttc(ttc), store_only_0(store_only_0), output(output), builder(size, ttc, selector), normalize(normalize)
+                                             TreeletStructureSelector *selector, std::ostream *output, PairSet common_pairs, const bool normalize)
+        : G(G), from_vertex(from_vertex), to_vertex(to_vertex), size(size), ttc(ttc), store_only_0(store_only_0), output(output), builder(size, ttc, selector), common_pairs(common_pairs), normalize(normalize)
 
 {}
