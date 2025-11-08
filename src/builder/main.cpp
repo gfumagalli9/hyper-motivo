@@ -21,10 +21,6 @@
 #include "MultithreadedBuilder.h"
 #include "../common/io/PropertyStore.h"
 
-// NEW: pairs support (LOW∩HIGH)
-#include "../common/types/PairSet.h"
-#include "../common/io/PairIO.h"
-
 struct builder_opts {
     char graph[MOTIVO_ARG_MAX];
     unsigned int size;
@@ -40,11 +36,6 @@ struct builder_opts {
     double coloring_bias;
     bool normalize; // NEW
 };
-
-// Carica <graph>.pairs se presente (CSR)
-static PairSet load_pairs_if_any(const std::string& basename) {
-    return load_pairs_set(basename + ".pairs");
-}
 
 static bool parse_builder_args(const int argc, const char **argv,
                                const std::string &name, builder_opts *opts)
@@ -169,7 +160,7 @@ int main(const int argc, const char** argv)
         std::cout << "Loaded graph with " << G.number_of_vertices()
                   << " vertices and " << G.number_of_edges64() << " edges\n";
 
-        // Coloring distribution 
+        // Coloring distribution
         double* color_distribution = nullptr;
         if (!double_equality(opts.coloring_bias, 1)) {
             color_distribution = new double[opts.colors];
@@ -182,7 +173,7 @@ int main(const int argc, const char** argv)
                 std::cerr << "Warning! Less than 100 nodes in expectation with color 0\n";
         }
 
-        // Carico le TTC per i livelli inferiori 
+        // Carico le TTC per i livelli inferiori
         TreeletTableCollection ttc;
         CompressedRecordFileReader<const TreeletTable::treelet_count_pair_maybe_alias,
                                    TreeletTable::may_alias>* readers = nullptr;
@@ -221,19 +212,6 @@ int main(const int argc, const char** argv)
                       << selector->size() << " treelet(s) of the given size\n";
         }
 
-        // --- NEW: carica set di coppie LOW∩HIGH se presente (grafi) ---
-        PairSet common_pairs;
-        if (opts.size > 1) {
-            try {
-                common_pairs = load_pairs_if_any(opts.graph);
-                if (!common_pairs.empty())
-                    std::cout << "Loaded " << common_pairs.size() << " common pairs from "
-                              << (std::string(opts.graph) + ".pairs") << "\n";
-            } catch (const std::exception& e) {
-                std::cout << "Warning: cannot load pairs: " << e.what() << " (ignoring)\n";
-            }
-        }
-
         // Build
         auto tstart = std::chrono::steady_clock::now();
         if (opts.size == 1) {
@@ -242,18 +220,14 @@ int main(const int argc, const char** argv)
                                  opts.colors, color_distribution, &rng, &out);
             builder.build();
         } else if (opts.threads == 1) {
-            // Sequenziale (passo pairs + normalize)
             SequentialBuilder builder(&G, opts.from_vertex, opts.to_vertex, opts.size,
                                       &ttc, opts.store0, selector, &out,
-                                      common_pairs,           // NEW
-                                      opts.normalize);        // NEW
+                                      opts.normalize);
             builder.build();
         } else {
-            const PairSet* common_pairs_ptr = common_pairs.empty() ? nullptr : &common_pairs;
-            // Multithread (qui mantieni la tua firma con normalize)
             MultithreadedBuilder builder(&G, opts.from_vertex, opts.to_vertex, opts.size,
                                          &ttc, opts.store0, selector, &out,
-                                         opts.threads, opts.normalize, common_pairs_ptr); // NEW
+                                         opts.threads, opts.normalize);
             builder.build();
         }
         std::chrono::duration<double> delta_t = std::chrono::steady_clock::now() - tstart;
@@ -262,7 +236,7 @@ int main(const int argc, const char** argv)
         out.close();
         std::cout << "Output written to " << filename << std::endl;
 
-        // Info file 
+        // Info file
         PropertyStore properties;
         properties.set_bool("StoreOnlyOn0", opts.store0);
         if (color_distribution != nullptr)
@@ -275,6 +249,7 @@ int main(const int argc, const char** argv)
         for (unsigned i = 0; i < opts.size - 1; ++i) delete tables[i];
         delete[] readers;
         delete[] tables;
+        if (color_distribution) delete[] color_distribution;
 
         return EXIT_SUCCESS;
 

@@ -4,12 +4,14 @@ set -euo pipefail
 # ------------------------------------------------------------
 # Orchestrates a full experiment tranche on one dataset:
 # - Converts TXT -> hypergraph bin
-# - Splits hypergraph into HIGH/LOW
+# - Splits hypergraph into HIGH/LOW (threshold configurable)
 # - Builds Gaifman on LOW (for hyper pipeline) and FULL (for graph pipeline)
 # - Runs hyper and graph pipelines for all T x K x S
 # - Collects per-run CSVs and archives all artifacts per (K,T,S)
 #   If --delete is given, keep only .log/.perf/.timings.csv/.info and delete the rest.
 #   NEW: also records preprocessing timings into $OUTPUT_BASE.preproc.csv
+#   NEW: Gaifman LOW uses --exclude-pairs to drop edges listed in <low>.pairs
+#   NEW: Split threshold can be provided per-variant (orig/dedup) or globally
 # ------------------------------------------------------------
 
 # ----------------------- configuration -----------------------
@@ -93,11 +95,9 @@ preproc_row() { # stage variant input output threads log
     s="$(grep_sys_time  "$log")"
     w="$(grep_elapsed    "$log")"
   else
-    u=""; s=""; w="$(awk -F',' 'END{print $NF}' <<<"")" # ignored; caller passes walltime already
-    # fallback: if run_timed was manual, we don't have u/s; we still compute w below
+    u=""; s=""; w="$(awk -F',' 'END{print $NF}' <<<"")"
     w="$(awk 'END{print w}' /dev/null 2>/dev/null || true)"
   fi
-  # If we came from run_timed, we already know walltime; recompute anyway from log when available.
   w="$(grep_elapsed "$log" || echo "")"
   printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
     "$ts" "$stage" "$variant" "$inp" "$out" "$th" "${w:-}" "${u:-}" "${s:-}" "$log" >>"$PREPROC_CSV"
@@ -110,42 +110,6 @@ run_hypergraph_build(){
   if "$bin" --input "$in" --output "$outbase"; then return 0; fi
   if "$bin" -i "$in" -o "$outbase"; then return 0; fi
   die "motivo-hypergraph invocation failed for input=$in output=$outbase"
-}
-
-# Split input hypergraph into LOW/HIGH basenames
-run_hgsplit(){
-  local in_base="$1" low_base="$2" high_base="$3" log="$4" bin
-  bin="$(need_bin motivo-hgsplit)"
-  "$bin" -i "$in_base" -s "$low_base" -l "$high_base" > "$log" 2>&1
-}
-
-# Build Gaifman for a given hypergraph base (LOW or FULL)
-run_gaifman(){
-  local hg_base="$1" out_base="$2" threads="$3" bin
-  bin="$(need_bin motivo-gaifman)"
-  "$bin" --input "$hg_base" --output "$out_base" --stream > "${out_base}.gaif.log" 2>&1
-}
-
-run_dedup(){
-  local bin_debin="${BUILDPATH}/motivo-hgdedup"
-  local bin_txt="${BUILDPATH}/motivo-dedup"
-  if [[ -x "$bin_debin" ]]; then
-    if "$bin_debin" "$HG_BIN_BASE" "$HG_DEDUP_BIN_BASE" \
-       || "$bin_debin" -i "$HG_BIN_BASE" -o "$HG_DEDUP_BIN_BASE"; then
-      return 0
-    fi
-    die "motivo-hgdedup failed"
-  elif [[ -x "$bin_txt" ]]; then
-    HG_DEDUP_TXT="${HG_DEDUP_BIN_BASE}.txt"
-    if "$bin_txt" --input "$HG_TXT" --output "$HG_DEDUP_TXT" 2>/dev/null \
-       || "$bin_txt" -i "$HG_TXT" -o "$HG_DEDUP_TXT" 2>/dev/null ; then
-      run_hypergraph_build "$HG_DEDUP_TXT" "$HG_DEDUP_BIN_BASE"
-      return 0
-    fi
-    die "motivo-dedup failed on text input"
-  else
-    die "No dedup binary found (motivo-hgdedup or motivo-dedup)"
-  fi
 }
 
 pick_graph_pipe(){
@@ -244,7 +208,6 @@ final_cleanup_preproc() {
     rm -f "${SPLIT_LOW_DEDUP_BASE}".* "${SPLIT_HIGH_DEDUP_BASE}".* || true
     rm -f "${GAIF_FULL_DEDUP_BASE}".* "${GAIF_LOW_DEDUP_BASE}".* || true
   fi
-  # keep logs + ${PREPROC_CSV} (already copied to run_dir/preproc); remove root copies to declutter
   rm -f \
     "${OUTPUT_BASE}.convert.log" \
     "${OUTPUT_BASE}.dedup.log" \
@@ -269,21 +232,30 @@ DO_DEDUP="no"
 OUTPUT_BASE=""
 RESULTS_DIR=""
 
+# NEW: thresholds (can be 'auto' or an integer)
+ORIG_SPLIT_THRESH=""
+DEDUP_SPLIT_THRESH=""
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --threads)         THREADS_LIST="$(split_list "$(trim "${2:-}")")"; shift 2 ;;
-    -k|--k)            K_SINGLE="$(trim "${2:-}")"; shift 2 ;;
-    --k-list)          K_LIST="$(split_list "$(trim "${2:-}")")"; shift 2 ;;
-    --samples)         SAMPLES_LIST="$(split_list "$(trim "${2:-}")")"; shift 2 ;;
-    --hg)              HG_TXT="$(trim "${2:-}")"; shift 2 ;;
-    --deduplicate)     DO_DEDUP="yes"; shift ;;
-    --delete)          DELETE_MODE="yes"; shift ;;
-    -o|--output)       OUTPUT_BASE="$(trim "${2:-}")"; shift 2 ;;
-    -R|--results)      RESULTS_DIR="$(trim "${2:-}")"; shift 2 ;;
+    --threads)             THREADS_LIST="$(split_list "$(trim "${2:-}")")"; shift 2 ;;
+    -k|--k)                K_SINGLE="$(trim "${2:-}")"; shift 2 ;;
+    --k-list)              K_LIST="$(split_list "$(trim "${2:-}")")"; shift 2 ;;
+    --samples)             SAMPLES_LIST="$(split_list "$(trim "${2:-}")")"; shift 2 ;;
+    --hg)                  HG_TXT="$(trim "${2:-}")"; shift 2 ;;
+    --deduplicate)         DO_DEDUP="yes"; shift ;;
+    --delete)              DELETE_MODE="yes"; shift ;;
+    -o|--output)           OUTPUT_BASE="$(trim "${2:-}")"; shift 2 ;;
+    -R|--results)          RESULTS_DIR="$(trim "${2:-}")"; shift 2 ;;
+    # NEW: thresholds
+    --threshold)           ORIG_SPLIT_THRESH="$(trim "${2:-}")"; DEDUP_SPLIT_THRESH="$ORIG_SPLIT_THRESH"; shift 2 ;;
+    --threshold-orig)      ORIG_SPLIT_THRESH="$(trim "${2:-}")"; shift 2 ;;
+    --threshold-dedup)     DEDUP_SPLIT_THRESH="$(trim "${2:-}")"; shift 2 ;;
     -h|--help)
       cat <<EOF
 Usage:
   $0 --threads "1,8" -k 3 --samples "1000 100000" --hg path/to/hyper.txt \\
+     [--threshold auto|N] [--threshold-orig auto|N] [--threshold-dedup auto|N] \\
      [--deduplicate] [--delete] --output out/basename --results results/
 EOF
       exit 0 ;;
@@ -322,7 +294,6 @@ echo "[step] hypergraph(txt->bin)   $HG_TXT  ->  ${HG_BIN_BASE}.*"
   LOG="${OUTPUT_BASE}.convert.log"
   secs=""
   if ! secs="$(run_timed "$LOG" "$bin" --input "$HG_TXT" --output "$HG_BIN_BASE")"; then
-    # fallback to short flags
     : > "$LOG"
     secs="$(run_timed "$LOG" "$bin" -i "$HG_TXT" -o "$HG_BIN_BASE")"
   fi
@@ -332,11 +303,15 @@ echo "[step] hypergraph(txt->bin)   $HG_TXT  ->  ${HG_BIN_BASE}.*"
 # 2) Split original -> LOW/HIGH (timed)
 SPLIT_LOW_ORIG_BASE="${OUTPUT_BASE}.low"
 SPLIT_HIGH_ORIG_BASE="${OUTPUT_BASE}.high"
-echo "[step] split(original)        ${HG_BIN_BASE}  ->  ${SPLIT_LOW_ORIG_BASE}.*, ${SPLIT_HIGH_ORIG_BASE}.*"
+echo "[step] split(original, t=${ORIG_SPLIT_THRESH:-auto})  ${HG_BIN_BASE}  ->  ${SPLIT_LOW_ORIG_BASE}.*, ${SPLIT_HIGH_ORIG_BASE}.*"
 {
   bin="$(need_bin motivo-hgsplit)"
   LOG="${OUTPUT_BASE}.split_orig.log"
-  secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE")"
+  if [[ -n "${ORIG_SPLIT_THRESH:-}" ]]; then
+    secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE" -t "$ORIG_SPLIT_THRESH")"
+  else
+    secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE")"
+  fi
   preproc_row "split" "orig" "$HG_BIN_BASE" "${SPLIT_LOW_ORIG_BASE}|${SPLIT_HIGH_ORIG_BASE}" "1" "$LOG"
 } || true
 
@@ -356,7 +331,8 @@ echo "[step] gaifman(low,orig)      ${SPLIT_LOW_ORIG_BASE}  ->  ${GAIF_LOW_ORIG_
 {
   bin="$(need_bin motivo-gaifman)"
   LOG="${GAIF_LOW_ORIG_BASE}.gaif.log"
-  secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_ORIG_BASE" --output "$SPLIT_LOW_ORIG_BASE" --stream)"
+  secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_ORIG_BASE" --output "$SPLIT_LOW_ORIG_BASE" --stream \
+         --exclude-pairs "${SPLIT_LOW_ORIG_BASE}.pairs")"
   preproc_row "gaifman_low" "orig" "$SPLIT_LOW_ORIG_BASE" "$GAIF_LOW_ORIG_BASE" "$MAXT" "$LOG"
 } || true
 
@@ -375,11 +351,9 @@ if [[ "$DO_DEDUP" == "yes" ]]; then
       secs="$(run_timed "$LOG" "${BUILDPATH}/motivo-hgdedup" "$HG_BIN_BASE" "$HG_DEDUP_BIN_BASE")"
       preproc_row "dedup" "dedup" "$HG_BIN_BASE" "$HG_DEDUP_BIN_BASE" "1" "$LOG"
     elif [[ -x "${BUILDPATH}/motivo-dedup" ]]; then
-      # dedup on TXT then rebuild BIN (two rows)
       HG_DEDUP_TXT="${HG_DEDUP_BIN_BASE}.txt"
       secs="$(run_timed "$LOG" "${BUILDPATH}/motivo-dedup" "$HG_TXT" "$HG_DEDUP_TXT")"
       preproc_row "dedup_txt" "dedup" "$HG_TXT" "$HG_DEDUP_TXT" "1" "$LOG"
-      # rebuild BIN (timed)
       LOG="${OUTPUT_BASE}.convert_dedup.log"
       bin="$(need_bin motivo-hypergraph)"
       if ! secs="$(run_timed "$LOG" "$bin" --input "$HG_DEDUP_TXT" --output "$HG_DEDUP_BIN_BASE")"; then
@@ -392,11 +366,15 @@ if [[ "$DO_DEDUP" == "yes" ]]; then
     fi
   } || true
 
-  echo "[step] split(dedup)           ${HG_DEDUP_BIN_BASE}  ->  ${SPLIT_LOW_DEDUP_BASE}.*, ${SPLIT_HIGH_DEDUP_BASE}.*"
+  echo "[step] split(dedup, t=${DEDUP_SPLIT_THRESH:-auto})  ${HG_DEDUP_BIN_BASE}  ->  ${SPLIT_LOW_DEDUP_BASE}.*, ${SPLIT_HIGH_DEDUP_BASE}.*"
   {
     bin="$(need_bin motivo-hgsplit)"
     LOG="${OUTPUT_BASE}.split_dedup.log"
-    secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_BIN_BASE" -s "$SPLIT_LOW_DEDUP_BASE" -l "$SPLIT_HIGH_DEDUP_BASE")"
+    if [[ -n "${DEDUP_SPLIT_THRESH:-}" ]]; then
+      secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_BIN_BASE" -s "$SPLIT_LOW_DEDUP_BASE" -l "$SPLIT_HIGH_DEDUP_BASE" -t "$DEDUP_SPLIT_THRESH")"
+    else
+      secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_BIN_BASE" -s "$SPLIT_LOW_DEDUP_BASE" -l "$SPLIT_HIGH_DEDUP_BASE")"
+    fi
     preproc_row "split" "dedup" "$HG_DEDUP_BIN_BASE" "${SPLIT_LOW_DEDUP_BASE}|${SPLIT_HIGH_DEDUP_BASE}" "1" "$LOG"
   } || true
 
@@ -412,7 +390,8 @@ if [[ "$DO_DEDUP" == "yes" ]]; then
   {
     bin="$(need_bin motivo-gaifman)"
     LOG="${GAIF_LOW_DEDUP_BASE}.gaif.log"
-    secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_DEDUP_BASE" --output "$SPLIT_LOW_DEDUP_BASE" --stream)"
+    secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_DEDUP_BASE" --output "$SPLIT_LOW_DEDUP_BASE" --stream \
+           --exclude-pairs "${SPLIT_LOW_DEDUP_BASE}.pairs")"
     preproc_row "gaifman_low" "dedup" "$SPLIT_LOW_DEDUP_BASE" "$GAIF_LOW_DEDUP_BASE" "$MAXT" "$LOG"
   } || true
 fi

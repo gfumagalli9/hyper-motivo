@@ -1,39 +1,7 @@
 // MIT License
 //
 // Gaifman graph construction tool: from a hypergraph to an undirected simple graph.
-// - Each hyperedge induces a clique among its vertices.
-// - Optional filter: only hyperedges with size <= M (useful to build a Gaifman-LOW).
-// - Parallel build with std::thread (no OpenMP).
-// - NEW: Streaming serial build (low memory) and size estimators.
-// - NEW: Auto-selects .gof (32-bit offsets) or .gof64 (64-bit offsets) when needed.
-//
-// Output binary graph formats (compatible with updated UndirectedGraph):
-//   out_base.gof   : [uint32 n][uint32 E][offsets[0..n] as uint32]
-//   out_base.gof64 : [uint32 n][uint64 E][offsets[0..n] as uint64]
-//   out_base.ged   : neighbors as uint32 vertex IDs, concatenated.
-// For both formats, offsets[i] is the starting index of vertex i's adjacency in .ged
-// and the last sentinel offsets[n] equals the total number of stored neighbors.
-//
-// CLI summary:
-//   --input,  -i             : input hypergraph basename
-//   --output, -o             : output graph basename
-//   --max-edge-size, -m M    : consider only hyperedges with size <= M (0 disables filter)
-//   --threads, -j            : number of threads (default: 1) [used only in non-streaming mode]
-//   --stream,  -s            : enable streaming serial build (low memory; ignores --threads)
-//   --estimate-only,  -E     : exact degree-sum estimation (dedup-aware serial scan), no files written
-//   --estimate-upper, -U     : upper-bound estimation via clique expansion, no files written
-//
-// Examples:
-//   # Original behavior (in-memory; parallel allowed):
-//   gaifman -i data/hg -o data/hg.gaifman -j 8 -m 128
-//
-//   # Streaming serial build (low memory):
-//   gaifman -i data/hg -o data/hg_low.gaifman -s -m 128
-//
-//   # Estimations:
-//   gaifman -i data/hg -U -m 128   # fast upper bound
-//   gaifman -i data/hg -E -m 128   # exact directed entries via serial dedup pass
-//
+// (omissis banner)
 
 #include <algorithm>
 #include <cstdint>
@@ -46,9 +14,12 @@
 #include <thread>
 #include <tuple>
 #include <vector>
+#include <iterator>  // upper_bound
 
 #include "../common/OptionsParser.h"
 #include "../common/graph/Hypergraph.h"
+#include "../common/io/PairIO.h"       // load_pairs_set
+#include "../common/types/PairSet.h"   // CSR pair set
 
 using V = Hypergraph::vertex_t;
 using E = Hypergraph::edge_t;
@@ -57,7 +28,6 @@ using E = Hypergraph::edge_t;
 // Helpers
 //------------------------------------------------------------------------------
 
-// Safe cast helper: ensure x fits into vertex_t (V). Throws on overflow.
 static V safe_cast_V(std::uint64_t x, const char* what)
 {
     if (x > static_cast<std::uint64_t>(std::numeric_limits<V>::max())) {
@@ -68,11 +38,9 @@ static V safe_cast_V(std::uint64_t x, const char* what)
     return static_cast<V>(x);
 }
 
-// Byte-size converters for reporting (MiB = 2^20, MB = 10^6).
 static double bytes_to_MiB(std::uint64_t bytes) { return static_cast<double>(bytes) / (1024.0 * 1024.0); }
 static double bytes_to_MB (std::uint64_t bytes) { return static_cast<double>(bytes) / 1'000'000.0; }
 
-// Sum of directed entries from an in-memory adjacency.
 static std::uint64_t sum_directed_entries(const std::vector<std::vector<V>>& adj)
 {
     std::uint64_t s = 0;
@@ -81,100 +49,173 @@ static std::uint64_t sum_directed_entries(const std::vector<std::vector<V>>& adj
 }
 
 //------------------------------------------------------------------------------
-// Binary writers (.gof / .gof64)
-// - adj[u] must be sorted and duplicate-free.
-// - undirected edge count is inferred as sum(deg)/2.
-// - .ged always stores uint32 vertex IDs.
+// Filtraggio ottimizzato con PairSet
+//------------------------------------------------------------------------------
+//
+// Strategia per un vertice u con vicini nb (ordinati, unici):
+//  - Prefisso nb[:mid] con v < u: per ciascun v, controlliamo se (v,u) è in pairs.
+//    Usiamo un range check su row(v) (se vuota o u fuori [min,max] -> keep),
+//    altrimenti binary_search su quella riga.
+//  - Suffisso nb[mid:] con v > u: merge lineare contro row(u) per scartare v presenti.
+//
+template <class Sink, class Vec>
+static inline void write_neighbors_filtered_optimized(
+    uint32_t u,
+    const Vec& nbrs,                // std::vector<V> o simile, ordinato/unique
+    const PairSet* exclude_pairs,
+    Sink sink)
+{
+    if (!exclude_pairs || exclude_pairs->empty()) {
+        for (auto vv : nbrs) sink(static_cast<uint32_t>(vv));
+        return;
+    }
+
+    // split index: primo elemento > u
+    const uint32_t u32 = u;
+    auto it_mid = std::upper_bound(nbrs.begin(), nbrs.end(), static_cast<V>(u32));
+    const std::size_t mid = static_cast<std::size_t>(it_mid - nbrs.begin());
+
+    // --- 1) v < u : controlla su row(v) se contiene u
+    for (std::size_t i = 0; i < mid; ++i) {
+        const uint32_t v = static_cast<uint32_t>(nbrs[i]);
+
+        // riga CSR per v (solo elementi > v)
+        const auto degv = exclude_pairs->degree(v);
+        if (degv == 0) { sink(v); continue; }
+
+        const auto [rp, rl] = exclude_pairs->row(v);
+        // range check: se u fuori [rp[0], rp[rl-1]] -> sicuramente assente
+        if (rp[0] > u32 || rp[rl - 1] < u32) { sink(v); continue; }
+
+        // cerca u in row(v)
+        const bool found = std::binary_search(rp, rp + rl, u32);
+        if (!found) sink(v);
+    }
+
+    // --- 2) v > u : merge lineare tra nbrs[mid..] e row(u)
+    const auto [ru, lu] = exclude_pairs->row(u32); // ru: v>u da escludere
+    std::size_t j = 0; // indice in ru
+
+    for (std::size_t i = mid; i < nbrs.size(); ++i) {
+        const uint32_t v = static_cast<uint32_t>(nbrs[i]);
+        // avanza in ru fino a >= v
+        while (j < lu && ru[j] < v) ++j;
+        if (j == lu || ru[j] != v) {
+            sink(v); // tieni v se non escluso
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+// Binary writers (.gof / .gof64) con filtraggio ottimizzato
 //------------------------------------------------------------------------------
 
 static void write_graph_bin32(const std::string& out_base,
-                              const std::vector<std::vector<V>>& adj)
+                              const std::vector<std::vector<V>>& adj,
+                              const PairSet* exclude_pairs)
 {
     const V n = static_cast<V>(adj.size());
-    const std::uint64_t directed = sum_directed_entries(adj);
-    if (directed > std::numeric_limits<std::uint32_t>::max())
-        throw std::runtime_error("directed entries exceed 32-bit range; write_graph_bin32 not applicable");
-    const std::uint32_t undirected_edges = static_cast<std::uint32_t>(directed / 2ull);
 
     std::ofstream gof(out_base + ".gof", std::ios::binary);
     std::ofstream ged(out_base + ".ged", std::ios::binary);
     if (!gof) throw std::runtime_error("Cannot open " + out_base + ".gof");
     if (!ged) throw std::runtime_error("Cannot open " + out_base + ".ged");
 
-    // Header: [n:uint32][E:uint32]
+    // Header: [n:uint32][E:uint32=0]
     gof.write(reinterpret_cast<const char*>(&n), sizeof(V));
-    gof.write(reinterpret_cast<const char*>(&undirected_edges), sizeof(std::uint32_t));
+    std::uint32_t placeholder_edges = 0;
+    gof.write(reinterpret_cast<const char*>(&placeholder_edges), sizeof(std::uint32_t));
 
-    // Offsets + neighbors payload
     std::uint32_t written = 0;
+    std::uint64_t directed_written = 0ULL;
+
     for (V u = 0; u < n; ++u) {
         const std::uint32_t off = written;
         gof.write(reinterpret_cast<const char*>(&off), sizeof(std::uint32_t));
 
-        if (!adj[u].empty()) {
-            ged.write(reinterpret_cast<const char*>(adj[u].data()),
-                      static_cast<std::streamsize>(adj[u].size() * sizeof(V)));
-            written += static_cast<std::uint32_t>(adj[u].size());
+        const auto& nb = adj[u];
+        if (!nb.empty()) {
+            write_neighbors_filtered_optimized(
+                static_cast<uint32_t>(u), nb, exclude_pairs,
+                [&](uint32_t v){
+                    ged.write(reinterpret_cast<const char*>(&v), sizeof(uint32_t));
+                    ++written; ++directed_written;
+                }
+            );
         }
     }
-    // Final sentinel offset (offsets[n])
+    // sentinel
     gof.write(reinterpret_cast<const char*>(&written), sizeof(std::uint32_t));
+
+    // patch E
+    const std::uint64_t undirected = directed_written / 2ULL;
+    if (undirected > std::numeric_limits<std::uint32_t>::max())
+        throw std::runtime_error("directed entries pushed E beyond 32-bit range; use .gof64");
+    const std::uint32_t E32 = static_cast<std::uint32_t>(undirected);
+    gof.seekp(sizeof(V), std::ios::beg);
+    gof.write(reinterpret_cast<const char*>(&E32), sizeof(std::uint32_t));
 }
 
 static void write_graph_bin64(const std::string& out_base,
-                              const std::vector<std::vector<V>>& adj)
+                              const std::vector<std::vector<V>>& adj,
+                              const PairSet* exclude_pairs)
 {
     const V n = static_cast<V>(adj.size());
-    const std::uint64_t directed = sum_directed_entries(adj);
-    const std::uint64_t undirected_edges = directed / 2ull;
 
     std::ofstream gof(out_base + ".gof64", std::ios::binary);
     std::ofstream ged(out_base + ".ged",   std::ios::binary);
     if (!gof) throw std::runtime_error("Cannot open " + out_base + ".gof64");
     if (!ged) throw std::runtime_error("Cannot open " + out_base + ".ged");
 
-    // Header: [n:uint32][E:uint64]
+    // Header: [n:uint32][E:uint64=0]
     const std::uint32_t n32 = static_cast<std::uint32_t>(n);
     gof.write(reinterpret_cast<const char*>(&n32), sizeof(std::uint32_t));
-    gof.write(reinterpret_cast<const char*>(&undirected_edges), sizeof(std::uint64_t));
+    std::uint64_t placeholder_edges = 0ULL;
+    gof.write(reinterpret_cast<const char*>(&placeholder_edges), sizeof(std::uint64_t));
 
-    // Offsets + neighbors payload (uint64 offsets)
-    std::uint64_t written = 0;
+    std::uint64_t written = 0ULL;
+    std::uint64_t directed_written = 0ULL;
+
     for (V u = 0; u < n; ++u) {
         const std::uint64_t off = written;
         gof.write(reinterpret_cast<const char*>(&off), sizeof(std::uint64_t));
 
-        if (!adj[u].empty()) {
-            ged.write(reinterpret_cast<const char*>(adj[u].data()),
-                      static_cast<std::streamsize>(adj[u].size() * sizeof(V)));
-            written += static_cast<std::uint64_t>(adj[u].size());
+        const auto& nb = adj[u];
+        if (!nb.empty()) {
+            write_neighbors_filtered_optimized(
+                static_cast<uint32_t>(u), nb, exclude_pairs,
+                [&](uint32_t v){
+                    ged.write(reinterpret_cast<const char*>(&v), sizeof(uint32_t));
+                    ++written; ++directed_written;
+                }
+            );
         }
     }
-    // Final sentinel offset (offsets[n])
+    // sentinel
     gof.write(reinterpret_cast<const char*>(&written), sizeof(std::uint64_t));
+
+    // patch E
+    const std::uint64_t undirected = directed_written / 2ULL;
+    gof.seekp(sizeof(std::uint32_t), std::ios::beg);
+    gof.write(reinterpret_cast<const char*>(&undirected), sizeof(std::uint64_t));
 }
 
 //------------------------------------------------------------------------------
-// Serial Gaifman construction (in-memory).
-// For each vertex u, we visit incident hyperedges (optionally filtered by max_m)
-// and add all co-vertices v != u once (dedup via "seen" token technique).
-// Adjacency lists are sorted for determinism.
+// Costruzione Gaifman (seriale / threads) — invariata
 //------------------------------------------------------------------------------
+
 static std::vector<std::vector<V>>
 build_gaifman_serial(const Hypergraph& H, std::uint32_t max_m /* 0 = disabled */)
 {
     const V n = H.number_of_vertices();
     std::vector<std::vector<V>> adj(n);
 
-    // Token-based "seen" array for O(1) dedup across a vertex's neighborhood
     std::vector<std::uint32_t> seen(n, 0);
     std::uint32_t token = 1;
 
     for (V u = 0; u < n; ++u, ++token) {
-        // Token overflow guard: if token wraps to 0, reset the bitmap
         if (token == 0) { std::fill(seen.begin(), seen.end(), 0); token = 1; }
 
-        // Capacity hint: sum(|e|-1) over incident hyperedges (respecting filter)
         std::uint64_t cap = 0;
         const std::uint32_t deg = H.vertex_degree(u);
         for (std::uint32_t i = 0; i < deg; ++i) {
@@ -187,7 +228,6 @@ build_gaifman_serial(const Hypergraph& H, std::uint32_t max_m /* 0 = disabled */
         auto& nb = adj[u];
         nb.reserve(nb.size() + static_cast<size_t>(cap));
 
-        // Fill adjacency (unique neighbors)
         for (std::uint32_t i = 0; i < deg; ++i) {
             const E e = H.incident_hyperedge(u, i);
             const std::uint32_t sz = H.hyperedge_size(e);
@@ -199,15 +239,11 @@ build_gaifman_serial(const Hypergraph& H, std::uint32_t max_m /* 0 = disabled */
                 if (seen[v] != token) { seen[v] = token; nb.push_back(v); }
             }
         }
-
-        std::sort(nb.begin(), nb.end()); // determinism
+        std::sort(nb.begin(), nb.end());
     }
     return adj;
 }
 
-//------------------------------------------------------------------------------
-// Parallel Gaifman construction (std::thread).
-//------------------------------------------------------------------------------
 static std::vector<std::vector<V>>
 build_gaifman_threads(const Hypergraph& H, std::uint32_t max_m, int threads)
 {
@@ -231,7 +267,6 @@ build_gaifman_threads(const Hypergraph& H, std::uint32_t max_m, int threads)
         for (V u = start; u < end; ++u, ++token) {
             if (token == 0) { std::fill(seen.begin(), seen.end(), 0); token = 1; }
 
-            // Capacity hint for u
             std::uint64_t cap = 0;
             const std::uint32_t deg = H.vertex_degree(u);
             for (std::uint32_t i = 0; i < deg; ++i) {
@@ -255,7 +290,6 @@ build_gaifman_threads(const Hypergraph& H, std::uint32_t max_m, int threads)
                     if (seen[v] != token) { seen[v] = token; nb.push_back(v); }
                 }
             }
-
             std::sort(nb.begin(), nb.end());
             adj[u] = std::move(nb);
         }
@@ -275,11 +309,13 @@ build_gaifman_threads(const Hypergraph& H, std::uint32_t max_m, int threads)
 }
 
 //------------------------------------------------------------------------------
-// Streaming serial Gaifman construction (.gof, 32-bit offsets).
+// Streaming serial (.gof/.gof64) con filtraggio ottimizzato
 //------------------------------------------------------------------------------
+
 static void build_gaifman_streaming_serial32(const Hypergraph& H,
                                              const std::string& out_base,
-                                             std::uint32_t max_m)
+                                             std::uint32_t max_m,
+                                             const PairSet* exclude_pairs)
 {
     const V n = H.number_of_vertices();
 
@@ -288,24 +324,19 @@ static void build_gaifman_streaming_serial32(const Hypergraph& H,
     if (!gof) throw std::runtime_error("Cannot open " + out_base + ".gof");
     if (!ged) throw std::runtime_error("Cannot open " + out_base + ".ged");
 
-    // Header with placeholders: [n:uint32][E:uint32=0], then offsets[0]
     gof.write(reinterpret_cast<const char*>(&n), sizeof(V));
     std::uint32_t placeholder_edges = 0;
     gof.write(reinterpret_cast<const char*>(&placeholder_edges), sizeof(std::uint32_t));
-    //std::uint32_t off0 = 0;
-    //gof.write(reinterpret_cast<const char*>(&off0), sizeof(std::uint32_t));
 
-    // Per-vertex dedup state
     std::vector<std::uint32_t> seen(n, 0);
     std::uint32_t token = 1;
 
-    std::uint64_t written_directed64 = 0; // track in 64-bit for safety
+    std::uint64_t directed_written = 0ULL;
     std::uint32_t written = 0;
 
     for (V u = 0; u < n; ++u, ++token) {
         if (token == 0) { std::fill(seen.begin(), seen.end(), 0); token = 1; }
 
-        // Capacity hint
         std::uint64_t cap = 0;
         const std::uint32_t deg = H.vertex_degree(u);
         for (std::uint32_t i = 0; i < deg; ++i) {
@@ -318,7 +349,6 @@ static void build_gaifman_streaming_serial32(const Hypergraph& H,
         std::vector<V> nb;
         if (cap > 0) nb.reserve(static_cast<size_t>(cap));
 
-        // Fill adjacency (unique neighbors)
         for (std::uint32_t i = 0; i < deg; ++i) {
             const E e = H.incident_hyperedge(u, i);
             const std::uint32_t sz = H.hyperedge_size(e);
@@ -331,24 +361,24 @@ static void build_gaifman_streaming_serial32(const Hypergraph& H,
             }
         }
 
-        std::sort(nb.begin(), nb.end()); // determinism
+        std::sort(nb.begin(), nb.end());
 
-        // offsets[u] (uint32)
         gof.write(reinterpret_cast<const char*>(&written), sizeof(std::uint32_t));
 
         if (!nb.empty()) {
-            ged.write(reinterpret_cast<const char*>(nb.data()),
-                      static_cast<std::streamsize>(nb.size() * sizeof(V)));
-            written += static_cast<std::uint32_t>(nb.size());
-            written_directed64 += static_cast<std::uint64_t>(nb.size());
+            write_neighbors_filtered_optimized(
+                static_cast<uint32_t>(u), nb, exclude_pairs,
+                [&](uint32_t v){
+                    ged.write(reinterpret_cast<const char*>(&v), sizeof(uint32_t));
+                    ++written; ++directed_written;
+                }
+            );
         }
     }
 
-    // Final sentinel offsets[n] (uint32)
     gof.write(reinterpret_cast<const char*>(&written), sizeof(std::uint32_t));
 
-    // Patch num_undirected_edges at the header
-    const std::uint64_t undirected64 = written_directed64 / 2ull;
+    const std::uint64_t undirected64 = directed_written / 2ull;
     if (undirected64 > std::numeric_limits<std::uint32_t>::max())
         throw std::runtime_error("num_undirected_edges exceeds 32-bit during finalize (unexpected)");
     const std::uint32_t E32 = static_cast<std::uint32_t>(undirected64);
@@ -356,12 +386,10 @@ static void build_gaifman_streaming_serial32(const Hypergraph& H,
     gof.write(reinterpret_cast<const char*>(&E32), sizeof(std::uint32_t));
 }
 
-//------------------------------------------------------------------------------
-// Streaming serial Gaifman construction (.gof64, 64-bit offsets).
-//------------------------------------------------------------------------------
 static void build_gaifman_streaming_serial64(const Hypergraph& H,
                                              const std::string& out_base,
-                                             std::uint32_t max_m)
+                                             std::uint32_t max_m,
+                                             const PairSet* exclude_pairs)
 {
     const V n = H.number_of_vertices();
 
@@ -370,24 +398,19 @@ static void build_gaifman_streaming_serial64(const Hypergraph& H,
     if (!gof) throw std::runtime_error("Cannot open " + out_base + ".gof64");
     if (!ged) throw std::runtime_error("Cannot open " + out_base + ".ged");
 
-    // Header with placeholders: [n:uint32][E:uint64=0], then offsets[0]
     const std::uint32_t n32 = static_cast<std::uint32_t>(n);
     gof.write(reinterpret_cast<const char*>(&n32), sizeof(std::uint32_t));
     std::uint64_t placeholder_edges = 0;
     gof.write(reinterpret_cast<const char*>(&placeholder_edges), sizeof(std::uint64_t));
-    //std::uint64_t off0 = 0;
-    //gof.write(reinterpret_cast<const char*>(&off0), sizeof(std::uint64_t));
 
-    // Per-vertex dedup state
     std::vector<std::uint32_t> seen(n, 0);
     std::uint32_t token = 1;
 
-    std::uint64_t written = 0; // 64-bit offsets
+    std::uint64_t written = 0; // directed entries
 
     for (V u = 0; u < n; ++u, ++token) {
         if (token == 0) { std::fill(seen.begin(), seen.end(), 0); token = 1; }
 
-        // Capacity hint
         std::uint64_t cap = 0;
         const std::uint32_t deg = H.vertex_degree(u);
         for (std::uint32_t i = 0; i < deg; ++i) {
@@ -400,7 +423,6 @@ static void build_gaifman_streaming_serial64(const Hypergraph& H,
         std::vector<V> nb;
         if (cap > 0) nb.reserve(static_cast<size_t>(cap));
 
-        // Fill adjacency (unique neighbors)
         for (std::uint32_t i = 0; i < deg; ++i) {
             const E e = H.incident_hyperedge(u, i);
             const std::uint32_t sz = H.hyperedge_size(e);
@@ -413,32 +435,32 @@ static void build_gaifman_streaming_serial64(const Hypergraph& H,
             }
         }
 
-        std::sort(nb.begin(), nb.end()); // determinism
+        std::sort(nb.begin(), nb.end());
 
-        // offsets[u] (uint64)
         gof.write(reinterpret_cast<const char*>(&written), sizeof(std::uint64_t));
 
         if (!nb.empty()) {
-            ged.write(reinterpret_cast<const char*>(nb.data()),
-                      static_cast<std::streamsize>(nb.size() * sizeof(V)));
-            written += static_cast<std::uint64_t>(nb.size());
+            write_neighbors_filtered_optimized(
+                static_cast<uint32_t>(u), nb, exclude_pairs,
+                [&](uint32_t v){
+                    ged.write(reinterpret_cast<const char*>(&v), sizeof(uint32_t));
+                    ++written;
+                }
+            );
         }
     }
 
-    // Final sentinel offsets[n] (uint64)
     gof.write(reinterpret_cast<const char*>(&written), sizeof(std::uint64_t));
 
-    // Patch num_undirected_edges at the header (uint64)
     const std::uint64_t undirected = written / 2ull;
     gof.seekp(sizeof(std::uint32_t), std::ios::beg);
     gof.write(reinterpret_cast<const char*>(&undirected), sizeof(std::uint64_t));
 }
 
 //------------------------------------------------------------------------------
-// Estimators
+// Estimatori (come prima)
 //------------------------------------------------------------------------------
 
-// Upper bound estimate (clique expansion, ignores duplicates across hyperedges).
 static std::tuple<V, std::uint64_t, std::uint64_t>
 estimate_upper_bound(const Hypergraph& H, std::uint32_t max_m)
 {
@@ -449,16 +471,13 @@ estimate_upper_bound(const Hypergraph& H, std::uint32_t max_m)
     for (E e = 0; e < m; ++e) {
         const std::uint32_t sz = H.hyperedge_size(e);
         if (max_m && sz > max_m) continue;
-        if (sz >= 2) {
-            undirected_lb += (static_cast<long double>(sz) * (sz - 1)) / 2.0L;
-        }
+        if (sz >= 2) undirected_lb += (static_cast<long double>(sz) * (sz - 1)) / 2.0L;
     }
     const std::uint64_t ub_undirected = static_cast<std::uint64_t>(undirected_lb + 0.5L);
     const std::uint64_t ub_directed   = ub_undirected * 2ULL;
     return {n, ub_undirected, ub_directed};
 }
 
-// Exact directed degree-sum estimation via a serial scan with per-vertex dedup.
 static std::tuple<V, std::uint64_t, std::uint64_t>
 estimate_exact_degree_sum(const Hypergraph& H, std::uint32_t max_m)
 {
@@ -473,7 +492,6 @@ estimate_exact_degree_sum(const Hypergraph& H, std::uint32_t max_m)
 
         std::vector<V> nb;
 
-        // Capacity hint
         std::uint64_t cap = 0;
         const std::uint32_t deg = H.vertex_degree(u);
         for (std::uint32_t i = 0; i < deg; ++i) {
@@ -495,7 +513,7 @@ estimate_exact_degree_sum(const Hypergraph& H, std::uint32_t max_m)
                 if (seen[v] != token) { seen[v] = token; nb.push_back(v); }
             }
         }
-        std::sort(nb.begin(), nb.end()); // determinism
+        std::sort(nb.begin(), nb.end());
         directed_sum += static_cast<std::uint64_t>(nb.size());
     }
 
@@ -504,8 +522,9 @@ estimate_exact_degree_sum(const Hypergraph& H, std::uint32_t max_m)
 }
 
 //------------------------------------------------------------------------------
-// CLI entry point
+// CLI
 //------------------------------------------------------------------------------
+
 int main(int argc, const char** argv)
 {
     OptionsParser op;
@@ -517,6 +536,7 @@ int main(int argc, const char** argv)
     auto* stream_opt = op.add_option(false, false, "stream",          's', "",   "Enable streaming serial build (low memory)");
     auto* est_only   = op.add_option(false, false, "estimate-only",   'E', "",   "Exact degree-sum estimation (no output files)");
     auto* est_upper  = op.add_option(false, false, "estimate-upper",  'U', "",   "Upper-bound estimation via clique expansion (no output files)");
+    auto* excl_opt   = op.add_option(false, true,  "exclude-pairs",   'X', "",   "Canonical .pairs file (u<v) whose edges must be removed");
 
     if (!op.parse(argc, argv) || help_opt->is_found()) {
         std::cout << "Usage: " << argv[0] << " [OPTIONS]\n" << op.help();
@@ -527,10 +547,7 @@ int main(int argc, const char** argv)
     const bool do_est_only = est_only->is_found();
     const bool do_est_up   = est_upper->is_found();
 
-    if (!in_opt->is_found()) {
-        std::cerr << "Missing required --input\n";
-        return EXIT_FAILURE;
-    }
+    if (!in_opt->is_found()) { std::cerr << "Missing required --input\n"; return EXIT_FAILURE; }
     if (!out_opt->is_found() && !(do_est_only || do_est_up)) {
         std::cerr << "Missing required --output (not needed with --estimate-only/--estimate-upper)\n";
         return EXIT_FAILURE;
@@ -542,16 +559,31 @@ int main(int argc, const char** argv)
     const bool use_max         = maxe_opt->is_found();
     const std::uint32_t max_m  = use_max ? static_cast<std::uint32_t>(std::stoul(maxe_opt->get_value())) : 0u;
 
+    // Carica exclude-pairs se richiesto
+    PairSet exclude_pairs;
+    const PairSet* exclude_ptr = nullptr;
+    if (excl_opt->is_found()) {
+        const std::string pth = excl_opt->get_value();
+        try {
+            exclude_pairs = load_pairs_set(pth);
+            exclude_ptr = &exclude_pairs;
+            std::cout << "[filter] exclude-pairs loaded: M=" << exclude_pairs.size()
+                      << ", n~=" << exclude_pairs.n() << "\n";
+        } catch (const std::exception& ex) {
+            std::cerr << "Warning: failed to load --exclude-pairs '" << pth << "': " << ex.what() << "\n";
+        }
+    }
+
     try {
         Hypergraph H(in_base);
 
-        // Estimation modes (no files written).
+        // Modalità stima
         if (do_est_up) {
             auto [n, ub_undirected, ub_directed] = estimate_upper_bound(H, max_m);
             const std::size_t id_bytes = sizeof(V);
             const std::uint64_t ged_bytes = ub_directed * static_cast<std::uint64_t>(id_bytes);
-            const std::uint64_t gof_bytes_32 = (static_cast<std::uint64_t>(n) + 1ULL) * 4ULL + 8ULL;   // [n:u32][E:u32] + (n+1) u32
-            const std::uint64_t gof_bytes_64 = (static_cast<std::uint64_t>(n) + 1ULL) * 8ULL + 12ULL;  // [n:u32][E:u64] + (n+1) u64
+            const std::uint64_t gof_bytes_32 = (static_cast<std::uint64_t>(n) + 1ULL) * 4ULL + 8ULL;
+            const std::uint64_t gof_bytes_64 = (static_cast<std::uint64_t>(n) + 1ULL) * 8ULL + 12ULL;
 
             std::cout << "Upper bound estimate (clique expansion):\n"
                       << "  vertices (n): " << static_cast<std::uint64_t>(n) << "\n"
@@ -582,33 +614,31 @@ int main(int argc, const char** argv)
             return EXIT_SUCCESS;
         }
 
-        // Build modes with auto .gof / .gof64 selection
+        // Build con selezione formato automatica
         if (do_stream) {
             if (thr_opt->is_found() && threads != 1) {
                 std::cerr << "Warning: --threads is ignored in streaming mode (using serial build).\n";
             }
-            // Decide format with an exact pre-pass (low memory).
-            auto [n, undirected, directed] = estimate_upper_bound(H, max_m);
-            const bool need_wide = (directed > std::numeric_limits<std::uint32_t>::max());
-            std::cout << "[stream] directed entries = " << directed
+            auto [n, ub_undirected, ub_directed] = estimate_upper_bound(H, max_m);
+            const bool need_wide = (ub_directed > std::numeric_limits<std::uint32_t>::max());
+            std::cout << "[stream] directed entries (upper bound) = " << ub_directed
                       << " -> writing " << (need_wide ? ".gof64" : ".gof") << "\n";
 
-            if (need_wide) build_gaifman_streaming_serial64(H, out_base, max_m);
-            else           build_gaifman_streaming_serial32(H, out_base, max_m);
+            if (need_wide) build_gaifman_streaming_serial64(H, out_base, max_m, exclude_ptr);
+            else           build_gaifman_streaming_serial32(H, out_base, max_m, exclude_ptr);
 
         } else {
-            // Original behavior: in-memory adjacency + (optional) threads.
             std::vector<std::vector<V>> adj =
                 (threads <= 1) ? build_gaifman_serial(H, max_m)
                                : build_gaifman_threads(H, max_m, threads);
 
-            const std::uint64_t directed = sum_directed_entries(adj);
-            const bool need_wide = (directed > std::numeric_limits<std::uint32_t>::max());
-            std::cout << "[in-memory] directed entries = " << directed
+            const std::uint64_t directed_pre = sum_directed_entries(adj);
+            const bool need_wide = (directed_pre > std::numeric_limits<std::uint32_t>::max());
+            std::cout << "[in-memory] directed entries (pre-filter) = " << directed_pre
                       << " -> writing " << (need_wide ? ".gof64" : ".gof") << "\n";
 
-            if (need_wide) write_graph_bin64(out_base, adj);
-            else           write_graph_bin32(out_base, adj);
+            if (need_wide) write_graph_bin64(out_base, adj, exclude_ptr);
+            else           write_graph_bin32(out_base, adj, exclude_ptr);
         }
 
     } catch (const std::exception& ex) {

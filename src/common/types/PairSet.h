@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <utility>
+#include <cstdio>                 // FILE*, fread, fopen, rewind, fclose
 #include "../graph/UndirectedGraph.h"  // per vertex_t
 
 using Pair = std::pair<UndirectedGraph::vertex_t, UndirectedGraph::vertex_t>;
@@ -13,7 +14,7 @@ inline Pair canon_pair(UndirectedGraph::vertex_t a, UndirectedGraph::vertex_t b)
     return {a, b};
 }
 
-// CSR: per ogni u, v>u in [offsets[u], offsets[u+1]) ordinati crescenti
+// CSR: per ogni u, v>u in [offsets_[u], offsets_[u+1]) ordinati crescenti
 class PairSet {
 public:
     PairSet() = default;
@@ -30,24 +31,41 @@ public:
     inline std::uint64_t size() const noexcept { return M_; } // #coppie canoniche
     inline std::uint32_t n() const noexcept { return n_; }    // #vertici
 
-    // Itera i soli vicini v>u (utile per future ottimizzazioni nei builder)
+    // Accessori veloci per riga:
+    //  - degree(u): #v tali che (u,v) ∈ S (con v>u)
+    //  - row(u): (puntatore, len) alla riga u (array ordinato di v>u)
+    inline std::uint32_t degree(std::uint32_t u) const noexcept {
+        if (u >= n_) return 0u;
+        return static_cast<std::uint32_t>(offsets_[u+1] - offsets_[u]);
+    }
+    inline std::pair<const std::uint32_t*, std::uint32_t>
+    row(std::uint32_t u) const noexcept {
+        if (u >= n_) return {nullptr, 0u};
+        const std::uint64_t b = offsets_[u];
+        const std::uint64_t e = offsets_[u+1];
+        return { adj_.data() + b, static_cast<std::uint32_t>(e - b) };
+    }
+
+    // Itera i soli vicini v>u (utile per ottimizzazioni nei builder)
     template<class F>
     inline void for_each_v(UndirectedGraph::vertex_t u, F f) const {
+        if (static_cast<std::uint32_t>(u) >= n_) return;
         const auto b = offsets_[u], e = offsets_[u+1];
         for (std::uint32_t i = b; i < e; ++i) f(adj_[i]);
     }
 
-    // Costruzione da file .pairs: [uint64_t M][(u,v)*M] con coppie già canoniche
+    // Costruzione da file .pairs: [uint64_t M][(u,v)*M] con coppie già canoniche (u<v)
+    // In caso di errore di lettura restituisce un PairSet vuoto.
     static PairSet load_from_pairs(const std::string& filename) {
         PairSet S;
-        // Passo 1: deg[u] e max vertex
+
         std::FILE* fp = std::fopen(filename.c_str(), "rb");
         if (!fp) return S; // file assente = insieme vuoto
 
         std::uint64_t M = 0;
         if (std::fread(&M, sizeof(M), 1, fp) != 1) { std::fclose(fp); return S; }
 
-        // Leggi a blocchi per non fare troppe syscalls
+        // Passo 1: leggi a blocchi, computa deg[u] e max vertex id
         const std::size_t BUF_PAIRS = 1u << 20; // ~1M coppie per batch
         std::vector<std::uint32_t> buf(2 * BUF_PAIRS);
 
@@ -58,43 +76,41 @@ public:
         while (read_pairs < M) {
             const std::uint64_t todo = std::min<std::uint64_t>(BUF_PAIRS, M - read_pairs);
             const std::size_t want = static_cast<std::size_t>(2 * todo);
-            const std::size_t got = std::fread(buf.data(), sizeof(std::uint32_t), want, fp);
+            const std::size_t got  = std::fread(buf.data(), sizeof(std::uint32_t), want, fp);
             if (got != want) { std::fclose(fp); return PairSet{}; }
 
             for (std::size_t i = 0; i < want; i += 2) {
                 const auto u = buf[i], v = buf[i+1];
-                if (u > v) { std::fclose(fp); return PairSet{}; } // difensivo: atteso già canonico
+                if (u > v) { std::fclose(fp); return PairSet{}; } // ci aspettiamo canonico
                 maxv = std::max(maxv, std::max(u, v));
             }
 
-            // assicurati spazio in deg
-            if (deg.size() < maxv + 1) deg.resize(maxv + 1, 0);
+            if (deg.size() < static_cast<std::size_t>(maxv) + 1) deg.resize(static_cast<std::size_t>(maxv) + 1, 0);
             for (std::size_t i = 0; i < want; i += 2) {
-                const auto u = buf[i], v = buf[i+1];
-                (void)v;
+                const auto u = buf[i];
                 ++deg[u]; // CSR con soli v>u
             }
             read_pairs += todo;
         }
 
-        S.n_ = (deg.empty() ? 0u : static_cast<std::uint32_t>(deg.size()));
+        S.n_ = deg.empty() ? 0u : static_cast<std::uint32_t>(deg.size());
         S.M_ = M;
 
-        S.offsets_.assign(S.n_ + 1, 0);
+        S.offsets_.assign(static_cast<std::size_t>(S.n_) + 1, 0);
         for (std::uint32_t u = 0; u < S.n_; ++u) S.offsets_[u+1] = S.offsets_[u] + deg[u];
-        S.adj_.assign(S.offsets_.back(), 0);
+        S.adj_.assign(static_cast<std::size_t>(S.offsets_.back()), 0);
 
         // cursori di scrittura per ciascun u
         std::vector<std::uint32_t> cur = S.offsets_;
 
-        // Passo 2: riempi adj[u] con i v (ordinati per come arrivano se .pairs è sorted)
+        // Passo 2: riempi adj[u] con i v (in genere già in ordine se il file è sortato)
         std::rewind(fp);
-        std::fread(&M, sizeof(M), 1, fp);
+        (void)std::fread(&M, sizeof(M), 1, fp); // rileggi header
         read_pairs = 0;
         while (read_pairs < M) {
             const std::uint64_t todo = std::min<std::uint64_t>(BUF_PAIRS, M - read_pairs);
             const std::size_t want = static_cast<std::size_t>(2 * todo);
-            const std::size_t got = std::fread(buf.data(), sizeof(std::uint32_t), want, fp);
+            const std::size_t got  = std::fread(buf.data(), sizeof(std::uint32_t), want, fp);
             if (got != want) { std::fclose(fp); return PairSet{}; }
 
             for (std::size_t i = 0; i < want; i += 2) {
@@ -105,12 +121,13 @@ public:
         }
         std::fclose(fp);
 
-        // Per sicurezza: garantisci ordinamento locale (in genere già ordinato)
-        for (std::uint32_t u = 0; u + 1 < S.offsets_.size(); ++u) {
+        // Per sicurezza: garantisci ordinamento locale (se già ordinato, è no-op)
+        for (std::uint32_t u = 0; u < S.n_; ++u) {
             const auto b = S.offsets_[u], e = S.offsets_[u+1];
             std::sort(S.adj_.begin() + b, S.adj_.begin() + e);
-            // se il writer ha già fatto sort+unique, qui non rimuoviamo; se vuoi:
-            // S.adj_.erase(std::unique(S.adj_.begin()+b, S.adj_.begin()+e), S.adj_.begin()+e);
+            // Facoltativo: rimuovi duplicati se il writer non li ha già tolti
+            // const auto it = std::unique(S.adj_.begin()+b, S.adj_.begin()+e);
+            // S.adj_.erase(it, S.adj_.begin()+e);  // richiede aggiornare offsets_ -> sconsigliato qui
         }
         return S;
     }
@@ -126,6 +143,6 @@ private:
 
     std::uint32_t n_ = 0;
     std::uint64_t M_ = 0; // #coppie canoniche
-    std::vector<std::uint32_t> offsets_;
-    std::vector<std::uint32_t> adj_;
+    std::vector<std::uint32_t> offsets_;  // size n_+1
+    std::vector<std::uint32_t> adj_;      // concatenazione delle righe
 };
