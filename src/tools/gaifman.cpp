@@ -292,8 +292,8 @@ static void build_gaifman_streaming_serial32(const Hypergraph& H,
     gof.write(reinterpret_cast<const char*>(&n), sizeof(V));
     std::uint32_t placeholder_edges = 0;
     gof.write(reinterpret_cast<const char*>(&placeholder_edges), sizeof(std::uint32_t));
-    std::uint32_t off0 = 0;
-    gof.write(reinterpret_cast<const char*>(&off0), sizeof(std::uint32_t));
+    //std::uint32_t off0 = 0;
+    //gof.write(reinterpret_cast<const char*>(&off0), sizeof(std::uint32_t));
 
     // Per-vertex dedup state
     std::vector<std::uint32_t> seen(n, 0);
@@ -375,8 +375,8 @@ static void build_gaifman_streaming_serial64(const Hypergraph& H,
     gof.write(reinterpret_cast<const char*>(&n32), sizeof(std::uint32_t));
     std::uint64_t placeholder_edges = 0;
     gof.write(reinterpret_cast<const char*>(&placeholder_edges), sizeof(std::uint64_t));
-    std::uint64_t off0 = 0;
-    gof.write(reinterpret_cast<const char*>(&off0), sizeof(std::uint64_t));
+    //std::uint64_t off0 = 0;
+    //gof.write(reinterpret_cast<const char*>(&off0), sizeof(std::uint64_t));
 
     // Per-vertex dedup state
     std::vector<std::uint32_t> seen(n, 0);

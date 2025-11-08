@@ -356,7 +356,7 @@ echo "[step] gaifman(low,orig)      ${SPLIT_LOW_ORIG_BASE}  ->  ${GAIF_LOW_ORIG_
 {
   bin="$(need_bin motivo-gaifman)"
   LOG="${GAIF_LOW_ORIG_BASE}.gaif.log"
-  secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_ORIG_BASE" --output "$SPLIT_LOW_ORIG_BASE" -j "$MAXT")"
+  secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_ORIG_BASE" --output "$SPLIT_LOW_ORIG_BASE" --stream)"
   preproc_row "gaifman_low" "orig" "$SPLIT_LOW_ORIG_BASE" "$GAIF_LOW_ORIG_BASE" "$MAXT" "$LOG"
 } || true
 
@@ -404,7 +404,7 @@ if [[ "$DO_DEDUP" == "yes" ]]; then
   {
     bin="$(need_bin motivo-gaifman)"
     LOG="${GAIF_FULL_DEDUP_BASE}.gaif.log"
-    secs="$(run_timed "$LOG" "$bin" --input "$HG_DEDUP_BIN_BASE" --output "$GAIF_FULL_DEDUP_BASE" -j "$MAXT")"
+    secs="$(run_timed "$LOG" "$bin" --input "$HG_DEDUP_BIN_BASE" --output "$GAIF_FULL_DEDUP_BASE" --stream)"
     preproc_row "gaifman_full" "dedup" "$HG_DEDUP_BIN_BASE" "$GAIF_FULL_DEDUP_BASE" "$MAXT" "$LOG"
   } || true
 
@@ -412,7 +412,7 @@ if [[ "$DO_DEDUP" == "yes" ]]; then
   {
     bin="$(need_bin motivo-gaifman)"
     LOG="${GAIF_LOW_DEDUP_BASE}.gaif.log"
-    secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_DEDUP_BASE" --output "$SPLIT_LOW_DEDUP_BASE" -j "$MAXT")"
+    secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_DEDUP_BASE" --output "$SPLIT_LOW_DEDUP_BASE" --stream)"
     preproc_row "gaifman_low" "dedup" "$SPLIT_LOW_DEDUP_BASE" "$GAIF_LOW_DEDUP_BASE" "$MAXT" "$LOG"
   } || true
 fi

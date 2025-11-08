@@ -23,6 +23,7 @@
 
 // NEW: pairs support (LOW∩HIGH)
 #include "../common/types/PairSet.h"
+#include "../common/io/PairIO.h"
 
 struct builder_opts {
     char graph[MOTIVO_ARG_MAX];
@@ -40,23 +41,9 @@ struct builder_opts {
     bool normalize; // NEW
 };
 
-// --- NEW: carica <graph>.pairs (se esiste) in un PairSet ---
+// Carica <graph>.pairs se presente (CSR)
 static PairSet load_pairs_if_any(const std::string& basename) {
-    const std::string filename = basename + ".pairs";
-    std::ifstream in(filename, std::ios::binary);
-    PairSet S;
-    if (!in) return S; // assente = insieme vuoto
-
-    std::uint64_t M = 0;
-    in.read(reinterpret_cast<char*>(&M), sizeof(M));
-    S.reserve(static_cast<size_t>(M * 2));
-    for (std::uint64_t i = 0; i < M; ++i) {
-        UndirectedGraph::vertex_t u, v;
-        in.read(reinterpret_cast<char*>(&u), sizeof(u));
-        in.read(reinterpret_cast<char*>(&v), sizeof(v));
-        S.insert(canon_pair(u, v)); // normalizza subito (u<v)
-    }
-    return S;
+    return load_pairs_set(basename + ".pairs");
 }
 
 static bool parse_builder_args(const int argc, const char **argv,
