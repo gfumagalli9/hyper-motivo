@@ -12,6 +12,7 @@ set -euo pipefail
 #   NEW: also records preprocessing timings into $OUTPUT_BASE.preproc.csv
 #   NEW: Gaifman LOW uses --exclude-pairs to drop edges listed in <low>.pairs
 #   NEW: Split threshold can be provided per-variant (orig/dedup) or globally
+#   NEW: --only-dedup runs only the deduplicated pipeline (and implies --deduplicate)
 # ------------------------------------------------------------
 
 # ----------------------- configuration -----------------------
@@ -54,7 +55,7 @@ else
   TIMECMD=()  # fallback: manual timing
 fi
 
-# parse "h:mm:ss" or "m:ss" or "s.ss" -> seconds with 2 decimals
+# parse "h:mm:ss" o "m:ss" o "s.ss" -> secondi con 2 decimali
 to_seconds() {
   awk -F: '
     NF==3 { printf("%.2f", ($1*3600)+($2*60)+$3); next }
@@ -177,21 +178,30 @@ archive_run_artifacts() {
   shopt -u nullglob
 }
 
+# GAIFMAN log basenames (init to empty to avoid set -u issues)
+GAIF_FULL_ORIG_BASE=""
+GAIF_LOW_ORIG_BASE=""
+GAIF_FULL_DEDUP_BASE=""
+GAIF_LOW_DEDUP_BASE=""
+
 # Copy available preprocessing logs into the per-run dir (do not move here).
 copy_preproc_logs() {
   local run_dir="$1"
   mkdir -p "$run_dir/preproc"
-  for f in \
-      "${GAIF_FULL_ORIG_BASE}.gaif.log" \
-      "${GAIF_FULL_DEDUP_BASE:-}.gaif.log" \
-      "${GAIF_LOW_ORIG_BASE}.gaif.log" \
-      "${GAIF_LOW_DEDUP_BASE:-}.gaif.log" \
-      "${OUTPUT_BASE}.convert.log" \
-      "${OUTPUT_BASE}.split_orig.log" \
-      "${OUTPUT_BASE}.split_dedup.log" \
-      "${OUTPUT_BASE}.dedup.log" \
-      "${PREPROC_CSV}" \
-  ; do
+
+  local files=()
+  [[ -n "${GAIF_FULL_ORIG_BASE-}"  ]] && files+=("${GAIF_FULL_ORIG_BASE}.gaif.log")
+  [[ -n "${GAIF_LOW_ORIG_BASE-}"   ]] && files+=("${GAIF_LOW_ORIG_BASE}.gaif.log")
+  [[ -n "${GAIF_FULL_DEDUP_BASE-}" ]] && files+=("${GAIF_FULL_DEDUP_BASE}.gaif.log")
+  [[ -n "${GAIF_LOW_DEDUP_BASE-}"  ]] && files+=("${GAIF_LOW_DEDUP_BASE}.gaif.log")
+
+  files+=("${OUTPUT_BASE}.convert.log"
+          "${OUTPUT_BASE}.split_orig.log"
+          "${OUTPUT_BASE}.split_dedup.log"
+          "${OUTPUT_BASE}.dedup.log"
+          "${PREPROC_CSV}")
+
+  for f in "${files[@]}"; do
     [[ -f "$f" ]] && cp -f "$f" "$run_dir/preproc/"
   done
 }
@@ -200,24 +210,37 @@ copy_preproc_logs() {
 final_cleanup_preproc() {
   [[ "$DELETE_MODE" == "yes" ]] || return 0
   shopt -s nullglob
-  rm -f "${HG_BIN_BASE}".hmeta "${HG_BIN_BASE}".hbin "${HG_BIN_BASE}".hidx || true
-  rm -f "${SPLIT_LOW_ORIG_BASE}".* "${SPLIT_HIGH_ORIG_BASE}".* || true
-  rm -f "${GAIF_FULL_ORIG_BASE}".* "${GAIF_LOW_ORIG_BASE}".* || true
-  if [[ "${DO_DEDUP}" == "yes" ]]; then
-    rm -f "${HG_DEDUP_BIN_BASE}".hmeta "${HG_DEDUP_BIN_BASE}".hbin "${HG_DEDUP_BIN_BASE}".hidx || true
-    rm -f "${SPLIT_LOW_DEDUP_BASE}".* "${SPLIT_HIGH_DEDUP_BASE}".* || true
-    rm -f "${GAIF_FULL_DEDUP_BASE}".* "${GAIF_LOW_DEDUP_BASE}".* || true
+
+  # Safe guards: esegui rm solo se la basename è non-vuota
+  [[ -n "${HG_BIN_BASE:-}" ]] && rm -f -- "${HG_BIN_BASE}.hmeta" "${HG_BIN_BASE}.hbin" "${HG_BIN_BASE}.hidx" || true
+
+  if [[ "${ONLY_DEDUP}" != "yes" ]]; then
+    [[ -n "${SPLIT_LOW_ORIG_BASE:-}"  ]]  && rm -f -- "${SPLIT_LOW_ORIG_BASE}".*  || true
+    [[ -n "${SPLIT_HIGH_ORIG_BASE:-}" ]]  && rm -f -- "${SPLIT_HIGH_ORIG_BASE}".* || true
+    [[ -n "${GAIF_FULL_ORIG_BASE:-}"  ]]  && rm -f -- "${GAIF_FULL_ORIG_BASE}".*  || true
+    [[ -n "${GAIF_LOW_ORIG_BASE:-}"   ]]  && rm -f -- "${GAIF_LOW_ORIG_BASE}".*   || true
   fi
-  rm -f \
+
+  if [[ "${DO_DEDUP}" == "yes" ]]; then
+    [[ -n "${HG_DEDUP_BIN_BASE:-}"     ]] && rm -f -- "${HG_DEDUP_BIN_BASE}.hmeta" "${HG_DEDUP_BIN_BASE}.hbin" "${HG_DEDUP_BIN_BASE}.hidx" || true
+    [[ -n "${SPLIT_LOW_DEDUP_BASE:-}"  ]] && rm -f -- "${SPLIT_LOW_DEDUP_BASE}".*  || true
+    [[ -n "${SPLIT_HIGH_DEDUP_BASE:-}" ]] && rm -f -- "${SPLIT_HIGH_DEDUP_BASE}".* || true
+    [[ -n "${GAIF_FULL_DEDUP_BASE:-}"  ]] && rm -f -- "${GAIF_FULL_DEDUP_BASE}".*  || true
+    [[ -n "${GAIF_LOW_DEDUP_BASE:-}"   ]] && rm -f -- "${GAIF_LOW_DEDUP_BASE}".*   || true
+  fi
+
+  # Logs: usa espansioni sicure per evitare stringhe vuote
+  rm -f -- \
     "${OUTPUT_BASE}.convert.log" \
     "${OUTPUT_BASE}.dedup.log" \
     "${OUTPUT_BASE}.split_orig.log" \
     "${OUTPUT_BASE}.split_dedup.log" \
-    "${GAIF_FULL_ORIG_BASE}.gaif.log" \
-    "${GAIF_LOW_ORIG_BASE}.gaif.log" \
-    "${GAIF_FULL_DEDUP_BASE:-}.gaif.log" \
-    "${GAIF_LOW_DEDUP_BASE:-}.gaif.log" \
+    ${GAIF_FULL_ORIG_BASE:+${GAIF_FULL_ORIG_BASE}.gaif.log} \
+    ${GAIF_LOW_ORIG_BASE:+${GAIF_LOW_ORIG_BASE}.gaif.log} \
+    ${GAIF_FULL_DEDUP_BASE:+${GAIF_FULL_DEDUP_BASE}.gaif.log} \
+    ${GAIF_LOW_DEDUP_BASE:+${GAIF_LOW_DEDUP_BASE}.gaif.log} \
     || true
+
   shopt -u nullglob
   echo "[cleanup] removed preprocessing artifacts (delete mode)"
 }
@@ -229,6 +252,7 @@ K_LIST=""
 SAMPLES_LIST=""
 HG_TXT=""
 DO_DEDUP="no"
+ONLY_DEDUP="no"
 OUTPUT_BASE=""
 RESULTS_DIR=""
 
@@ -244,6 +268,7 @@ while [[ $# -gt 0 ]]; do
     --samples)             SAMPLES_LIST="$(split_list "$(trim "${2:-}")")"; shift 2 ;;
     --hg)                  HG_TXT="$(trim "${2:-}")"; shift 2 ;;
     --deduplicate)         DO_DEDUP="yes"; shift ;;
+    --only-dedup)          ONLY_DEDUP="yes"; DO_DEDUP="yes"; shift ;;  # implies dedup
     --delete)              DELETE_MODE="yes"; shift ;;
     -o|--output)           OUTPUT_BASE="$(trim "${2:-}")"; shift 2 ;;
     -R|--results)          RESULTS_DIR="$(trim "${2:-}")"; shift 2 ;;
@@ -256,7 +281,7 @@ while [[ $# -gt 0 ]]; do
 Usage:
   $0 --threads "1,8" -k 3 --samples "1000 100000" --hg path/to/hyper.txt \\
      [--threshold auto|N] [--threshold-orig auto|N] [--threshold-dedup auto|N] \\
-     [--deduplicate] [--delete] --output out/basename --results results/
+     [--deduplicate] [--only-dedup] [--delete] --output out/basename --results results/
 EOF
       exit 0 ;;
     *) die "Unknown option: $1" ;;
@@ -300,41 +325,49 @@ echo "[step] hypergraph(txt->bin)   $HG_TXT  ->  ${HG_BIN_BASE}.*"
   preproc_row "build_hypergraph" "orig" "$HG_TXT" "$HG_BIN_BASE" "1" "$LOG"
 } || true
 
-# 2) Split original -> LOW/HIGH (timed)
-SPLIT_LOW_ORIG_BASE="${OUTPUT_BASE}.low"
-SPLIT_HIGH_ORIG_BASE="${OUTPUT_BASE}.high"
-echo "[step] split(original, t=${ORIG_SPLIT_THRESH:-auto})  ${HG_BIN_BASE}  ->  ${SPLIT_LOW_ORIG_BASE}.*, ${SPLIT_HIGH_ORIG_BASE}.*"
-{
-  bin="$(need_bin motivo-hgsplit)"
-  LOG="${OUTPUT_BASE}.split_orig.log"
-  if [[ -n "${ORIG_SPLIT_THRESH:-}" ]]; then
-    secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE" -t "$ORIG_SPLIT_THRESH")"
-  else
-    secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE")"
-  fi
-  preproc_row "split" "orig" "$HG_BIN_BASE" "${SPLIT_LOW_ORIG_BASE}|${SPLIT_HIGH_ORIG_BASE}" "1" "$LOG"
-} || true
+# 2) Split original -> LOW/HIGH (timed)  [skipped in ONLY_DEDUP]
+SPLIT_LOW_ORIG_BASE=""
+SPLIT_HIGH_ORIG_BASE=""
+if [[ "$ONLY_DEDUP" != "yes" ]]; then
+  SPLIT_LOW_ORIG_BASE="${OUTPUT_BASE}.low"
+  SPLIT_HIGH_ORIG_BASE="${OUTPUT_BASE}.high"
+  echo "[step] split(original, t=${ORIG_SPLIT_THRESH:-auto})  ${HG_BIN_BASE}  ->  ${SPLIT_LOW_ORIG_BASE}.*, ${SPLIT_HIGH_ORIG_BASE}.*"
+  {
+    bin="$(need_bin motivo-hgsplit)"
+    LOG="${OUTPUT_BASE}.split_orig.log"
+    if [[ -n "${ORIG_SPLIT_THRESH:-}" ]]; then
+      secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE" -t "$ORIG_SPLIT_THRESH")"
+    else
+      secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE")"
+    fi
+    preproc_row "split" "orig" "$HG_BIN_BASE" "${SPLIT_LOW_ORIG_BASE}|${SPLIT_HIGH_ORIG_BASE}" "1" "$LOG"
+  } || true
+fi
 
-# 3) Gaifman FULL(original)  -> per graph pipeline (timed)
-GAIF_FULL_ORIG_BASE="${OUTPUT_BASE}.gaifman_full"
-echo "[step] gaifman(full,orig)     ${HG_BIN_BASE}  ->  ${GAIF_FULL_ORIG_BASE}.*"
-{
-  bin="$(need_bin motivo-gaifman)"
-  LOG="${GAIF_FULL_ORIG_BASE}.gaif.log"
-  secs="$(run_timed "$LOG" "$bin" --input "$HG_BIN_BASE" --output "$GAIF_FULL_ORIG_BASE" --stream)"
-  preproc_row "gaifman_full" "orig" "$HG_BIN_BASE" "$GAIF_FULL_ORIG_BASE" "$MAXT" "$LOG"
-} || true
+# 3) Gaifman FULL(original)  -> per graph pipeline (timed) [skipped in ONLY_DEDUP]
+if [[ "$ONLY_DEDUP" != "yes" ]]; then
+  GAIF_FULL_ORIG_BASE="${OUTPUT_BASE}.gaifman_full"
+  echo "[step] gaifman(full,orig)     ${HG_BIN_BASE}  ->  ${GAIF_FULL_ORIG_BASE}.*"
+  {
+    bin="$(need_bin motivo-gaifman)"
+    LOG="${GAIF_FULL_ORIG_BASE}.gaif.log"
+    secs="$(run_timed "$LOG" "$bin" --input "$HG_BIN_BASE" --output "$GAIF_FULL_ORIG_BASE" --stream)"
+    preproc_row "gaifman_full" "orig" "$HG_BIN_BASE" "$GAIF_FULL_ORIG_BASE" "$MAXT" "$LOG"
+  } || true
+fi
 
-# 4) Gaifman LOW(original)   -> per hyper pipeline (timed, in-place basename of LOW split)
-GAIF_LOW_ORIG_BASE="${SPLIT_LOW_ORIG_BASE}"
-echo "[step] gaifman(low,orig)      ${SPLIT_LOW_ORIG_BASE}  ->  ${GAIF_LOW_ORIG_BASE}.*"
-{
-  bin="$(need_bin motivo-gaifman)"
-  LOG="${GAIF_LOW_ORIG_BASE}.gaif.log"
-  secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_ORIG_BASE" --output "$SPLIT_LOW_ORIG_BASE" --stream \
-         --exclude-pairs "${SPLIT_LOW_ORIG_BASE}.pairs")"
-  preproc_row "gaifman_low" "orig" "$SPLIT_LOW_ORIG_BASE" "$GAIF_LOW_ORIG_BASE" "$MAXT" "$LOG"
-} || true
+# 4) Gaifman LOW(original)   -> per hyper pipeline (timed) [skipped in ONLY_DEDUP]
+if [[ "$ONLY_DEDUP" != "yes" ]]; then
+  GAIF_LOW_ORIG_BASE="${SPLIT_LOW_ORIG_BASE}"
+  echo "[step] gaifman(low,orig)      ${SPLIT_LOW_ORIG_BASE}  ->  ${GAIF_LOW_ORIG_BASE}.*"
+  {
+    bin="$(need_bin motivo-gaifman)"
+    LOG="${GAIF_LOW_ORIG_BASE}.gaif.log"
+    secs="$(run_timed "$LOG" "$bin" --input "$SPLIT_LOW_ORIG_BASE" --output "$SPLIT_LOW_ORIG_BASE" --stream \
+           --exclude-pairs "${SPLIT_LOW_ORIG_BASE}.pairs")"
+    preproc_row "gaifman_low" "orig" "$SPLIT_LOW_ORIG_BASE" "$GAIF_LOW_ORIG_BASE" "$MAXT" "$LOG"
+  } || true
+fi
 
 # ----- Optional dedup variant -----
 HG_DEDUP_BIN_BASE="${OUTPUT_BASE}.hg_dedup"
@@ -408,23 +441,25 @@ for T in $THREADS_LIST; do
       RUN_DIR="${RESULTS_DIR}/${RUN_TAG}"
       mkdir -p "$RUN_DIR"
 
-      # ---------- HYPER (original) ----------
-      OUT_HYP_ORIG="${OUTPUT_BASE}.hyper.K${K}.T${T}.S${S}"
-      echo "[run] hyper(original) K=$K T=$T S=$S -> $OUT_HYP_ORIG"
-      bash "$HYPER_PIPE" --build --sample \
-        -H "${SPLIT_HIGH_ORIG_BASE}" \
-        -L "${GAIF_LOW_ORIG_BASE}" \
-        -g "${HG_BIN_BASE}" \
-        -k "$K" \
-        -S "$S" \
-        -t "$T" \
-        -o "${OUT_HYP_ORIG}" \
-        --seed 42 \
-        > "${OUT_HYP_ORIG}.driver.log" 2>&1 || true
+      # ---------- HYPER (original) ---------- [skipped in ONLY_DEDUP]
+      if [[ "$ONLY_DEDUP" != "yes" ]]; then
+        OUT_HYP_ORIG="${OUTPUT_BASE}.hyper.K${K}.T${T}.S${S}"
+        echo "[run] hyper(original) K=$K T=$T S=$S -> $OUT_HYP_ORIG"
+        bash "$HYPER_PIPE" --build --sample \
+          -H "${SPLIT_HIGH_ORIG_BASE}" \
+          -L "${GAIF_LOW_ORIG_BASE}" \
+          -g "${HG_BIN_BASE}" \
+          -k "$K" \
+          -S "$S" \
+          -t "$T" \
+          -o "${OUT_HYP_ORIG}" \
+          --seed 42 \
+          > "${OUT_HYP_ORIG}.driver.log" 2>&1 || true
 
-      copy_stepcsv_if_exists "${OUT_HYP_ORIG}" \
-        "${RESULTS_DIR}/${HG_NAME_NOEXT}_hyper_K${K}_T${T}_S${S}.csv"
-      archive_run_artifacts "$RUN_DIR" "hyper" "orig" "$OUT_HYP_ORIG"
+        copy_stepcsv_if_exists "${OUT_HYP_ORIG}" \
+          "${RESULTS_DIR}/${HG_NAME_NOEXT}_hyper_K${K}_T${T}_S${S}.csv"
+        archive_run_artifacts "$RUN_DIR" "hyper" "orig" "$OUT_HYP_ORIG"
+      fi
 
       # ---------- HYPER (deduplicated) ----------
       if [[ "$DO_DEDUP" == "yes" ]]; then
@@ -446,24 +481,26 @@ for T in $THREADS_LIST; do
         archive_run_artifacts "$RUN_DIR" "hyper" "dedup" "$OUT_HYP_DEDUP"
       fi
 
-      # ---------- GRAPH (Gaifman FULL - original) ----------
-      OUT_G_ORIG="${OUTPUT_BASE}.graph.K${K}.T${T}.S${S}"
-      echo "[run] graph(original) K=$K T=$T S=$S -> $OUT_G_ORIG"
-      bash "$GRAPH_PIPE" \
-        -g "${GAIF_FULL_ORIG_BASE}" \
-        -k "$K" \
-        -o "$OUT_G_ORIG" \
-        -s "$S" \
-        -t "$T" \
-        -H "${HG_BIN_BASE}" \
-        --seed 42 \
-        > "${OUT_G_ORIG}.driver.log" 2>&1 || true
+      # ---------- GRAPH (Gaifman FULL - original) ---------- [skipped in ONLY_DEDUP]
+      if [[ "$ONLY_DEDUP" != "yes" ]]; then
+        OUT_G_ORIG="${OUTPUT_BASE}.graph.K${K}.T${T}.S${S}"
+        echo "[run] graph(original) K=$K T=$T S=$S -> $OUT_G_ORIG"
+        bash "$GRAPH_PIPE" \
+          -g "${GAIF_FULL_ORIG_BASE}" \
+          -k "$K" \
+          -o "$OUT_G_ORIG" \
+          -s "$S" \
+          -t "$T" \
+          -H "${HG_BIN_BASE}" \
+          --seed 42 \
+          > "${OUT_G_ORIG}.driver.log" 2>&1 || true
 
-      if [[ -f "${OUT_G_ORIG}.perf" || -f "${OUT_G_ORIG}.timings.csv" ]]; then
-        copy_stepcsv_if_exists "${OUT_G_ORIG}" \
-          "${RESULTS_DIR}/${HG_NAME_NOEXT}_gaifman_K${K}_T${T}_S${S}.csv"
+        if [[ -f "${OUT_G_ORIG}.perf" || -f "${OUT_G_ORIG}.timings.csv" ]]; then
+          copy_stepcsv_if_exists "${OUT_G_ORIG}" \
+            "${RESULTS_DIR}/${HG_NAME_NOEXT}_gaifman_K${K}_T${T}_S${S}.csv"
+        fi
+        archive_run_artifacts "$RUN_DIR" "graph" "orig" "$OUT_G_ORIG"
       fi
-      archive_run_artifacts "$RUN_DIR" "graph" "orig" "$OUT_G_ORIG"
 
       # ---------- GRAPH (Gaifman FULL - deduplicated) ----------
       if [[ "$DO_DEDUP" == "yes" ]]; then
