@@ -1,224 +1,273 @@
-# Motivo
+# HyperMotivo
 
-Motivo is a collection of tools for counting and sampling motifs in large graphs — and now **hypergraphs**.  
-It is written in C++ and targets x86_64 processors, although it should compile on other architectures as well.
+Tools for **counting and sampling induced sub‑hypergraphs (hypergraphlets)** via color coding, splitting, and inclusion–exclusion. It extends the original **Motivo** framework for graphs to **hypergraphs**, adding a LOW/HIGH splitting pipeline, Gaifman construction, and a non‑adaptive sampler.
+
+> If you are looking for graph (not hypergraph) motif counting, see the original Motivo repository.
 
 ---
 
-## Setup
+## Papers & citation
 
-### Requirements
+This code implements the algorithm described in the draft paper *“Counting Graphlets in Hypergraphs: Breaking the Quadratic‑Time Barrier via Splitting and Color Coding.”* If you use this code, please cite:
 
-Motivo depends on the following libraries:
-
-- [Google's sparsehash](https://github.com/sparsehash/sparsehash)
-- [nauty](http://pallini.di.uniroma1.it/)
-- [LZ4](https://github.com/lz4/lz4)
-- Optional: libtcmalloc from [gperftools](https://github.com/gperftools/gperftools)
-
-Your Linux distribution might have premade packages, i.e., on Debian you can run:
-```bash
-sudo apt-get install libsparsehash-dev libnauty2-dev liblz4-dev
-# Optional:
-sudo apt-get install libgoogle-perftools-dev
+```
+Bressan, M., Clemente, S., Fumagalli, G. (2025).
+Counting Graphlets in Hypergraphs: Breaking the Quadratic‑Time Barrier via Splitting and Color Coding.
+Draft manuscript.
 ```
 
-A C++17 aware compiler is required along with support for [u]int{8,16,32,64,128} types.  
-Support for `mmap` (POSIX.1-2001 and later) is also currently required.
+For the original Motivo algorithm on graphs, see:
 
-> **Python helpers (optional).** Some utilities for visualizing motifs/hypergraphlets use Python:
-> - `numpy`, `matplotlib`
-> - For graphlets: `networkx`
-> - For hypergraphlets: **`hypernetx`** (and its dependency `fastjsonschema`)
->
-> Install with:
-> ```bash
-> python3 -m pip install numpy matplotlib networkx hypernetx fastjsonschema
-> ```
-
-### Missing libraries
-
-If any of the required C/C++ libraries are not available in your distribution, you can install them locally. Here we use `$HOME/local` as a prefix so nothing touches system folders.
-
-```bash
-mkdir -p "$HOME/local"
-export CPATH="$CPATH:$HOME/local/include"
-export LIBRARY_PATH="$LIBRARY_PATH:$HOME/local/lib"
+```
+Bressan, M., Leucci, S., Panconesi, A. (2019).
+Motivo: fast motif counting via succinct color coding and adaptive sampling.
+PVLDB 12(11):1651–1663.
 ```
 
-**LZ4**
+---
+
+## Features (what’s new vs. Motivo)
+
+- **Hypergraph I/O**: ASCII ⇄ binary converter (`motivo-hypergraph`).
+- **LOW/HIGH splitting**: `motivo-hgsplit` computes an α‑split (LOW = edges of size ≤ α; HIGH = edges of size > α) and materializes the **LOW∩HIGH vertex‑pair set** used during DP.
+- **Gaifman construction** on LOW: `motivo-gaifman` builds the Gaifman/primal graph of the LOW part (with options for estimation/streaming).
+- **Hypergraph DP builder**: `motivo-hyper-build` builds treelet tables (TTC) over HIGH with inclusion–exclusion (IE) support.
+- **NWS/IE utilities**: `motivo-nws` computes the k=1 IE/NWS tables; `motivo-merge` merges `.cnt` into compressed `.dtz`/`.ie.dtz`.
+- **Non‑adaptive sampler**: `motivo-hyper-sample` produces estimates and (optionally) raw samples for k‑hypergraphlets.
+
+---
+
+## Requirements
+
+- **C++17** compiler (GCC ≥ 9 or Clang ≥ 9)
+- **CMake ≥ 3.12**
+- Libraries:
+  - [sparsehash] (libsparsehash-dev)
+  - [nauty] (libnauty2-dev)
+  - [lz4] (liblz4-dev)
+  - Optional: **tcmalloc** (libgoogle-perftools-dev)
+- Python 3 (optional) to use helper scripts in `scripts/`.
+
+On Debian/Ubuntu:
+
 ```bash
-git clone https://github.com/lz4/lz4.git
-cd lz4 && make && make install prefix="$HOME/local" && cd ..
+sudo apt-get install build-essential cmake git \
+    libsparsehash-dev libnauty2-dev liblz4-dev \
+    libgoogle-perftools-dev # optional
 ```
 
-**sparsehash**
-```bash
-git clone https://github.com/sparsehash/sparsehash
-cd sparsehash
-./configure --prefix="$HOME/local"
-make && make install
-cd ..
-```
+---
 
-**nauty** (example version; check for newer)
-```bash
-wget https://pallini.di.uniroma1.it/nauty27r3.tar.gz
-tar xvzf nauty27r3.tar.gz
-cd nauty27r3
-./configure --enable-tls --prefix="$HOME/local"
-make && make install
-cd ..
-```
-
-### Compiling
-
-Use CMake (>= 3.12):
+## Build
 
 ```bash
 mkdir build && cd build
-cmake ..
+cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j
+# (optional) use tcmalloc
+# cmake -DCMAKE_BUILD_TYPE=Release -DUSE_TCMALLOC=yes ..
 ```
 
-The compiled binaries end up in `build/bin/`.
+Binaries are written to `build/bin/`.
 
-Enable tcmalloc:
-```bash
-cmake -DUSE_TCMALLOC=YES ..
-```
-
-Build with clang/LLVM:
-```bash
-CC=clang CXX=clang++ cmake -D_CMAKE_TOOLCHAIN_PREFIX=llvm- ..
-```
-
-### Running the tests
+To run tests:
 
 ```bash
 ctest
 ```
 
-With a memory checker (e.g., valgrind):
+Additional CMake options:
+
+- `-DOPTIMIZE_MORE=YES` enables extra optimizations (e.g., `-march=native`).
+- `-DENABLE_ASSERTS=YES` keeps runtime asserts in Release.
+- `-DMOTIVO_OVERFLOW_SAFE=NO` disables big‑integer overflow checks (faster, less safe).
+
+---
+
+## Input formats
+
+### Graphs (for comparison and for LOW’s Gaifman)
+
+Same textual and binary formats as Motivo. See `bin/motivo-graph --help`.
+
+### Hypergraphs
+
+The **ASCII** input is one hyperedge per line: a list of non‑negative vertex IDs (any non‑digit is a separator). Duplicates within a hyperedge are removed; hyperedges are globally sorted by decreasing size at write time.
+
+Convert ASCII ⇄ binary with `motivo-hypergraph`:
+
 ```bash
-ctest -T memcheck
+# ASCII → binary (produces: <base>.hmeta, .hef, .hvd, .vhef, .vhed)
+bin/motivo-hypergraph --input my_hyper.txt --output data/hg
+
+# binary → ASCII\ bin/motivo-hypergraph --dump --input data/hg --output data/hg.txt
 ```
 
-### Installing
+Binary layout (read‑only):
+
+- `<base>.hmeta` : `[num_vertices][num_edges]`
+- `<base>.hef`   : offsets for edge→vertex adjacency (size = `num_edges+1`)
+- `<base>.hvd`   : concatenated vertex IDs for all edges
+- `<base>.vhef`  : offsets for vertex→edge incidence (size = `num_vertices+1`)
+- `<base>.vhed`  : concatenated edge IDs for all vertices
+
+---
+
+## Quick start (hypergraphs)
+
+> **The easy way** is to use the wrapper `scripts/hyper_motivo_mac.sh`, which orchestrates splitting, Gaifman(LOW), DP builds, NWS/IE merges, and sampling, and writes timings to CSV.
 
 ```bash
-sudo make install
+# Example: build k=5 TTCs and take 100k samples, 8 threads
+BUILDPATH=build/bin \
+./scripts/hyper_motivo_mac.sh --build --sample \
+  -g data/hg              \  # basename of the full hypergraph
+  -k 5                    \  # target k
+  -o runs/hg_k5           \  # basename for outputs
+  -t 8                    \  # threads
+  -S 100000                  # number of samples (optional time budget)
 ```
-By default, Motivo installs into `/usr/local`. Override with:
+
+Outputs (under `runs/hg_k5*`):
+
+- `*.timings.csv` step‑by‑step wall times; `*.perf` extended CSV with per‑step details.
+- TTC/IE tables: `<base>.<k>.{cnt,dtz,info,rts}` and `<base>.<k>.ie.{cnt,dtz}` for both LOW/HIGH and GLOBAL.
+- Sampler CSV: `<base>.sample<k>.csv` with columns described below.
+
+You can skip the split if you already have basenames for **HIGH** (hypergraph) and **LOW** (its Gaifman):
+
 ```bash
-cmake -DCMAKE_INSTALL_PREFIX:PATH="$HOME/motivo" ..
-```
-
-### Debian package
-
-```bash
-make package
-# produces Motivo-<version>-Linux.deb
-sudo dpkg -i Motivo-<version>-Linux.deb
-sudo apt-get -f install
-```
-
-### Additional build options
-
-- `-DCMAKE_BUILD_TYPE=Release` (default recommended)
-- `-DOPTIMIZE_MORE=YES` enables extra flags including `-march=native` (may reduce portability)
-- `-DENABLE_ASSERTS=YES` keeps asserts in Release
-- `-DMOTIVO_OVERFLOW_SAFE=NO` disables overflow checks (faster, less safe)
-
-Example:
-```bash
-cmake -DCMAKE_BUILD_TYPE=Release -DOPTIMIZE_MORE=YES -DMOTIVO_OVERFLOW_SAFE=NO ..
+./scripts/hyper_motivo_mac.sh --build --sample \
+  -H data/hg-High -L data/hg-LowG -k 5 -o runs/hg_k5 -t 8 -S 100000
 ```
 
 ---
 
+## Manual pipeline (hard way)
 
-### Hypergraph format
+Below is the equivalent sequence of commands if you prefer full control.
 
-Motivo’s hypergraph pipeline consumes a compact **binary** format (read by `Hypergraph`), composed of several companion files sharing a basename `<base>`:
+1) **Split LOW/HIGH** and compute the cross‑part **vertex pairs** used by DP:
 
-- `<base>.hmeta` : two 32‑bit integers: `[vertex_t num_verts][edge_t num_edges]`
-- `<base>.hef`   : `(num_edges + 1)` 32‑bit offsets into `.hvd` (hyperedge → vertices index)
-- `<base>.hvd`   : concatenated `vertex_t` lists for each hyperedge (the vertices within each hyperedge **must be sorted** and contiguous in this file)
-- `<base>.vhef`  : optional, `(num_verts + 1)` 32‑bit offsets into `.vhed` (vertex → incident hyperedges index)
-- `<base>.vhed`  : optional, concatenated `edge_t` lists for each vertex (incident hyperedges, **sorted**)
-- `<base>.dmap`  : optional, `num_verts` entries of `vertex_t` providing a dense→original vertex-id map
+```bash
+# auto‑choose α (or pass --threshold <alpha>)
+bin/motivo-hgsplit --input data/hg \
+  --small data/hg-Low --large data/hg-High --threshold auto
+```
 
-> Only `.hmeta`, `.hef`, `.hvd` are strictly required. If present, `.vhef/.vhed` accelerate membership/degree queries; `.dmap` allows round-tripping original ids.
+2) **Gaifman on LOW** (produces a graph on the same basename):
 
-**Notes & expectations**
-- Types: `vertex_t = uint32_t`, `edge_t = uint32_t`.
-- Offsets arrays (`.hef`, `.vhef`) have length `count+1`; the last element is the total number of items in the corresponding data file.
-- All arrays are little‑endian on x86_64.
-- The loader is read-only and mmaps these files.
+```bash
+bin/motivo-gaifman --input data/hg-Low --output data/hg-Low \
+  --threads 8
+```
+
+3) **Build TTC at k=1** and initialize GLOBAL:
+
+```bash
+# HIGH (hypergraph)
+bin/motivo-hyper-build --graph data/hg-High --size 1 --output runs/HighTTC
+bin/motivo-merge --output runs/HighTTC.1 runs/HighTTC.1.cnt
+
+# LOW Gaifman (graph)
+bin/motivo-build --graph data/hg-Low --size 1 --output runs/LowTTC
+bin/motivo-merge --output runs/LowTTC.1 runs/LowTTC.1.cnt
+
+# NWS/IE (k=1) needed for k≥2 on HIGH
+bin/motivo-nws --graph data/hg-High --size 1 \
+  -i runs/HighTTC --output runs/HighTTC --threads 8
+bin/motivo-merge -e --output runs/Global.1.ie runs/HighTTC.1.ie.cnt
+
+# Initialize GLOBAL k=1 from HIGH k=1
+cp runs/HighTTC.1.{dtz,info,rts} runs/Global.1.
+```
+
+4) **Iterate for k = 2..K**
+
+```bash
+# For each k≥2
+k=2
+# HIGH DP over hypergraph, using GLOBAL (lower) and IE tables
+bin/motivo-hyper-build --graph data/hg-High --size $k \
+  --output runs/HighTTC --lower runs/Global --ie runs/Global \
+  --threads 8
+bin/motivo-merge --output runs/HighTTC.$k runs/HighTTC.$k.cnt
+
+# LOW DP over Gaifman (graph)
+bin/motivo-build --graph data/hg-Low --size $k \
+  --tables-basename runs/LowTTC --output runs/LowTTC --threads 8
+bin/motivo-merge --output runs/LowTTC.$k runs/LowTTC.$k.cnt
+
+# Fuse/merge into GLOBAL and IE
+bin/motivo-merge --output runs/Global.$k \
+  runs/HighTTC.$k.cnt runs/LowTTC.$k.cnt
+bin/motivo-merge -e --output runs/Global.$k.ie runs/HighTTC.$k.ie.cnt
+```
+
+5) **Sampling** (non‑adaptive):
+
+```bash
+bin/motivo-hyper-sample \
+  --gaifman data/hg-Low \
+  --hypergraph data/hg-High \
+  --hypergraph-full data/hg \
+  --tables runs/Global \
+  --nws-high runs/HighTTC \
+  --size 5 \
+  --num-samples 100000 \
+  --threads 8 \
+  --graphlets --estimate-occurrences --canonicize \
+  --output runs/hg_k5
+```
 
 ---
 
-## Hypergraph workflow
+## Command synopsis
 
-Motivo includes a hypergraph pipeline to **sample hypergraphlets** (small induced patterns in a hypergraph) and report them to CSV.
+- `motivo-hypergraph` — convert hypergraph ASCII ⇄ binary.
+- `motivo-hgsplit` — α‑split into **LOW/HIGH** hypergraphs and compute cross‑part pairs.
+- `motivo-gaifman` — Gaifman/primal graph builder for LOW; supports `--threads`, `--max-edge-size`, `--estimate-upper`, etc.
+- `motivo-hyper-build` — DP builder on HIGH over hypergraphs; inputs: `--graph`, `--size`, `--output`, `--lower` (GLOBAL TTC), `--ie` (IE TTC from HIGH), and `--threads`.
+- `motivo-build` — DP builder on graphs (used for LOW’s Gaifman).
+- `motivo-nws` — builds NWS/IE tables for k=1 on HIGH; required for k≥2.
+- `motivo-merge` — merges `.cnt` files into compressed tables; add `-e` to merge IE (`*.ie.cnt → *.ie.dtz`).
+- `motivo-hyper-sample` — non‑adaptive sampler on the combined tables; supports `--num-samples` or `--time-budget`.
 
-### CSV output (hypergraphs)
-
-A typical header looks like:
-```
-hyper_motif, est_occurrences, est_frequency, samples, sampling_algo, spanning_trees, vertices
-```
-
-- `hyper_motif`: **hex**-encoded signature of the bipartite incidence pattern restricted to the sampled vertex set (see below)
-- `est_occurrences`: estimated absolute number of induced occurrences
-- `est_frequency`: estimated relative frequency
-- `samples`: how many copies of this hypergraphlet were observed
-- `sampling_algo`: `H` denotes the hypergraph sampler
-- `spanning_trees`: number of spanning trees of the underlying treelet used by the sampler (for auditing; not the hypergraphlet)
-- `vertices`: vertex ids of one representative occurrence
-
-### Hypergraph signature format (what is `hyper_motif`?)
-
-Each sampled hypergraphlet is serialized from its **bipartite incidence matrix** `M` with shape `k × b`:
-- `k` = number of selected vertices
-- `b` = number of distinct hyperedges that touch at least **two** of the selected vertices (weakly-induced incidence)
-
-The signature is a byte-string encoded as hex:
-```
-[k:2 bytes][b:2 bytes][k*b bits row-major, MSB-first]
-```
-- The bit payload is `1` iff vertex `i` is contained in hyperedge/column `j` of the restricted pattern.
-- Columns (hyperedges) with fewer than 2 selected vertices are **omitted**.
-- Internally we optionally canonicalize the bipartite structure within its color classes (rows vs columns).
-
-### Visualizing hypergraphlets
-
-We provide a helper script `scripts/hyper_motivo_utils.py` to decode the CSV and generate one figure per hypergraphlet using **HyperNetX**.
-
-Install deps:
-```bash
-python3 -m pip install numpy matplotlib hypernetx fastjsonschema
-```
-
-Usage:
-```bash
-# From the repository root (or adjust the path)
-python3 scripts/hyper_motivo_utils.py <counts.csv> --outdir hyperplots --fmt pdf --limit 100
-```
-
-- The script reads the `hyper_motif` column, decodes its bipartite incidence, and draws the hypergraphlet to `<outdir>/<index>_<shortname>.<fmt>`.
-- If the CSV includes the optional `vertices` column, those ids are used as labels.
-- Each image also includes a small caption box with: `k`, `m` (number of kept hyperedges), and `samples` for that row.
-
-**Troubleshooting**
-- If drawings look too crowded, reduce node size or switch to PNG: `--fmt png`.
+Run each binary with `--help` for the complete option list.
 
 ---
 
-## Basic usage
-Similarly to motivo, hyper-motivo can be launched from the `build/` via the wrapper `../scripts/hyper_motivo_mac.sh`. Below is reported an example which will compute 6-hyper-motifs counts using 100000 samples.
+## Sampler output
+
+`<basename>.csv` columns:
+
+- `motif` — canonical signature of the hypergraphlet (ASCII encoding).
+- `est_occurrences` — estimated absolute number of induced occurrences.
+- `est_frequency` — relative frequency over all induced k‑hypergraphlets.
+- `samples` — how many samples produced that motif.
+- `sampling_algo` — `N` (non‑adaptive) at present.
+- `spanning_trees` — number of spanning trees of the Gaifman projection.
+- `vertices` — one example occurrence (k vertex IDs).
+
+Utilities in `scripts/` can decode/plot motif signatures.
+
+---
+
+## Performance notes
+
+- Use `-t 0` (where supported) to auto‑select `std::thread::hardware_concurrency()`.
+- For large K, consider `--store-on-0-colored-vertices-only` on the final build to reduce disk footprint.
+- `motivo-gaifman` supports streaming/estimation modes for huge hyperedges.
+
+---
 
 ## License
 
-Motivo is released under the MIT License. See `LICENSE` for details.
+MIT License. See `LICENSE`.
+
+---
+
+## Acknowledgments
+
+Motivo (graphs) by Marco Bressan, Stefano Leucci, and Alessandro Panconesi. This repository extends the framework to hypergraphs and adds specialized tools for LOW/HIGH splitting, IE/NWS tables, and hypergraph sampling.
+
