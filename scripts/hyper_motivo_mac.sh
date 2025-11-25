@@ -102,6 +102,7 @@ Usage: $0 [--build] [--sample]
           [-S|--samples N]         (se >0, esegue hyper-sample a k=K)
           [-L|--low-base BASENAME] (optional: precomputed LOW Gaifman basename)
           [-H|--high-base BASENAME](optional: pre-split HIGH hypergraph basename)
+          [--no-subtype-pruning]   (propaga a motivo-nws per disattivare early-stop sui sottotipi)
 
 Notes:
   - If both --low-base (Gaifman) and --high-base are provided, the script skips
@@ -127,6 +128,7 @@ COLORS=""
 GRAPH=""        # optional if pre-split is used
 PRE_LOW_GAIF="" # NEW: Gaifman(LOW) basename (precomputed)
 PRE_HIGH=""     # NEW: HIGH hypergraph basename (pre-split)
+NO_SUBTYPE_PRUNING=""  # if set to "--no-subtype-pruning", viene passato a motivo-nws
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -143,6 +145,7 @@ while [[ $# -gt 0 ]]; do
     -S|--samples)   SAMPLES=$2; shift 2 ;;
     -L|--low-base)  PRE_LOW_GAIF=$2; shift 2 ;;  # expects Gaifman(LOW) basename
     -H|--high-base) PRE_HIGH=$2; shift 2 ;;      # expects HIGH hypergraph basename
+    --no-subtype-pruning) NO_SUBTYPE_PRUNING="--no-subtype-pruning"; shift ;;
     -h|--help) usage ;;
     *) echo "Unknown option: $1"; usage ;;
   esac
@@ -252,7 +255,8 @@ build() {
   LOG="$OUTPUT.nwsH1.log"
   N1=$(run_timed "$LOG" "$BUILDPATH/motivo-nws" \
         --graph "$HIGH_GRAPH" --size 1 \
-        -i "$HIGH_TTC" --output "$HIGH_TTC" --threads "$THREADS")
+        -i "$HIGH_TTC" --output "$HIGH_TTC" --threads "$THREADS" \
+        ${NO_SUBTYPE_PRUNING:+$NO_SUBTYPE_PRUNING})
   csv_row "k1" "1" "nws_high" "$N1" "$LOG"
   emit_step_perf "nws_high" "1" "$LOG" "$N1" "$THREADS" "0" "0"
 
@@ -320,7 +324,7 @@ build() {
 
     # Merge (dtz)
     LOG="$OUTPUT.lowHighMerge${k}.log"
-MH=$(run_timed "$LOG" "$BUILDPATH/motivo-merge" --output "$GLOBAL_TTC.${k}" --compress-threshold "$COMP_THR" "$GLOBAL_TTC.${k}.cnt")
+    MH=$(run_timed "$LOG" "$BUILDPATH/motivo-merge" --output "$GLOBAL_TTC.${k}" --compress-threshold "$COMP_THR" "$GLOBAL_TTC.${k}.cnt")
     csv_row "kloop" "$k" "merge_LH" "$MH" "$LOG"
     emit_step_perf "merge_LH" "$k" "$LOG" "$MH" "0" "1" "0"
 
@@ -328,7 +332,8 @@ MH=$(run_timed "$LOG" "$BUILDPATH/motivo-merge" --output "$GLOBAL_TTC.${k}" --co
     LOG="$OUTPUT.nwsH${k}.log"
     NW=$(run_timed "$LOG" "$BUILDPATH/motivo-nws" \
           --graph "$HIGH_GRAPH" --size "$k" \
-          -i "$GLOBAL_TTC" --output "$HIGH_TTC" --threads "$THREADS")
+          -i "$GLOBAL_TTC" --output "$HIGH_TTC" --threads "$THREADS" \
+          ${NO_SUBTYPE_PRUNING:+$NO_SUBTYPE_PRUNING})
     csv_row "kloop" "$k" "nws_high" "$NW" "$LOG"
     emit_step_perf "nws_high" "$k" "$LOG" "$NW" "$THREADS" "0" "0"
 

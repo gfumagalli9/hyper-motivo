@@ -155,10 +155,11 @@ class NWSBuilder {
 private:
     const Hypergraph*   H;          // read-only HIGH hypergraph
     const TreeletTable* nws_table;  // read-only per-vertex counts C_T(v)
+    bool                allow_singletons; // if true; no-early stop
 
 public:
-    explicit NWSBuilder(const Hypergraph* H, const TreeletTable* nws_table) noexcept
-        : H(H), nws_table(nws_table) {}
+    explicit NWSBuilder(const Hypergraph* H, const TreeletTable* nws_table, bool allow_singletons = false) noexcept
+        : H(H), nws_table(nws_table), allow_singletons(allow_singletons) {}
 
     // --------------------------------------------------------------------
     // build(st, T, nws_counts) -> vector<EdgeSubtype>
@@ -255,7 +256,7 @@ public:
                                       std::back_inserter(inters));
 
                 // Keep only "non-degenerate" intersections (>=2 vertices)
-                if (inters.size() <= 1) continue;
+                if (!allow_singletons && inters.size() <= 1) continue;
 
                 // Pre-compute SUM' = Σ_{v∈inters} C_T(v) and store it in the subtype
                 __int128 is128 = 0;

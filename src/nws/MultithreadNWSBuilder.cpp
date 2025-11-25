@@ -10,12 +10,14 @@ MultithreadNWSBuilder::MultithreadNWSBuilder(const Hypergraph*   H,
                                              const TreeletList*  treelet_list,
                                              const TreeletTable* treelet_table,
                                              std::ostream*       output,
-                                             unsigned int        nthreads)
+                                             unsigned int        nthreads,
+                                             bool                allow_singletons)
     : H(H)
     , treelet_list(treelet_list)
     , treelet_table(treelet_table)
     , output(output)
     , nthreads(nthreads)
+    , allow_singletons(allow_singletons)
     , builder(H, treelet_table)  // NWSBuilder needs H + read-only table for C(T, v)
 {
     if (!H || !treelet_list || !treelet_table || !output) {

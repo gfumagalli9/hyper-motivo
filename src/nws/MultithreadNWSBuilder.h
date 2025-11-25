@@ -61,7 +61,8 @@ public:
                           const TreeletList*  treelet_list,
                           const TreeletTable* treelet_table,
                           std::ostream*       output,
-                          unsigned int        nthreads);
+                          unsigned int        nthreads,
+                          bool                allow_singletons);
 
     // Runs the NWS pass and writes per-vertex records to `output`.
     void build();
@@ -77,6 +78,7 @@ private:
     const TreeletTable* treelet_table;
     std::ostream*       output;
     const unsigned int  nthreads;
+    bool                allow_singletons;
 
     // Performs single NWS step and enumerations
     NWSBuilder          builder;

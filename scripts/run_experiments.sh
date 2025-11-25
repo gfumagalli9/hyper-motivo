@@ -13,6 +13,8 @@ set -euo pipefail
 #   NEW: Gaifman LOW uses --exclude-pairs to drop edges listed in <low>.pairs
 #   NEW: Split threshold can be provided per-variant (orig/dedup) or globally
 #   NEW: --only-dedup runs only the deduplicated pipeline (and implies --deduplicate)
+#   NEW: split writes alpha-beta CSV using the input hypergraph prefix
+#   NEW: --early-stop also runs the hyper pipeline without early-stop (no subtype pruning)
 # ------------------------------------------------------------
 
 # ----------------------- configuration -----------------------
@@ -255,6 +257,7 @@ DO_DEDUP="no"
 ONLY_DEDUP="no"
 OUTPUT_BASE=""
 RESULTS_DIR=""
+EARLY_STOP_BOTH="no"  # if yes, also run hyper pipeline without early-stop
 
 # NEW: thresholds (can be 'auto' or an integer)
 ORIG_SPLIT_THRESH=""
@@ -270,6 +273,7 @@ while [[ $# -gt 0 ]]; do
     --deduplicate)         DO_DEDUP="yes"; shift ;;
     --only-dedup)          ONLY_DEDUP="yes"; DO_DEDUP="yes"; shift ;;  # implies dedup
     --delete)              DELETE_MODE="yes"; shift ;;
+    --early-stop)          EARLY_STOP_BOTH="yes"; shift ;;   # also run no-early-stop hyper pipeline
     -o|--output)           OUTPUT_BASE="$(trim "${2:-}")"; shift 2 ;;
     -R|--results)          RESULTS_DIR="$(trim "${2:-}")"; shift 2 ;;
     # NEW: thresholds
@@ -281,7 +285,8 @@ while [[ $# -gt 0 ]]; do
 Usage:
   $0 --threads "1,8" -k 3 --samples "1000 100000" --hg path/to/hyper.txt \\
      [--threshold auto|N] [--threshold-orig auto|N] [--threshold-dedup auto|N] \\
-     [--deduplicate] [--only-dedup] [--delete] --output out/basename --results results/
+     [--deduplicate] [--only-dedup] [--delete] [--early-stop] \\
+     --output out/basename --results results/
 EOF
       exit 0 ;;
     *) die "Unknown option: $1" ;;
@@ -311,6 +316,11 @@ MAXT="$(echo "$THREADS_LIST" | max_of_list)"
 PREPROC_CSV="${OUTPUT_BASE}.preproc.csv"
 preproc_header
 
+# NEW: where to write alpha-beta CSVs (use OUTPUT_BASE directory + input prefix)
+OUT_DIR="$(dirname -- "$OUTPUT_BASE")"
+ALPHA_BETA_ORIG_CSV="${OUT_DIR}/${HG_NAME_NOEXT}.alpha_beta.csv"          # original
+ALPHA_BETA_DEDUP_CSV="${OUT_DIR}/${HG_NAME_NOEXT}_dedup.alpha_beta.csv"   # deduplicated
+
 # 1) TXT -> BIN  (timed)
 HG_BIN_BASE="${OUTPUT_BASE}.hg"
 echo "[step] hypergraph(txt->bin)   $HG_TXT  ->  ${HG_BIN_BASE}.*"
@@ -336,10 +346,11 @@ if [[ "$ONLY_DEDUP" != "yes" ]]; then
     bin="$(need_bin motivo-hgsplit)"
     LOG="${OUTPUT_BASE}.split_orig.log"
     if [[ -n "${ORIG_SPLIT_THRESH:-}" ]]; then
-      secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE" -t "$ORIG_SPLIT_THRESH")"
+      secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE" -t "$ORIG_SPLIT_THRESH" -a "$ALPHA_BETA_ORIG_CSV")"
     else
-      secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE")"
+      secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE" -a "$ALPHA_BETA_ORIG_CSV")"
     fi
+    echo "[info] alpha-beta CSV (orig): $ALPHA_BETA_ORIG_CSV"
     preproc_row "split" "orig" "$HG_BIN_BASE" "${SPLIT_LOW_ORIG_BASE}|${SPLIT_HIGH_ORIG_BASE}" "1" "$LOG"
   } || true
 fi
@@ -404,10 +415,11 @@ if [[ "$DO_DEDUP" == "yes" ]]; then
     bin="$(need_bin motivo-hgsplit)"
     LOG="${OUTPUT_BASE}.split_dedup.log"
     if [[ -n "${DEDUP_SPLIT_THRESH:-}" ]]; then
-      secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_BIN_BASE" -s "$SPLIT_LOW_DEDUP_BASE" -l "$SPLIT_HIGH_DEDUP_BASE" -t "$DEDUP_SPLIT_THRESH")"
+      secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_BIN_BASE" -s "$SPLIT_LOW_DEDUP_BASE" -l "$SPLIT_HIGH_DEDUP_BASE" -t "$DEDUP_SPLIT_THRESH" -a "$ALPHA_BETA_DEDUP_CSV")"
     else
-      secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_BIN_BASE" -s "$SPLIT_LOW_DEDUP_BASE" -l "$SPLIT_HIGH_DEDUP_BASE")"
+      secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_BIN_BASE" -s "$SPLIT_LOW_DEDUP_BASE" -l "$SPLIT_HIGH_DEDUP_BASE" -a "$ALPHA_BETA_DEDUP_CSV")"
     fi
+    echo "[info] alpha-beta CSV (dedup): $ALPHA_BETA_DEDUP_CSV"
     preproc_row "split" "dedup" "$HG_DEDUP_BIN_BASE" "${SPLIT_LOW_DEDUP_BASE}|${SPLIT_HIGH_DEDUP_BASE}" "1" "$LOG"
   } || true
 
@@ -459,6 +471,27 @@ for T in $THREADS_LIST; do
         copy_stepcsv_if_exists "${OUT_HYP_ORIG}" \
           "${RESULTS_DIR}/${HG_NAME_NOEXT}_hyper_K${K}_T${T}_S${S}.csv"
         archive_run_artifacts "$RUN_DIR" "hyper" "orig" "$OUT_HYP_ORIG"
+
+        # Se richiesto, run aggiuntiva senza early-stop (no subtype pruning)
+        if [[ "$EARLY_STOP_BOTH" == "yes" ]]; then
+          OUT_HYP_ORIG_NOES="${OUTPUT_BASE}.hyperNoES.K${K}.T${T}.S${S}"
+          echo "[run] hyper(original, early-stop=off) K=$K T=$T S=$S -> $OUT_HYP_ORIG_NOES"
+          bash "$HYPER_PIPE" --build --sample \
+            -H "${SPLIT_HIGH_ORIG_BASE}" \
+            -L "${GAIF_LOW_ORIG_BASE}" \
+            -g "${HG_BIN_BASE}" \
+            -k "$K" \
+            -S "$S" \
+            -t "$T" \
+            -o "${OUT_HYP_ORIG_NOES}" \
+            --seed 42 \
+            --no-subtype-pruning \
+            > "${OUT_HYP_ORIG_NOES}.driver.log" 2>&1 || true
+
+          copy_stepcsv_if_exists "${OUT_HYP_ORIG_NOES}" \
+            "${RESULTS_DIR}/${HG_NAME_NOEXT}_hyper_noes_K${K}_T${T}_S${S}.csv"
+          archive_run_artifacts "$RUN_DIR" "hyper" "orig_noes" "$OUT_HYP_ORIG_NOES"
+        fi
       fi
 
       # ---------- HYPER (deduplicated) ----------
@@ -479,6 +512,27 @@ for T in $THREADS_LIST; do
         copy_stepcsv_if_exists "${OUT_HYP_DEDUP}" \
           "${RESULTS_DIR}/${HG_NAME_NOEXT}_hyper_dedup_K${K}_T${T}_S${S}.csv"
         archive_run_artifacts "$RUN_DIR" "hyper" "dedup" "$OUT_HYP_DEDUP"
+
+        # Se richiesto, run aggiuntiva dedup senza early-stop
+        if [[ "$EARLY_STOP_BOTH" == "yes" ]]; then
+          OUT_HYP_DEDUP_NOES="${OUTPUT_BASE}.hyperDedupNoES.K${K}.T${T}.S${S}"
+          echo "[run] hyper(dedup, early-stop=off) K=$K T=$T S=$S -> $OUT_HYP_DEDUP_NOES"
+          bash "$HYPER_PIPE" --build --sample \
+            -H "${SPLIT_HIGH_DEDUP_BASE}" \
+            -L "${GAIF_LOW_DEDUP_BASE}" \
+            -g "${HG_DEDUP_BIN_BASE}" \
+            -k "$K" \
+            -S "$S" \
+            -t "$T" \
+            -o "${OUT_HYP_DEDUP_NOES}" \
+            --seed 42 \
+            --no-subtype-pruning \
+            > "${OUT_HYP_DEDUP_NOES}.driver.log" 2>&1 || true
+
+          copy_stepcsv_if_exists "${OUT_HYP_DEDUP_NOES}" \
+            "${RESULTS_DIR}/${HG_NAME_NOEXT}_hyper_dedup_noes_K${K}_T${T}_S${S}.csv"
+          archive_run_artifacts "$RUN_DIR" "hyper" "dedup_noes" "$OUT_HYP_DEDUP_NOES"
+        fi
       fi
 
       # ---------- GRAPH (Gaifman FULL - original) ---------- [skipped in ONLY_DEDUP]

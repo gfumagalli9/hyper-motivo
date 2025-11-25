@@ -24,6 +24,7 @@ struct opts_t {
     std::string tables_basename;
     std::string output_basename;
     unsigned int threads;
+    bool        allow_singletons;
 };
 
 bool parse_args(int argc, const char** argv, opts_t &opts) {
@@ -34,6 +35,8 @@ bool parse_args(int argc, const char** argv, opts_t &opts) {
     auto *i     = op.add_option(true, true, "input", 'i', "", "Basename of count files (\"tables_basename.size.cnt\" and \".treelets.dtz\")");
     auto *o     = op.add_option(true, true, "output",'o', "", "Output basename");
     auto *t     = op.add_option(false, true, "threads", 't', "1", "Number of threads to use");
+    auto *no_prune = op.add_option(false, false, "no-subtype-pruning", '\0', "","Disable NWS early stop on singleton intersections (keep |S'|=1 subtypes)");
+    
     if (!op.parse(argc, argv) || help->is_found()) {
         std::cout << "motivo-nws [OPTION]...\n" << op.help();
         return false;
@@ -43,6 +46,7 @@ bool parse_args(int argc, const char** argv, opts_t &opts) {
     opts.tables_basename = i->get_value();
     opts.output_basename = o->get_value();
     opts.threads = std::stoul(t->get_value());
+    opts.allow_singletons = no_prune->is_found();
     return true;
 }
 
@@ -91,10 +95,10 @@ int main(int argc, const char** argv) {
 
     // 5) Eseguo il builder NWS (Sequential o Multithread)
     if(opts.threads <= 1) {
-        SequentialNWSBuilder builder(&H, &tl, &baseTable, &out);
+        SequentialNWSBuilder builder(&H, &tl, &baseTable, &out, opts.allow_singletons);
         builder.build();
     } else {
-        MultithreadNWSBuilder builder(&H, &tl, &baseTable, &out, opts.threads);
+        MultithreadNWSBuilder builder(&H, &tl, &baseTable, &out, opts.threads, opts.allow_singletons);
         builder.build();
     }
 

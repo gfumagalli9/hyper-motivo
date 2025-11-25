@@ -11,11 +11,13 @@
 SequentialNWSBuilder::SequentialNWSBuilder(const Hypergraph*   H,
                                            const TreeletList*  treelet_list,
                                            const TreeletTable* treelet_table,
-                                           std::ostream*       output) noexcept
+                                           std::ostream*       output,
+                                           bool                allow_singletons) noexcept
     : H(H)
     , treelet_list(treelet_list)
     , treelet_table(treelet_table)
     , output(output)
+    , allow_singletons(allow_singletons)
     , builder(H, treelet_table) // NWSBuilder needs H + the table to read C(T,v)
 {
     // Pre-size the map of accumulators (one vector per treelet).

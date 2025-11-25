@@ -51,7 +51,8 @@ public:
     SequentialNWSBuilder(const Hypergraph*   H,
                          const TreeletList*  treelet_list,
                          const TreeletTable* treelet_table,
-                         std::ostream*       output) noexcept;
+                         std::ostream*       output,
+                         bool                allow_singletons) noexcept;
 
     /// Run the NWS pass and write the per-vertex records.
     void build();
@@ -61,6 +62,7 @@ private:
     const TreeletList*  treelet_list;
     const TreeletTable* treelet_table;
     std::ostream*       output;
+    bool                allow_singletons;
 
     // Accumulators: for each treelet → vector of per-vertex signed counts
     std::unordered_map<Treelet, std::vector<CountT>, Treelet::TreeletHash> nws_counts;
