@@ -346,9 +346,9 @@ if [[ "$ONLY_DEDUP" != "yes" ]]; then
     bin="$(need_bin motivo-hgsplit)"
     LOG="${OUTPUT_BASE}.split_orig.log"
     if [[ -n "${ORIG_SPLIT_THRESH:-}" ]]; then
-      secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE" -t "$ORIG_SPLIT_THRESH" -a "$ALPHA_BETA_ORIG_CSV")"
+      secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE" -t "$ORIG_SPLIT_THRESH")"
     else
-      secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE" -a "$ALPHA_BETA_ORIG_CSV")"
+      secs="$(run_timed "$LOG" "$bin" -i "$HG_BIN_BASE" -s "$SPLIT_LOW_ORIG_BASE" -l "$SPLIT_HIGH_ORIG_BASE")"
     fi
     echo "[info] alpha-beta CSV (orig): $ALPHA_BETA_ORIG_CSV"
     preproc_row "split" "orig" "$HG_BIN_BASE" "${SPLIT_LOW_ORIG_BASE}|${SPLIT_HIGH_ORIG_BASE}" "1" "$LOG"
@@ -415,9 +415,9 @@ if [[ "$DO_DEDUP" == "yes" ]]; then
     bin="$(need_bin motivo-hgsplit)"
     LOG="${OUTPUT_BASE}.split_dedup.log"
     if [[ -n "${DEDUP_SPLIT_THRESH:-}" ]]; then
-      secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_BIN_BASE" -s "$SPLIT_LOW_DEDUP_BASE" -l "$SPLIT_HIGH_DEDUP_BASE" -t "$DEDUP_SPLIT_THRESH" -a "$ALPHA_BETA_DEDUP_CSV")"
+      secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_BIN_BASE" -s "$SPLIT_LOW_DEDUP_BASE" -l "$SPLIT_HIGH_DEDUP_BASE" -t "$DEDUP_SPLIT_THRESH")"
     else
-      secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_BIN_BASE" -s "$SPLIT_LOW_DEDUP_BASE" -l "$SPLIT_HIGH_DEDUP_BASE" -a "$ALPHA_BETA_DEDUP_CSV")"
+      secs="$(run_timed "$LOG" "$bin" -i "$HG_DEDUP_BIN_BASE" -s "$SPLIT_LOW_DEDUP_BASE" -l "$SPLIT_HIGH_DEDUP_BASE")"
     fi
     echo "[info] alpha-beta CSV (dedup): $ALPHA_BETA_DEDUP_CSV"
     preproc_row "split" "dedup" "$HG_DEDUP_BIN_BASE" "${SPLIT_LOW_DEDUP_BASE}|${SPLIT_HIGH_DEDUP_BASE}" "1" "$LOG"
