@@ -155,9 +155,15 @@ archive_run_artifacts() {
   mkdir -p "$dest"
   shopt -s nullglob
   if [[ "$DELETE_MODE" == "yes" ]]; then
+    # Keep perf/timings/log/info
     for f in "${prefix}.perf" "${prefix}.timings.csv" "${prefix}"*.log "${prefix}"*.info; do
       [[ -e "$f" ]] && mv -f "$f" "$dest/"
     done
+    # Keep sample CSVs for this run, e.g. math.hyper.K3.T8.S100000.sample3.csv
+    for f in "${prefix}.sample"*.csv; do
+      [[ -e "$f" ]] && mv -f "$f" "$dest/"
+    done
+    # Delete everything else for this prefix
     for p in \
       "${prefix}"* \
       "${prefix}-High"* \
