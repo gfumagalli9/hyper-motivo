@@ -15,6 +15,7 @@ set -euo pipefail
 #   NEW: --only-dedup runs only the deduplicated pipeline (and implies --deduplicate)
 #   NEW: split writes alpha-beta CSV using the input hypergraph prefix
 #   NEW: --early-stop also runs the hyper pipeline without early-stop (no subtype pruning)
+#   NEW: --no-graph disables the standard motivo (graph) pipeline
 # ------------------------------------------------------------
 
 # ----------------------- configuration -----------------------
@@ -258,6 +259,7 @@ ONLY_DEDUP="no"
 OUTPUT_BASE=""
 RESULTS_DIR=""
 EARLY_STOP_BOTH="no"  # if yes, also run hyper pipeline without early-stop
+RUN_GRAPH="yes"       # if no, disable standard motivo graph pipeline
 
 # NEW: thresholds (can be 'auto' or an integer)
 ORIG_SPLIT_THRESH=""
@@ -274,6 +276,7 @@ while [[ $# -gt 0 ]]; do
     --only-dedup)          ONLY_DEDUP="yes"; DO_DEDUP="yes"; shift ;;  # implies dedup
     --delete)              DELETE_MODE="yes"; shift ;;
     --early-stop)          EARLY_STOP_BOTH="yes"; shift ;;   # also run no-early-stop hyper pipeline
+    --no-graph)            RUN_GRAPH="no"; shift ;;          # disable standard motivo graph pipeline
     -o|--output)           OUTPUT_BASE="$(trim "${2:-}")"; shift 2 ;;
     -R|--results)          RESULTS_DIR="$(trim "${2:-}")"; shift 2 ;;
     # NEW: thresholds
@@ -285,7 +288,7 @@ while [[ $# -gt 0 ]]; do
 Usage:
   $0 --threads "1,8" -k 3 --samples "1000 100000" --hg path/to/hyper.txt \\
      [--threshold auto|N] [--threshold-orig auto|N] [--threshold-dedup auto|N] \\
-     [--deduplicate] [--only-dedup] [--delete] [--early-stop] \\
+     [--deduplicate] [--only-dedup] [--delete] [--early-stop] [--no-graph] \\
      --output out/basename --results results/
 EOF
       exit 0 ;;
@@ -304,7 +307,9 @@ fi
 [[ -n "$RESULTS_DIR" ]]    || die "Missing --results"
 
 [[ -x "$HYPER_PIPE" ]] || die "Hyper pipeline not found/executable: $HYPER_PIPE"
-GRAPH_PIPE="$(pick_graph_pipe)"
+if [[ "$RUN_GRAPH" == "yes" ]]; then
+  GRAPH_PIPE="$(pick_graph_pipe)"
+fi
 
 mkdir -p "$RESULTS_DIR"
 mkdir -p "$(dirname -- "$OUTPUT_BASE")"
@@ -355,8 +360,8 @@ if [[ "$ONLY_DEDUP" != "yes" ]]; then
   } || true
 fi
 
-# 3) Gaifman FULL(original)  -> per graph pipeline (timed) [skipped in ONLY_DEDUP]
-if [[ "$ONLY_DEDUP" != "yes" ]]; then
+# 3) Gaifman FULL(original)  -> per graph pipeline (timed) [skipped in ONLY_DEDUP or RUN_GRAPH=no]
+if [[ "$ONLY_DEDUP" != "yes" && "$RUN_GRAPH" == "yes" ]]; then
   GAIF_FULL_ORIG_BASE="${OUTPUT_BASE}.gaifman_full"
   echo "[step] gaifman(full,orig)     ${HG_BIN_BASE}  ->  ${GAIF_FULL_ORIG_BASE}.*"
   {
@@ -423,13 +428,15 @@ if [[ "$DO_DEDUP" == "yes" ]]; then
     preproc_row "split" "dedup" "$HG_DEDUP_BIN_BASE" "${SPLIT_LOW_DEDUP_BASE}|${SPLIT_HIGH_DEDUP_BASE}" "1" "$LOG"
   } || true
 
-  echo "[step] gaifman(full,dedup)    ${HG_DEDUP_BIN_BASE}  ->  ${GAIF_FULL_DEDUP_BASE}.*"
-  {
-    bin="$(need_bin motivo-gaifman)"
-    LOG="${GAIF_FULL_DEDUP_BASE}.gaif.log"
-    secs="$(run_timed "$LOG" "$bin" --input "$HG_DEDUP_BIN_BASE" --output "$GAIF_FULL_DEDUP_BASE" --stream)"
-    preproc_row "gaifman_full" "dedup" "$HG_DEDUP_BIN_BASE" "$GAIF_FULL_DEDUP_BASE" "$MAXT" "$LOG"
-  } || true
+  if [[ "$RUN_GRAPH" == "yes" ]]; then
+    echo "[step] gaifman(full,dedup)    ${HG_DEDUP_BIN_BASE}  ->  ${GAIF_FULL_DEDUP_BASE}.*"
+    {
+      bin="$(need_bin motivo-gaifman)"
+      LOG="${GAIF_FULL_DEDUP_BASE}.gaif.log"
+      secs="$(run_timed "$LOG" "$bin" --input "$HG_DEDUP_BIN_BASE" --output "$GAIF_FULL_DEDUP_BASE" --stream)"
+      preproc_row "gaifman_full" "dedup" "$HG_DEDUP_BIN_BASE" "$GAIF_FULL_DEDUP_BASE" "$MAXT" "$LOG"
+    } || true
+  fi
 
   echo "[step] gaifman(low,dedup)     ${SPLIT_LOW_DEDUP_BASE}  ->  ${GAIF_LOW_DEDUP_BASE}.*"
   {
@@ -535,8 +542,9 @@ for T in $THREADS_LIST; do
         fi
       fi
 
-      # ---------- GRAPH (Gaifman FULL - original) ---------- [skipped in ONLY_DEDUP]
-      if [[ "$ONLY_DEDUP" != "yes" ]]; then
+      # ---------- GRAPH (Gaifman FULL - original) ----------
+      # skipped in ONLY_DEDUP or when RUN_GRAPH=no
+      if [[ "$ONLY_DEDUP" != "yes" && "$RUN_GRAPH" == "yes" ]]; then
         OUT_G_ORIG="${OUTPUT_BASE}.graph.K${K}.T${T}.S${S}"
         echo "[run] graph(original) K=$K T=$T S=$S -> $OUT_G_ORIG"
         bash "$GRAPH_PIPE" \
@@ -557,7 +565,7 @@ for T in $THREADS_LIST; do
       fi
 
       # ---------- GRAPH (Gaifman FULL - deduplicated) ----------
-      if [[ "$DO_DEDUP" == "yes" ]]; then
+      if [[ "$DO_DEDUP" == "yes" && "$RUN_GRAPH" == "yes" ]]; then
         OUT_G_DEDUP="${OUTPUT_BASE}.graphDedup.K${K}.T${T}.S${S}"
         echo "[run] graph(dedup)    K=$K T=$T S=$S -> $OUT_G_DEDUP"
         bash "$GRAPH_PIPE" \
