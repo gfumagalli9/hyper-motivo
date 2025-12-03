@@ -24,9 +24,13 @@ add_test(
 )
 
 # Gaifman sul LOW (input=output per avere pairs coerenti col basename)
+# Gaifman sul LOW (usando i pairs prodotti da hgsplit)
 add_test(
   NAME build-gaifman-low
-  COMMAND motivo-gaifman --input test-gaifman-low --output test-gaifman-low
+  COMMAND motivo-gaifman
+          --input test-gaifman-low
+          --output test-gaifman-low
+          --exclude-pairs test-gaifman-low.pairs
   WORKING_DIRECTORY tests
 )
 
