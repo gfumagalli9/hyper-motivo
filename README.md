@@ -170,7 +170,7 @@ From the **repository root**:
 ```bash
 mkdir -p runs results
 
-BUILDPATH=build/bin ./scripts/run_experiments.sh   --threads "2"          -k 3                   --samples "10000"      --hg data/toy_hg.txt   --output runs/toy      --results results/toy_experiment
+BUILDPATH=build/bin ./scripts/run_experiments.sh   --threads "2" -k 3 --samples "10000" --hg data/toy_hg.txt --output runs/toy --results results/toy_experiment
 ```
 
 Meaning of the options:
