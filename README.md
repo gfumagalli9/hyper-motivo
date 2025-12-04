@@ -4,7 +4,44 @@ This README shows how to:
 
 1. install the required libraries  
 2. compile HyperMotivo  
-4. run the **`run_experiments.sh`** on a dataset and check the expected outputs
+3. run the **`run_experiments.sh`** on a dataset and check the expected outputs
+
+## 0. Datasets
+
+To reproduce our experiments, first build the hypergraph datasets with the helper scripts below.  
+Each command produces a plain-text hypergraph where **each line is one hyperedge** (a set of integer vertex IDs).
+
+### 0.1 StackExchange – Data Science
+
+```bash
+python3 datascience.py   --site datascience.stackexchange.com   --min-tag-size 1   --edges-txt ds_edges.txt
+```
+
+This downloads the StackExchange dump for *datascience.stackexchange.com*, builds a hypergraph where vertices are questions and hyperedges are tags, and writes:
+
+- `ds_edges.txt` — one hyperedge per line, containing the integer IDs of questions sharing the same tag.
+
+### 0.2 Patents – CPC (2024–2025)
+
+```bash
+python3 cpc.py   --out cpc_group_2024_2025.txt   --granularity group   --year-from 2024 --year-to 2025
+```
+
+This downloads the PatentsView CPC tables, selects patents granted between 2024 and 2025, groups them by CPC **group** code, and writes:
+
+- `cpc_group_2024_2025.txt` — one CPC group per line, containing the integer IDs of patents assigned to that group.
+
+### 0.3 arXiv – Categories (2024)
+
+```bash
+python3 arxiv.py   --from 2024-01-01 --until 2025-01-01   --out arxiv_cats_2024.txt
+```
+
+This queries arXiv via OAI-PMH, collects all articles in the given date range, builds a hypergraph where vertices are articles and hyperedges are arXiv categories, and writes:
+
+- `arxiv_cats_2024.txt` — one category per line, containing the integer IDs of articles assigned to that category.
+
+The `.txt` files produced as `--out` (and `--edges-txt` for the StackExchange dataset) are already in the ASCII hypergraph format expected by the HyperMotivo pipeline and thus can be used without any additional preprocessing.
 
 ---
 
@@ -119,8 +156,8 @@ This command:
 - builds the binary hypergraph representation
 - performs LOW/HIGH splitting
 - constructs Gaifman on LOW
-- builds TTC / DP tables
-- runs the non-adaptive sampler for `k = 3` with 10k samples
+- builds counter tables
+- runs the sampler for `k = 3` with 10k samples
 
 ### 3.4 What you should see
 
@@ -205,13 +242,6 @@ You can add extra options if desired:
 
 ### 4.3 Expected outputs
 
-Let `HG_NAME_NOEXT` be the dataset basename without directory or extension.  
-For `data/toy_hg.txt`, this is:
-
-```text
-HG_NAME_NOEXT = toy_hg
-```
-
 After a successful run, you should see:
 
 #### 4.3.1 Preprocessing summary
@@ -275,7 +305,7 @@ This directory contains:
 - logs (`*.log`)
 - detailed timings (`*.timings.csv`)
 - performance CSVs (`*.perf`) when available
-- TTC / IE tables
+- counter tables
 - sampler outputs, etc.
 
 All artifacts for that parameter triple are grouped here for convenience.  
