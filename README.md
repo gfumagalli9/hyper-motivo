@@ -11,7 +11,7 @@ This README shows how to:
 To reproduce our experiments, first build the hypergraph datasets with the helper scripts below.  
 Each command produces a plain-text hypergraph where **each line is one hyperedge** (a set of integer vertex IDs).
 
-### 0.1 StackExchange – Data Science
+### 0.1 SE - StackExchange Data Science
 
 ```bash
 python3 datascience.py   --site datascience.stackexchange.com   --min-tag-size 1   --edges-txt ds_edges.txt
@@ -21,7 +21,7 @@ This downloads the StackExchange dump for *datascience.stackexchange.com*, build
 
 - `ds_edges.txt` — one hyperedge per line, containing the integer IDs of questions sharing the same tag.
 
-### 0.2 Patents – CPC (2024–2025)
+### 0.2 CP - Patents CPC (2024–2025)
 
 ```bash
 python3 cpc.py   --out cpc_group_2024_2025.txt   --granularity group   --year-from 2024 --year-to 2025
@@ -31,7 +31,7 @@ This downloads the PatentsView CPC tables, selects patents granted between 2024 
 
 - `cpc_group_2024_2025.txt` — one CPC group per line, containing the integer IDs of patents assigned to that group.
 
-### 0.3 arXiv – Categories (2024)
+### 0.3 AX - arXiv Categories (2024)
 
 ```bash
 python3 arxiv.py   --from 2024-01-01 --until 2025-01-01   --out arxiv_cats_2024.txt
