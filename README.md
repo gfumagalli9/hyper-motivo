@@ -97,58 +97,42 @@ ctest
 
 ## 3. Minimal end-to-end run on a toy hypergraph
 
-This section runs the **entire hypergraph pipeline** on a tiny example, to confirm everything works.
+This section runs the **entire hypergraph pipeline** on the smallest hypergraph among the ones used in our experiments, MA, to confirm that everything works fine.
+You can download the dataset from https://www.cs.cornell.edu/~arb/data/mathoverflow-answers/ . After the download, just exctract he zip, the `hyperedges-mathoverflow-answers.txt` will be the one to give in input to HyperMotivo.
 
-### 3.1 Create a tiny hypergraph (ASCII format)
-
-From the **repository root**:
-
-```bash
-mkdir -p data
-
-cat > data/toy_hg.txt <<EOF
-0 1 2
-2 3 4
-1 2 4
-EOF
-```
-
-Each line is a hyperedge; vertex IDs are non-negative integers.  
-Any non-numeric separator (space, comma, tab) is accepted.
-
-### 3.2 Convert the toy hypergraph to Motivo binary format
+### 3.1 Convert the hypergraph to HyperMotivo binary format
 
 Now convert the ASCII hypergraph to the Motivo hypergraph binary format.  
-This step produces `data/toy_hg.hmeta`, `data/toy_hg.hef`, `data/toy_hg.hvd`, `data/toy_hg.vhef`, `data/toy_hg.vhed`.
+This step produces `data/mathoverflow.hmeta`, `data/mathoverflow.hef`, `data/mathoverflow.hvd`, `data/mathoverflow.vhef`, `data/mathoverflow.vhed`.
 
 From the **repository root**:
 
 ```bash
-build/bin/motivo-hypergraph   --input data/toy_hg.txt   --output data/toy_hg
+build/bin/motivo-hypergraph --input data/hyperedges-mathoverflow-answers.txt --output data/mathoverflow
 ```
 
-Here `data/toy_hg` is the **basename**; the tool will write:
+Here `data/mathoverflow` is the **basename**; the tool will write:
 
-- `data/toy_hg.hmeta`
-- `data/toy_hg.hef`
-- `data/toy_hg.hvd`
-- `data/toy_hg.vhef`
-- `data/toy_hg.vhed`
+- `data/mathoverflow.hmeta`
+- `data/mathoverflow.hef`
+- `data/mathoverflow.hvd`
+- `data/mathoverflow.vhef`
+- `data/mathoverflow.vhed`
 
 These files are exactly what the hypergraph pipeline expects.
 
-### 3.3 Run the hypergraph wrapper (`hyper_motivo_mac.sh`)
+### 3.2 Run the hypergraph wrapper (`hyper_motivo_mac.sh`)
 
 Now run the pipeline using the wrapper script.
 
 From the **repository root**:
 
 ```bash
-BUILDPATH=build/bin ./scripts/hyper_motivo_mac.sh --build --sample   -g data/toy_hg      \  # basename of the hypergraph (ASCII or bin)
-  -k 3                \  # k-hypergraphlet size
-  -o runs/toy_k3      \  # basename for all outputs
-  -t 2                \  # number of threads
-  -S 10000               # number of samples
+BUILDPATH=build/bin ./scripts/hyper_motivo_mac.sh --build --sample   -g data/mathoverflow \  # basename of the hypergraph (ASCII or bin)
+  -k 3                         \  # k-hypergraphlet size
+  -o runs/mathoverflow_k3      \  # basename for all outputs
+  -t 2                         \  # number of threads
+  -S 10000                        # number of samples
 ```
 
 This command:
@@ -161,12 +145,12 @@ This command:
 
 ### 3.4 What you should see
 
-Under `runs/` (from the repo root), you should find files with prefix `runs/toy_k3*`, including for example:
+Under `runs/` (from the repo root), you should find files with prefix `runs/mathoverflow_k3*`, including for example:
 
-- `runs/toy_k3.timings.csv`  
+- `runs/mathoverflow_k3.timings.csv`  
   Step-by-step wall-clock timings for the pipeline.
 
-- one or more `runs/toy_k3.sample3.csv` (or similar)  
+- one or more `runs/mathoverflow_k3.sample3.csv`
   CSV with sampled 3-hypergraphlets and associated statistics.
 
 If these files are created and the command exits without error, the HyperMotivo pipeline is correctly installed and working.
@@ -190,15 +174,15 @@ This script:
 
 ### 4.1 Input dataset
 
-We use the same tiny toy dataset as above, stored in:
+We use the same dataset as above, stored in:
 
 ```text
-data/toy_hg.txt
+data/hyperedges-mathoverflow-answers.txt
 ```
 
 Format: one hyperedge per line, vertex IDs separated by spaces.
 
-You can replace `data/toy_hg.txt` with any larger dataset (using the same format) without changing the commands below, only the filename.
+You can replace `data/hyperedges-mathoverflow-answers.txt` with any larger dataset (using the same format) without changing the commands below, only the filename.
 
 ### 4.2 Minimal `run_experiments.sh` invocation
 
@@ -207,7 +191,12 @@ From the **repository root**:
 ```bash
 mkdir -p runs results
 
-BUILDPATH=build/bin ./scripts/run_experiments.sh   --threads "2" -k 3 --samples "10000" --hg data/toy_hg.txt --output runs/toy --results results/toy_experiment
+BUILDPATH=build/bin ./scripts/run_experiments.sh --threads "2" \
+  -k 3 \
+  --samples "10000" \
+  --hg data/hyperedges-mathoverflow-answers.txt \
+  --output runs/math \
+  --results results/math_experiment
 ```
 
 Meaning of the options:
@@ -225,13 +214,13 @@ Meaning of the options:
 - `--samples "10000"`  
   list of sample sizes; here a single value S = 10000.
 
-- `--hg data/toy_hg.txt`  
+- `--hg data/hyperedges-mathoverflow-answers.txt`  
   path to the **ASCII** hypergraph file.
 
-- `--output runs/toy`  
+- `--output runs/math`  
   base name for all intermediate and pipeline outputs.
 
-- `--results results/toy_experiment`  
+- `--results results/math_experiment`  
   directory where summarised CSVs and per-run archives will go.
 
 You can add extra options if desired:
@@ -246,17 +235,16 @@ After a successful run, you should see:
 
 #### 4.3.1 Preprocessing summary
 
-In `results/toy_experiment/`:
+In `results/math_experiment/`:
 
 ```text
-toy_hg_preproc.csv
+math_hg_preproc.csv
 ```
 
 This CSV contains one row per **preprocessing stage**, with columns such as:
 
 - date
 - stage (build_hypergraph, split, gaifman_full, gaifman_low, dedup, …)
-- variant (orig / dedup)
 - input / output basenames
 - number of threads
 - walltime / usertime / systemtime
@@ -272,32 +260,20 @@ For each combination of:
 - `T` (number of threads, e.g. 2)  
 - `S` (samples, e.g. 10000)
 
-you will get step-level CSV summaries in `results/toy_experiment/`. For the minimal command above (no dedup, graph enabled), you should see:
+you will get step-level CSV summaries in `results/math_experiment/`. For the minimal command above, you should see:
 
-- `toy_hg_hyper_K3_T2_S10000.csv`  
-  Hypergraph pipeline (HyperMotivo) step-level performance (either copied from `.perf` or `.timings.csv`).
+- `math_hg_hyper_K3_T2_S10000.csv`  
+  Hypergraph pipeline (HyperMotivo) step-level performance.
 
-- `toy_hg_gaifman_K3_T2_S10000.csv`  
-  Graph pipeline (Motivo on Gaifman) step-level performance.
-
-If you enable deduplication (`--deduplicate`) you will additionally see:
-
-- `toy_hg_hyper_dedup_K3_T2_S10000.csv`  
-  Hypergraph pipeline on the **deduplicated** version of the dataset.
-
-If you also set `--early-stop`, there will be further files:
-
-- `toy_hg_hyper_noes_K3_T2_S10000.csv`  
-- `toy_hg_hyper_dedup_noes_K3_T2_S10000.csv`  
-
-corresponding to hyper runs **without early-stop** (no subtype pruning).
+- `math_hg_gaifman_K3_T2_S10000.csv`  
+  Graph pipeline (Motivo on Gaifman) step-level performance. 
 
 #### 4.3.3 Per-run archives
 
 For each (K, T, S), the script creates a directory:
 
 ```text
-results/toy_experiment/toy_hg_K3_T2_S10000/
+results/math_experiment/math_K3_T2_S10000/
 ```
 
 This directory contains:
@@ -317,11 +293,11 @@ If `--delete` is given to `run_experiments.sh`, only the most relevant files (lo
 
 For a quick sanity check during artifact evaluation:
 
-1. **Build** the project (Section 2).  
-2. Run the **toy pipeline** via `hyper_motivo_mac.sh` (Section 3).  
-3. Run `run_experiments.sh` on `data/toy_hg.txt` (Section 4) and verify that:
-   - `toy_hg_preproc.csv` exists under `results/toy_experiment/`
-   - `toy_hg_hyper_K3_T2_S10000.csv` (and optionally `toy_hg_gaifman_…`) are present
-   - the per-run directory `results/toy_experiment/toy_hg_K3_T2_S10000/` contains logs and timings
+1. **Build** the project.  
+2. Run the **toy pipeline** via `hyper_motivo_mac.sh`.  
+3. Run `run_experiments.sh` on `data/hyperedges-mathoverflow-answers.txt`and verify that:
+   - `math_preproc.csv` exists under `results/toy_experiment/`
+   - `math_hyper_K3_T2_S10000.csv` and `math_gaifman_…` are present
+   - the per-run directory `results/math_experiment/math_K3_T2_S10000/` contains logs and timings
 
-Once these are in place, you can swap `data/toy_hg.txt` with any larger dataset used in the paper by just changing the `--hg`, `--output`, and `--results` arguments in the `run_experiments.sh` call.
+Once these are in place, you can swap `data/hyperedges-mathoverflow-answers.txt` with any larger dataset used in the paper by just changing the `--hg`, `--output`, and `--results` arguments in the `run_experiments.sh` call.
