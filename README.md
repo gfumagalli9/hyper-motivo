@@ -95,7 +95,7 @@ ctest
 
 ---
 
-## 3. Minimal end-to-end run on a toy hypergraph
+## 3. Minimal end-to-end run on MA hypergraph
 
 This section runs the **entire hypergraph pipeline** on the smallest hypergraph among the ones used in our experiments, MA, to confirm that everything works fine.
 You can download the dataset from https://www.cs.cornell.edu/~arb/data/mathoverflow-answers/ . After the download, just exctract he zip, the `hyperedges-mathoverflow-answers.txt` will be the one to give in input to HyperMotivo.
@@ -121,9 +121,9 @@ Here `data/mathoverflow` is the **basename**; the tool will write:
 
 These files are exactly what the hypergraph pipeline expects.
 
-### 3.2 Run the hypergraph wrapper (`hyper_motivo_mac.sh`)
+### 3.2 Run the hypergraph pipeline through `hyper_motivo_mac.sh`
 
-Now run the pipeline using the wrapper script.
+Now run the pipeline using `hyper_motivo_mac.sh` script.
 
 From the **repository root**:
 
