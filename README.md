@@ -53,7 +53,7 @@ Tested on Linux x86_64 (Debian/Ubuntu-like).
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y     build-essential cmake git     libsparsehash-dev libnauty2-dev liblz4-dev     libgoogle-perftools-dev  # optional (tcmalloc)
+sudo apt-get install -y build-essential cmake git libsparsehash-dev libnauty2-dev liblz4-dev libgoogle-perftools-dev  # optional (tcmalloc)
 ```
 
 Requirements in short:
