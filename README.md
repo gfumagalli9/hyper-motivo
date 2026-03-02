@@ -1,3 +1,6 @@
+# Supplementary material
+**[Click to open the supplementary material PDF](Supplementary_data_and_proofs.pdf)**
+
 # HyperMotivo
 
 This README shows how to:
