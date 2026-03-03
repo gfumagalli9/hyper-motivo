@@ -1,5 +1,5 @@
 # Supplementary material
-**[Click to open the supplementary material](Supplementary_data_and_proofs.pdf)**
+The supplementary material can be found **[here](Supplementary_data_and_proofs.pdf)**; it contains the proofs and additional experiments that were excluded from the paper because of space limitations.
 
 # HyperMotivo
 
