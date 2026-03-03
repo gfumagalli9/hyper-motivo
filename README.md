@@ -1,5 +1,5 @@
 # Supplementary material
-**[Click to open the supplementary material PDF](Supplementary_data_and_proofs.pdf)**
+**[Click to open the supplementary material PDF](Supplementary_data_and_proofs)**
 
 # HyperMotivo
 
